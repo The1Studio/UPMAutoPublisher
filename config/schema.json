@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "UPM Repository Registry Schema",
+  "description": "Schema for tracking repositories using UPM auto-publishing",
+  "type": "object",
+  "properties": {
+    "description": {
+      "type": "string",
+      "description": "Description of this registry file"
+    },
+    "lastUpdated": {
+      "type": "string",
+      "format": "date",
+      "description": "Last update date (YYYY-MM-DD)"
+    },
+    "repositories": {
+      "type": "array",
+      "description": "List of repositories with auto-publishing enabled",
+      "items": {
+        "$ref": "#/definitions/repository"
+      }
+    }
+  },
+  "required": ["repositories"],
+  "definitions": {
+    "repository": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Repository name"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Full GitHub repository URL"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "pending", "disabled"],
+          "description": "Current status of auto-publishing for this repo"
+        },
+        "packages": {
+          "type": "array",
+          "description": "UPM packages in this repository",
+          "items": {
+            "$ref": "#/definitions/package"
+          },
+          "minItems": 1
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional notes about this repository"
+        }
+      },
+      "required": ["name", "url", "packages"]
+    },
+    "package": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^com\\.theone\\.",
+          "description": "Package name (must start with com.theone.)"
+        },
+        "path": {
+          "type": "string",
+          "description": "Relative path from repository root to package directory"
+        },
+        "latestVersion": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+",
+          "description": "Latest published version (semver)"
+        }
+      },
+      "required": ["name", "path"]
+    }
+  }
+}

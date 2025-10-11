@@ -1,0 +1,151 @@
+name: Publish to UPM Registry
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - '**/package.json'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    name: Auto-publish UPM packages
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Need previous commit for diff
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://upm.the1studio.org/'
+
+      - name: Detect and publish changed packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set +e  # Don't exit on errors, handle them gracefully
+
+          echo "========================================="
+          echo "🔍 Detecting changed package.json files"
+          echo "========================================="
+
+          # Get list of changed package.json files
+          changed_files=$(git diff --name-only HEAD~1 HEAD | grep 'package\.json$' || true)
+
+          if [ -z "$changed_files" ]; then
+            echo "ℹ️  No package.json files changed in this commit"
+            exit 0
+          fi
+
+          echo "📦 Found changed package.json files:"
+          echo "$changed_files"
+          echo ""
+
+          # Track results
+          published=0
+          skipped=0
+          failed=0
+
+          # Process each changed package.json
+          while IFS= read -r package_json; do
+            echo "========================================="
+            echo "📋 Processing: $package_json"
+            echo "========================================="
+
+            # Check if file still exists (not deleted)
+            if [ ! -f "$package_json" ]; then
+              echo "⚠️  File was deleted, skipping"
+              ((skipped++))
+              continue
+            fi
+
+            # Extract package directory
+            package_dir=$(dirname "$package_json")
+
+            # Extract package info using jq
+            if ! command -v jq &> /dev/null; then
+              echo "❌ jq is not installed, installing..."
+              sudo apt-get update && sudo apt-get install -y jq
+            fi
+
+            package_name=$(jq -r '.name // empty' "$package_json")
+            new_version=$(jq -r '.version // empty' "$package_json")
+            registry=$(jq -r '.publishConfig.registry // empty' "$package_json")
+
+            # Validate package info
+            if [ -z "$package_name" ] || [ -z "$new_version" ]; then
+              echo "⚠️  Missing name or version in package.json, skipping"
+              ((skipped++))
+              continue
+            fi
+
+            echo "📦 Package: $package_name"
+            echo "🏷️  Version: $new_version"
+            echo "📍 Directory: $package_dir"
+
+            # Check if this is a UPM package (has our registry configured)
+            if [ -z "$registry" ] || [ "$registry" != "https://upm.the1studio.org/" ]; then
+              echo "⚠️  Not configured for upm.the1studio.org, skipping"
+              ((skipped++))
+              continue
+            fi
+
+            # Check if version already exists on registry
+            echo "🔍 Checking if version exists on registry..."
+            if npm view "$package_name@$new_version" --registry https://upm.the1studio.org/ &> /dev/null; then
+              echo "⏭️  Version $new_version already exists for $package_name, skipping"
+              ((skipped++))
+              continue
+            fi
+
+            # Publish package
+            echo "🚀 Publishing $package_name@$new_version..."
+            cd "$package_dir"
+
+            if npm publish --registry https://upm.the1studio.org/ 2>&1; then
+              echo "✅ Successfully published $package_name@$new_version"
+              ((published++))
+            else
+              echo "❌ Failed to publish $package_name@$new_version"
+              ((failed++))
+            fi
+
+            # Return to root directory
+            cd "$GITHUB_WORKSPACE"
+            echo ""
+
+          done <<< "$changed_files"
+
+          # Summary
+          echo "========================================="
+          echo "📊 Publishing Summary"
+          echo "========================================="
+          echo "✅ Published: $published"
+          echo "⏭️  Skipped: $skipped"
+          echo "❌ Failed: $failed"
+          echo "========================================="
+
+          # Exit with error if any publishes failed
+          if [ $failed -gt 0 ]; then
+            echo "⚠️  Some packages failed to publish"
+            exit 1
+          fi
+
+          if [ $published -eq 0 ]; then
+            echo "ℹ️  No new versions to publish"
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ Workflow completed successfully"
+          else
+            echo "⚠️  Workflow completed with errors"
+          fi
