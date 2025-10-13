@@ -30,6 +30,8 @@ jobs:
         timeout-minutes: 15  # FIX: Add step-level timeout
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # FIX: Make registry URL configurable via organization variable
+          UPM_REGISTRY: ${{ vars.UPM_REGISTRY || 'https://upm.the1studio.org/' }}
         run: |
           # FIX: Use proper error handling instead of set +e
           set -euo pipefail
@@ -37,6 +39,8 @@ jobs:
           # Define emoji constants
           CROSS="❌"
           CHECK="✅"
+
+          echo "Registry: $UPM_REGISTRY"
 
           echo "========================================="
           echo "🔍 Detecting changed package.json files"
@@ -138,8 +142,8 @@ jobs:
             echo "📍 Directory: ${package_dir}"
 
             # Check if this is a UPM package (has our registry configured)
-            if [ -z "$registry" ] || [ "$registry" != "https://upm.the1studio.org/" ]; then
-              echo "⚠️  Not configured for upm.the1studio.org, skipping"
+            if [ -z "$registry" ] || [ "$registry" != "$UPM_REGISTRY" ]; then
+              echo "⚠️  Not configured for $UPM_REGISTRY, skipping"
               ((skipped++))
               continue
             fi
@@ -147,7 +151,7 @@ jobs:
             # Check if version already exists on registry
             echo "🔍 Checking if version exists on registry..."
             # FIX: Use explicit error handling for version check
-            if npm view "${package_name}@${new_version}" --registry https://upm.the1studio.org/ >/dev/null 2>&1; then
+            if npm view "${package_name}@${new_version}" --registry "$UPM_REGISTRY" >/dev/null 2>&1; then
               echo "⏭️  Version ${new_version} already exists for ${package_name}, skipping"
               ((skipped++))
               continue
@@ -174,7 +178,7 @@ jobs:
             publish_output=$(mktemp)
             trap "rm -f '$publish_output'" EXIT ERR INT TERM
 
-            if npm publish --registry https://upm.the1studio.org/ >"$publish_output" 2>&1; then
+            if npm publish --registry "$UPM_REGISTRY" >"$publish_output" 2>&1; then
               echo "✅ Successfully published ${package_name}@${new_version}"
               cat "$publish_output"
 
@@ -182,7 +186,7 @@ jobs:
               echo "🔍 Verifying publication..."
               sleep 3  # Wait for registry to index
 
-              published_version=$(npm view "${package_name}@${new_version}" version --registry https://upm.the1studio.org/ 2>/dev/null || echo "")
+              published_version=$(npm view "${package_name}@${new_version}" version --registry "$UPM_REGISTRY" 2>/dev/null || echo "")
 
               if [ "$published_version" = "$new_version" ]; then
                 echo "✅ Verified: ${package_name}@${new_version} is available on registry"
@@ -276,6 +280,48 @@ jobs:
           if [ "$published" -eq 0 ]; then
             echo "ℹ️  No new versions to publish"
           fi
+
+          # Export variables for audit log
+          echo "published=$published" >> $GITHUB_ENV
+          echo "failed=$failed" >> $GITHUB_ENV
+          echo "skipped=$skipped" >> $GITHUB_ENV
+          echo "failed_packages=$failed_packages" >> $GITHUB_ENV
+
+      # FIX: Add audit logging for compliance and debugging
+      - name: Record audit log
+        if: always()
+        run: |
+          # Create audit log entry
+          cat > audit-log.json <<EOF
+          {
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "workflow_run_id": "${{ github.run_id }}",
+            "workflow_run_number": "${{ github.run_number }}",
+            "repository": "${{ github.repository }}",
+            "commit_sha": "${{ github.sha }}",
+            "commit_message": "$(git log -1 --pretty=%B | head -1)",
+            "actor": "${{ github.actor }}",
+            "event": "${{ github.event_name }}",
+            "ref": "${{ github.ref }}",
+            "published": ${{ env.published || 0 }},
+            "failed": ${{ env.failed || 0 }},
+            "skipped": ${{ env.skipped || 0 }},
+            "registry": "${{ vars.UPM_REGISTRY || 'https://upm.the1studio.org/' }}",
+            "failed_packages": "${{ env.failed_packages || 'none' }}",
+            "job_status": "${{ job.status }}"
+          }
+          EOF
+
+          echo "📝 Audit log created:"
+          cat audit-log.json
+
+      - name: Upload audit log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-log-${{ github.run_id }}
+          path: audit-log.json
+          retention-days: 90
 
       # FIX: Correct job.status comparison syntax
       - name: Summary

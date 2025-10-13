@@ -294,10 +294,13 @@ Update docs when:
 ## References
 
 - **Main Docs:** `README.md`
-- **Setup Guide:** `docs/setup-instructions.md`
+- **Quick Registration:** `docs/quick-registration.md` 🆕 **Automated repo setup (2 min)**
+- **Setup Guide:** `docs/setup-instructions.md` (Manual process)
 - **Token Setup:** `docs/npm-token-setup.md`
 - **Troubleshooting:** `docs/troubleshooting.md`
 - **Architecture:** `docs/architecture-decisions.md`
+- **Self-Hosted Runners:** `docs/self-hosted-runners.md`
+- **Docker Setup:** `.docker/README.md`
 
 ## Project Context
 

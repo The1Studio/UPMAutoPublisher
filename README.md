@@ -49,6 +49,28 @@ This repository contains the GitHub Actions workflow and documentation for autom
 
 ## Quick Start
 
+### For Adding New Repositories (Automated) 🆕
+
+Register a new repository for auto-publishing in 2 minutes:
+
+1. **Add to registry** (`config/repositories.json`):
+   ```json
+   {
+     "name": "YourRepo",
+     "url": "https://github.com/The1Studio/YourRepo",
+     "status": "pending",
+     "packages": [
+       {"name": "com.theone.package", "path": "Assets/Package"}
+     ]
+   }
+   ```
+
+2. **Commit and push** - Automation creates PR in target repo
+
+3. **Merge PR** and update status to `"active"`
+
+See [Quick Registration Guide](docs/quick-registration.md) for details.
+
 ### For Repository Maintainers
 
 To publish a new package version:
@@ -198,9 +220,11 @@ See [Troubleshooting Guide](docs/troubleshooting.md) for common issues and solut
 
 ## Related Documentation
 
-- [Setup Instructions](docs/setup-instructions.md) - How to add workflow to new repos
+- [Quick Registration Guide](docs/quick-registration.md) - 🆕 **Automated repo registration (2 minutes)**
+- [Setup Instructions](docs/setup-instructions.md) - Manual workflow setup
 - [NPM Token Setup](docs/npm-token-setup.md) - Creating and configuring NPM authentication
-- [Workflow Reference](docs/workflow-reference.md) - Detailed workflow documentation
+- [Self-Hosted Runners](docs/self-hosted-runners.md) - Docker-based custom runners
+- [Troubleshooting Guide](docs/troubleshooting.md) - Common issues and solutions
 - [Architecture Decisions](docs/architecture-decisions.md) - Design choices and rationale
 
 ## Support
