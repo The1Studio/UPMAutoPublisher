@@ -1,0 +1,10 @@
+# Environment file with secrets
+.env
+
+# Docker volumes and data
+volumes/
+data/
+
+# Logs
+*.log
+logs/

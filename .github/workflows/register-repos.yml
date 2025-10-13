@@ -1,0 +1,291 @@
+name: Auto-Register Repositories
+
+# Triggers when repositories.json is updated
+on:
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - 'config/repositories.json'
+
+jobs:
+  register-repos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30  # FIX: Add job-level timeout
+    name: Deploy UPM workflow to registered repositories
+
+    steps:
+      - name: Checkout UPMAutoPublisher
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq gh
+
+      # FIX: Validate JSON schema before processing
+      - name: Validate repositories.json
+        run: |
+          npm install -g ajv-cli
+          ajv validate -s config/schema.json -d config/repositories.json
+          if [ $? -ne 0 ]; then
+            echo "❌ repositories.json validation failed"
+            exit 1
+          fi
+          echo "✅ repositories.json validation passed"
+
+      # FIX: Improved token handling (no echo through pipe)
+      - name: Authenticate GitHub CLI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh auth login --with-token <<< "$GH_TOKEN"
+
+      - name: Process pending repositories
+        timeout-minutes: 25  # FIX: Add step-level timeout
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail  # FIX: Add -u and -o pipefail for better error handling
+
+          echo "========================================="
+          echo "🔍 Checking for repositories to register"
+          echo "========================================="
+
+          # Read repositories with status "pending"
+          pending_repos=$(jq -r '.repositories[] | select(.status == "pending") | @json' config/repositories.json)
+
+          if [ -z "$pending_repos" ]; then
+            echo "ℹ️  No pending repositories to register"
+            exit 0
+          fi
+
+          echo "$pending_repos" | while IFS= read -r repo_json; do
+            echo ""
+            echo "========================================="
+            echo "📋 Processing Repository"
+            echo "========================================="
+
+            # FIX: Properly quote all variables
+            repo_name=$(echo "$repo_json" | jq -r '.name')
+            repo_url=$(echo "$repo_json" | jq -r '.url')
+
+            echo "📦 Repository: ${repo_name}"
+            echo "🔗 URL: ${repo_url}"
+
+            # Extract org and repo from URL
+            org=$(echo "$repo_url" | sed 's|https://github.com/\([^/]*\)/.*|\1|')
+            repo=$(echo "$repo_url" | sed 's|https://github.com/[^/]*/\([^/]*\)|\1|')
+
+            echo "🏢 Organization: ${org}"
+            echo "📁 Repository: ${repo}"
+
+            # Check if repository exists
+            if ! gh repo view "${org}/${repo}" >/dev/null 2>&1; then
+              echo "❌ Repository ${org}/${repo} does not exist or not accessible"
+              continue
+            fi
+
+            # FIX: Add race condition protection - check for existing PRs
+            echo "🔍 Checking for existing open PRs..."
+            existing_pr=$(gh pr list --repo "${org}/${repo}" --state open --search "UPM Auto-Publishing" --json number --jq '.[0].number' 2>/dev/null || echo "")
+            if [ -n "$existing_pr" ]; then
+              echo "⚠️  PR #${existing_pr} already exists for UPM workflow, skipping"
+              continue
+            fi
+
+            # Check if workflow already exists
+            echo "🔍 Checking if workflow already exists..."
+            if gh api "repos/${org}/${repo}/contents/.github/workflows/publish-upm.yml" >/dev/null 2>&1; then
+              echo "⚠️  Workflow already exists in ${repo_name}"
+              echo "ℹ️  Skipping deployment (manual update status to 'active' if confirmed)"
+              continue
+            fi
+
+            echo "🚀 Deploying workflow to ${org}/${repo}..."
+
+            # FIX: Add trap for cleanup on error
+            temp_dir=$(mktemp -d)
+            trap "rm -rf '${temp_dir}'" EXIT ERR
+
+            cd "$temp_dir"
+
+            echo "📥 Cloning ${org}/${repo}..."
+            if ! gh repo clone "${org}/${repo}" target-repo; then
+              echo "❌ Failed to clone repository"
+              rm -rf "$temp_dir"
+              trap - EXIT ERR
+              continue
+            fi
+            cd target-repo
+
+            # FIX: Detect default branch instead of assuming master
+            echo "🔍 Detecting default branch..."
+            default_branch=$(gh repo view "${org}/${repo}" --json defaultBranchRef --jq '.defaultBranchRef.name')
+            echo "📍 Default branch: ${default_branch}"
+
+            # Create new branch with timestamp and PID for uniqueness
+            branch_name="auto-publish/add-upm-workflow-$(date +%s)-$$"
+            git checkout -b "$branch_name"
+
+            # Create .github/workflows directory
+            mkdir -p .github/workflows
+
+            # Copy workflow file
+            echo "📝 Creating workflow file..."
+            cp "$GITHUB_WORKSPACE/.github/workflows/publish-upm.yml" .github/workflows/publish-upm.yml
+
+            # FIX: Properly escape commit message to prevent shell injection
+            commit_date=$(date -u +%Y-%m-%d)
+
+            # Use here-doc for commit message (safer than string interpolation)
+            git config user.name "UPM Auto Publisher Bot"
+            git config user.email "noreply@the1studio.org"
+            git add .github/workflows/publish-upm.yml
+
+            git commit -F - <<EOF
+Add UPM auto-publishing workflow
+
+This workflow automatically publishes Unity packages to upm.the1studio.org when package.json versions are updated.
+
+Setup by UPM Auto Publisher system.
+Repository: ${repo_name}
+Date: ${commit_date}
+
+Co-Authored-By: UPM Auto Publisher <noreply@the1studio.org>
+EOF
+
+            # Push branch
+            echo "⬆️  Pushing branch ${branch_name}..."
+            if ! git push origin "$branch_name"; then
+              echo "❌ Failed to push branch"
+              cd "$GITHUB_WORKSPACE"
+              rm -rf "$temp_dir"
+              trap - EXIT ERR
+              continue
+            fi
+
+            # Create pull request using here-doc for body (safer)
+            echo "🎯 Creating pull request..."
+
+            # Extract package list safely
+            package_list=$(echo "$repo_json" | jq -r '.packages[] | "- **\(.name)** at `\(.path)`"')
+            package_paths=$(echo "$repo_json" | jq -r '.packages[] | "- `\(.path)/package.json`"')
+
+            pr_body=$(cat <<EOF
+## 🤖 UPM Auto-Publishing Workflow
+
+This PR adds automated Unity Package Manager (UPM) publishing to this repository.
+
+### What This Does
+
+- **Triggers**: Automatically when \`package.json\` is updated on \`${default_branch}\`
+- **Action**: Publishes packages to \`upm.the1studio.org\`
+- **Registry**: Uses organization-level \`NPM_TOKEN\` secret
+
+### How to Use After Merge
+
+1. Update version in your \`package.json\`
+2. Commit and push to ${default_branch}
+3. GitHub Actions automatically publishes
+
+### Package Details
+
+${package_list}
+
+### Documentation
+
+- [UPM Auto Publisher](https://github.com/The1Studio/UPMAutoPublisher)
+- [Setup Instructions](https://github.com/The1Studio/UPMAutoPublisher/blob/master/docs/setup-instructions.md)
+- [Troubleshooting](https://github.com/The1Studio/UPMAutoPublisher/blob/master/docs/troubleshooting.md)
+
+### Checklist
+
+- [ ] Verify package.json has \`publishConfig.registry: https://upm.the1studio.org/\`
+- [ ] Confirm package names are correct
+- [ ] Review workflow file
+- [ ] Merge PR
+- [ ] Test with a version bump
+
+---
+
+🤖 This PR was automatically created by the UPM Auto Publisher registration system.
+
+Repository registered: ${commit_date}
+EOF
+)
+
+            pr_url=$(gh pr create \
+              --title "🤖 Add UPM Auto-Publishing Workflow" \
+              --body "$pr_body" \
+              --base "$default_branch" \
+              --head "$branch_name" \
+              2>&1)
+
+            if [ $? -eq 0 ]; then
+              echo "✅ Pull request created: ${pr_url}"
+              echo "📧 PR URL: ${pr_url}"
+
+              # Add comment with additional info using here-doc
+              comment_body=$(cat <<EOF
+### ⚙️ Configuration Check
+
+Please verify these package.json files have the correct configuration:
+
+\`\`\`json
+{
+  "name": "com.theone.package",
+  "version": "1.0.0",
+  "publishConfig": {
+    "registry": "https://upm.the1studio.org/"
+  }
+}
+\`\`\`
+
+**Packages to verify:**
+${package_paths}
+
+After merging, update \`config/repositories.json\` in UPMAutoPublisher to change status from \`pending\` to \`active\`.
+EOF
+)
+
+              gh pr comment "$pr_url" --body "$comment_body" || echo "⚠️  Failed to add PR comment (non-fatal)"
+
+            else
+              echo "❌ Failed to create pull request"
+              echo "Error: ${pr_url}"
+            fi
+
+            # Cleanup
+            cd "$GITHUB_WORKSPACE"
+            rm -rf "$temp_dir"
+            trap - EXIT ERR
+
+            echo ""
+            echo "========================================="
+            echo "✅ Completed processing ${repo_name}"
+            echo "========================================="
+          done
+
+          echo ""
+          echo "========================================="
+          echo "📊 Registration Summary"
+          echo "========================================="
+          echo "Check the PRs created in target repositories"
+          echo "After PRs are merged, update status to 'active' in repositories.json"
+
+      # FIX: Correct job.status comparison syntax
+      - name: Summary
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == 'success' ]; then
+            echo "✅ Repository registration workflow completed successfully"
+          else
+            echo "⚠️  Some registrations may have failed - check logs above"
+          fi

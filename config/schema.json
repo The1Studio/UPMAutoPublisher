@@ -38,7 +38,7 @@
         "status": {
           "type": "string",
           "enum": ["active", "pending", "disabled"],
-          "description": "Current status of auto-publishing for this repo"
+          "description": "Current status of auto-publishing for this repo. Use 'pending' to trigger automatic workflow deployment."
         },
         "packages": {
           "type": "array",
@@ -53,7 +53,7 @@
           "description": "Optional notes about this repository"
         }
       },
-      "required": ["name", "url", "packages"]
+      "required": ["name", "url", "packages", "status"]
     },
     "package": {
       "type": "object",

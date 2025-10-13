@@ -11,6 +11,7 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 20  # FIX: Add job-level timeout
     name: Auto-publish UPM packages
 
     steps:
@@ -26,10 +27,12 @@ jobs:
           registry-url: 'https://upm.the1studio.org/'
 
       - name: Detect and publish changed packages
+        timeout-minutes: 15  # FIX: Add step-level timeout
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          set +e  # Don't exit on errors, handle them gracefully
+          # FIX: Use proper error handling instead of set +e
+          set -euo pipefail
 
           echo "========================================="
           echo "🔍 Detecting changed package.json files"
@@ -51,11 +54,12 @@ jobs:
           published=0
           skipped=0
           failed=0
+          failed_packages=""
 
           # Process each changed package.json
           while IFS= read -r package_json; do
             echo "========================================="
-            echo "📋 Processing: $package_json"
+            echo "📋 Processing: ${package_json}"
             echo "========================================="
 
             # Check if file still exists (not deleted)
@@ -74,9 +78,20 @@ jobs:
               sudo apt-get update && sudo apt-get install -y jq
             fi
 
-            package_name=$(jq -r '.name // empty' "$package_json")
-            new_version=$(jq -r '.version // empty' "$package_json")
-            registry=$(jq -r '.publishConfig.registry // empty' "$package_json")
+            # FIX: Use explicit error handling for jq
+            if ! package_name=$(jq -r '.name // empty' "$package_json" 2>/dev/null); then
+              echo "❌ Failed to parse package.json, skipping"
+              ((skipped++))
+              continue
+            fi
+
+            if ! new_version=$(jq -r '.version // empty' "$package_json" 2>/dev/null); then
+              echo "❌ Failed to parse package.json version, skipping"
+              ((skipped++))
+              continue
+            fi
+
+            registry=$(jq -r '.publishConfig.registry // empty' "$package_json" 2>/dev/null || echo "")
 
             # Validate package info
             if [ -z "$package_name" ] || [ -z "$new_version" ]; then
@@ -85,9 +100,9 @@ jobs:
               continue
             fi
 
-            echo "📦 Package: $package_name"
-            echo "🏷️  Version: $new_version"
-            echo "📍 Directory: $package_dir"
+            echo "📦 Package: ${package_name}"
+            echo "🏷️  Version: ${new_version}"
+            echo "📍 Directory: ${package_dir}"
 
             # Check if this is a UPM package (has our registry configured)
             if [ -z "$registry" ] || [ "$registry" != "https://upm.the1studio.org/" ]; then
@@ -98,22 +113,31 @@ jobs:
 
             # Check if version already exists on registry
             echo "🔍 Checking if version exists on registry..."
-            if npm view "$package_name@$new_version" --registry https://upm.the1studio.org/ &> /dev/null; then
-              echo "⏭️  Version $new_version already exists for $package_name, skipping"
+            # FIX: Use explicit error handling for version check
+            if npm view "${package_name}@${new_version}" --registry https://upm.the1studio.org/ >/dev/null 2>&1; then
+              echo "⏭️  Version ${new_version} already exists for ${package_name}, skipping"
               ((skipped++))
               continue
             fi
 
             # Publish package
-            echo "🚀 Publishing $package_name@$new_version..."
+            echo "🚀 Publishing ${package_name}@${new_version}..."
             cd "$package_dir"
 
-            if npm publish --registry https://upm.the1studio.org/ 2>&1; then
-              echo "✅ Successfully published $package_name@$new_version"
+            # FIX: Explicit error handling for npm publish
+            publish_output=$(mktemp)
+            if npm publish --registry https://upm.the1studio.org/ >"$publish_output" 2>&1; then
+              echo "✅ Successfully published ${package_name}@${new_version}"
+              cat "$publish_output"
+              rm -f "$publish_output"
               ((published++))
             else
-              echo "❌ Failed to publish $package_name@$new_version"
+              echo "❌ Failed to publish ${package_name}@${new_version}"
+              echo "Error output:"
+              cat "$publish_output"
+              rm -f "$publish_output"
               ((failed++))
+              failed_packages="${failed_packages}${package_name}@${new_version} "
             fi
 
             # Return to root directory
@@ -126,26 +150,28 @@ jobs:
           echo "========================================="
           echo "📊 Publishing Summary"
           echo "========================================="
-          echo "✅ Published: $published"
-          echo "⏭️  Skipped: $skipped"
-          echo "❌ Failed: $failed"
+          echo "✅ Published: ${published}"
+          echo "⏭️  Skipped: ${skipped}"
+          echo "❌ Failed: ${failed}"
           echo "========================================="
 
           # Exit with error if any publishes failed
-          if [ $failed -gt 0 ]; then
-            echo "⚠️  Some packages failed to publish"
+          if [ "$failed" -gt 0 ]; then
+            echo "⚠️  Some packages failed to publish:"
+            echo "   ${failed_packages}"
             exit 1
           fi
 
-          if [ $published -eq 0 ]; then
+          if [ "$published" -eq 0 ]; then
             echo "ℹ️  No new versions to publish"
           fi
 
+      # FIX: Correct job.status comparison syntax
       - name: Summary
         if: always()
         run: |
-          if [ ${{ job.status }} == 'success' ]; then
+          if [ "${{ job.status }}" == 'success' ]; then
             echo "✅ Workflow completed successfully"
           else
-            echo "⚠️  Workflow completed with errors"
+            echo "⚠️  Workflow completed with errors - check logs above"
           fi

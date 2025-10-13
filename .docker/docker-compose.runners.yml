@@ -1,0 +1,103 @@
+version: '3.8'
+
+# GitHub Actions Self-Hosted Runners for The1Studio
+# This creates a group of runners for UPM package publishing
+
+services:
+  # Runner 1 - Primary UPM Publisher
+  upm-runner-1:
+    image: myoung34/github-runner:latest
+    container_name: theone-upm-runner-1
+    environment:
+      # Organization-level runner (recommended for multiple repos)
+      - ORG_NAME=The1Studio
+      - ACCESS_TOKEN=${GITHUB_PAT}
+
+      # Runner configuration
+      - RUNNER_NAME=upm-runner-1
+      - RUNNER_WORKDIR=/tmp/runner/work
+      - RUNNER_GROUP=upm-publishers
+      - LABELS=upm,nodejs,npm,docker
+
+      # Disable auto-update for stability
+      - DISABLE_AUTO_UPDATE=true
+
+      # Resource limits
+      - RUNNER_SCOPE=org
+    volumes:
+      # Persistent work directory
+      - upm-runner-1-work:/tmp/runner/work
+
+      # Docker socket for docker-in-docker (if needed)
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    networks:
+      - github-runners
+    mem_limit: 4g
+    cpus: 2
+    labels:
+      - "com.the1studio.service=github-runner"
+      - "com.the1studio.project=upm-auto-publisher"
+
+  # Runner 2 - Secondary UPM Publisher
+  upm-runner-2:
+    image: myoung34/github-runner:latest
+    container_name: theone-upm-runner-2
+    environment:
+      - ORG_NAME=The1Studio
+      - ACCESS_TOKEN=${GITHUB_PAT}
+      - RUNNER_NAME=upm-runner-2
+      - RUNNER_WORKDIR=/tmp/runner/work
+      - RUNNER_GROUP=upm-publishers
+      - LABELS=upm,nodejs,npm,docker
+      - DISABLE_AUTO_UPDATE=true
+      - RUNNER_SCOPE=org
+    volumes:
+      - upm-runner-2-work:/tmp/runner/work
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    networks:
+      - github-runners
+    mem_limit: 4g
+    cpus: 2
+    labels:
+      - "com.the1studio.service=github-runner"
+      - "com.the1studio.project=upm-auto-publisher"
+
+  # Runner 3 - Tertiary UPM Publisher
+  upm-runner-3:
+    image: myoung34/github-runner:latest
+    container_name: theone-upm-runner-3
+    environment:
+      - ORG_NAME=The1Studio
+      - ACCESS_TOKEN=${GITHUB_PAT}
+      - RUNNER_NAME=upm-runner-3
+      - RUNNER_WORKDIR=/tmp/runner/work
+      - RUNNER_GROUP=upm-publishers
+      - LABELS=upm,nodejs,npm,docker
+      - DISABLE_AUTO_UPDATE=true
+      - RUNNER_SCOPE=org
+    volumes:
+      - upm-runner-3-work:/tmp/runner/work
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    networks:
+      - github-runners
+    mem_limit: 4g
+    cpus: 2
+    labels:
+      - "com.the1studio.service=github-runner"
+      - "com.the1studio.project=upm-auto-publisher"
+
+networks:
+  github-runners:
+    name: github-runners-network
+    driver: bridge
+
+volumes:
+  upm-runner-1-work:
+    name: upm-runner-1-work
+  upm-runner-2-work:
+    name: upm-runner-2-work
+  upm-runner-3-work:
+    name: upm-runner-3-work
