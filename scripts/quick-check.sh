@@ -10,23 +10,27 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+# Emojis
+CHECK="✅"
+CROSS="❌"
+
 echo "🔍 Quick Status Check"
 echo "===================="
 echo ""
 
 # Check prerequisites quietly
 if [ ! -f "config/repositories.json" ]; then
-    echo "❌ Error: config/repositories.json not found"
+    echo "${CROSS} Error: config/repositories.json not found"
     exit 1
 fi
 
 if ! command -v gh &> /dev/null; then
-    echo "❌ Error: GitHub CLI not installed"
+    echo "${CROSS} Error: GitHub CLI not installed"
     exit 1
 fi
 
 if ! command -v jq &> /dev/null; then
-    echo "❌ Error: jq not installed"
+    echo "${CROSS} Error: jq not installed"
     exit 1
 fi
 

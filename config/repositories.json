@@ -16,18 +16,5 @@
       ],
       "notes": "First repository with auto-publishing enabled"
     }
-  ],
-  "template": {
-    "name": "RepositoryName",
-    "url": "https://github.com/The1Studio/RepositoryName",
-    "status": "active|pending|disabled",
-    "packages": [
-      {
-        "name": "com.theone.package.name",
-        "path": "Assets/PackagePath",
-        "latestVersion": "x.y.z"
-      }
-    ],
-    "notes": "Optional notes about this repository"
-  }
+  ]
 }
