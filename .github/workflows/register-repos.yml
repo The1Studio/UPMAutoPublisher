@@ -40,12 +40,12 @@ jobs:
           fi
           echo "✅ repositories.json validation passed"
 
-      # FIX: Improved token handling (no echo through pipe)
+      # FIX: Secure token handling (use printf to avoid variable expansion in command line)
       - name: Authenticate GitHub CLI
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh auth login --with-token <<< "$GH_TOKEN"
+          printf '%s' "$GH_TOKEN" | gh auth login --with-token
 
       - name: Process pending repositories
         timeout-minutes: 25  # FIX: Add step-level timeout
@@ -76,12 +76,31 @@ jobs:
             repo_name=$(echo "$repo_json" | jq -r '.name')
             repo_url=$(echo "$repo_json" | jq -r '.url')
 
+            # FIX: Validate repository name (alphanumeric, dash, underscore only)
+            if [[ ! "$repo_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+              echo "❌ Invalid repository name: $repo_name"
+              echo "   Repository names must contain only letters, numbers, dashes, and underscores"
+              continue
+            fi
+
+            # FIX: Validate repository URL format (must be GitHub URL)
+            if [[ ! "$repo_url" =~ ^https://github\.com/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$ ]]; then
+              echo "❌ Invalid repository URL: $repo_url"
+              echo "   URL must be in format: https://github.com/org/repo"
+              continue
+            fi
+
             echo "📦 Repository: ${repo_name}"
             echo "🔗 URL: ${repo_url}"
 
-            # Extract org and repo from URL
-            org=$(echo "$repo_url" | sed 's|https://github.com/\([^/]*\)/.*|\1|')
-            repo=$(echo "$repo_url" | sed 's|https://github.com/[^/]*/\([^/]*\)|\1|')
+            # Extract org and repo from URL using regex (safer than sed)
+            if [[ "$repo_url" =~ ^https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)$ ]]; then
+              org="${BASH_REMATCH[1]}"
+              repo="${BASH_REMATCH[2]}"
+            else
+              echo "❌ Failed to parse organization and repository from URL"
+              continue
+            fi
 
             echo "🏢 Organization: ${org}"
             echo "📁 Repository: ${repo}"
@@ -92,13 +111,29 @@ jobs:
               continue
             fi
 
-            # FIX: Add race condition protection - check for existing PRs
+            # FIX: Add race condition protection - check for existing PRs with branch name
             echo "🔍 Checking for existing open PRs..."
-            existing_pr=$(gh pr list --repo "${org}/${repo}" --state open --search "UPM Auto-Publishing" --json number --jq '.[0].number' 2>/dev/null || echo "")
+            existing_pr=$(gh pr list \
+              --repo "${org}/${repo}" \
+              --state open \
+              --head "auto-publish/add-upm-workflow" \
+              --json number \
+              --jq '.[0].number' 2>/dev/null || echo "")
             if [ -n "$existing_pr" ]; then
               echo "⚠️  PR #${existing_pr} already exists for UPM workflow, skipping"
               continue
             fi
+
+            # FIX: File-based locking to prevent concurrent workflow runs from processing same repo
+            lock_file="/tmp/upm-register-${org}-${repo}.lock"
+            if ! mkdir "$lock_file" 2>/dev/null; then
+              echo "⚠️  Another workflow is currently registering this repository, skipping"
+              echo "   Lock file: $lock_file"
+              continue
+            fi
+
+            # Add lock cleanup to trap
+            trap "rm -rf '${lock_file}' '${temp_dir}'" EXIT ERR
 
             # Check if workflow already exists
             echo "🔍 Checking if workflow already exists..."
@@ -110,20 +145,52 @@ jobs:
 
             echo "🚀 Deploying workflow to ${org}/${repo}..."
 
-            # FIX: Add trap for cleanup on error
+            # Create temp directory for cloning
             temp_dir=$(mktemp -d)
-            trap "rm -rf '${temp_dir}'" EXIT ERR
+            # Update trap to include temp_dir
+            trap "rm -rf '${lock_file}' '${temp_dir}'" EXIT ERR
 
-            cd "$temp_dir"
+            # FIX: Validate temp directory exists before cd
+            if [ ! -d "$temp_dir" ]; then
+              echo "❌ Failed to create temp directory"
+              rm -rf "$lock_file"
+              trap - EXIT ERR
+              continue
+            fi
+
+            # FIX: Safe directory change with error handling
+            if ! cd "$temp_dir"; then
+              echo "❌ Failed to change directory to $temp_dir"
+              rm -rf "$temp_dir" "$lock_file"
+              trap - EXIT ERR
+              continue
+            fi
 
             echo "📥 Cloning ${org}/${repo}..."
             if ! gh repo clone "${org}/${repo}" target-repo; then
               echo "❌ Failed to clone repository"
-              rm -rf "$temp_dir"
+              rm -rf "$temp_dir" "$lock_file"
               trap - EXIT ERR
               continue
             fi
-            cd target-repo
+
+            # FIX: Validate cloned directory exists before cd
+            if [ ! -d "target-repo" ]; then
+              echo "❌ Cloned directory does not exist: target-repo"
+              cd "$GITHUB_WORKSPACE"
+              rm -rf "$temp_dir" "$lock_file"
+              trap - EXIT ERR
+              continue
+            fi
+
+            # FIX: Safe directory change with error handling
+            if ! cd target-repo; then
+              echo "❌ Failed to change directory to target-repo"
+              cd "$GITHUB_WORKSPACE"
+              rm -rf "$temp_dir" "$lock_file"
+              trap - EXIT ERR
+              continue
+            fi
 
             # FIX: Detect default branch instead of assuming master
             echo "🔍 Detecting default branch..."
@@ -166,7 +233,7 @@ EOF
             if ! git push origin "$branch_name"; then
               echo "❌ Failed to push branch"
               cd "$GITHUB_WORKSPACE"
-              rm -rf "$temp_dir"
+              rm -rf "$temp_dir" "$lock_file"
               trap - EXIT ERR
               continue
             fi
@@ -264,7 +331,7 @@ EOF
 
             # Cleanup
             cd "$GITHUB_WORKSPACE"
-            rm -rf "$temp_dir"
+            rm -rf "$temp_dir" "$lock_file"
             trap - EXIT ERR
 
             echo ""

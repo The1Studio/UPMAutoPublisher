@@ -81,6 +81,43 @@ mem_limit: 4g  # Change as needed
 cpus: 2        # Change as needed
 ```
 
+### Resource Sizing Recommendations
+
+Choose resource limits based on your workload:
+
+| Workload Type | Memory | CPUs | Use Case |
+|---------------|--------|------|----------|
+| **Minimal** | 2GB | 1 | Small packages, quick builds |
+| **Standard** (default) | 4GB | 2 | Most UPM packages, typical npm builds |
+| **Heavy** | 8GB | 4 | Large monorepos, complex builds |
+| **Maximum** | 16GB | 8 | Parallel builds, Docker-in-Docker |
+
+**Guidelines**:
+- **UPM publishing only**: 2-4GB is sufficient
+- **With Docker builds**: Add 2-4GB per runner
+- **With test suites**: Add 1-2GB per runner
+- **Parallel jobs**: Multiply resources by concurrent jobs
+
+**Total System Calculation**:
+```
+Total Memory = (mem_limit × number_of_runners) + 2GB overhead
+Total CPUs = (cpus × number_of_runners)
+```
+
+**Example** (3 runners with 4GB/2CPU each):
+- Memory: (4GB × 3) + 2GB = 14GB required
+- CPUs: 2 × 3 = 6 cores required
+
+**Monitoring Tips**:
+```bash
+# Check actual usage
+docker stats --no-stream
+
+# If consistently hitting limits, increase:
+# 1. Memory: Increase by 2GB increments
+# 2. CPU: Increase by 1 core increment
+```
+
 ### Scaling
 
 To add more runners, duplicate a service block:

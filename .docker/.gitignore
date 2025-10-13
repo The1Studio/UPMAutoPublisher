@@ -1,6 +1,10 @@
 # Environment file with secrets
 .env
 
+# FIX: Add secrets directory to prevent credential exposure
+.secrets/
+.secrets
+
 # Docker volumes and data
 volumes/
 data/

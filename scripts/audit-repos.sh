@@ -81,9 +81,15 @@ while IFS= read -r repo_json; do
     url=$(echo "$repo_json" | jq -r '.url')
     package_count=$(echo "$repo_json" | jq '.packages | length')
 
-    # FIX: Extract org and repo from URL instead of hardcoding
-    org=$(echo "$url" | sed -n 's|https://github.com/\([^/]*\)/.*|\1|p')
-    repo=$(echo "$url" | sed -n 's|https://github.com/[^/]*/\([^/]*\)|\1|p')
+    # FIX: Validate and extract org/repo using regex (safer than sed)
+    if [[ "$url" =~ ^https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)$ ]]; then
+        org="${BASH_REMATCH[1]}"
+        repo="${BASH_REMATCH[2]}"
+    else
+        echo "  ${CROSS} ${RED}Invalid URL format: $url${NC}"
+        echo ""
+        continue
+    fi
 
     echo "${BLUE}Repository:${NC} $name"
     echo "  URL: $url"

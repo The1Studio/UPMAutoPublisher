@@ -44,9 +44,15 @@ jq -r '.repositories[] | @json' config/repositories.json | while IFS= read -r re
     status=$(echo "$repo_json" | jq -r '.status // "unknown"')
     url=$(echo "$repo_json" | jq -r '.url')
 
-    # FIX: Extract org and repo from URL instead of hardcoding
-    org=$(echo "$url" | sed -n 's|https://github.com/\([^/]*\)/.*|\1|p')
-    repo=$(echo "$url" | sed -n 's|https://github.com/[^/]*/\([^/]*\)|\1|p')
+    # FIX: Validate and extract org/repo using regex (safer than sed)
+    if [[ "$url" =~ ^https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)$ ]]; then
+        org="${BASH_REMATCH[1]}"
+        repo="${BASH_REMATCH[2]}"
+    else
+        # Skip invalid URLs silently in quick check
+        printf "%-30s %-25s %-25s\n" "$name" "$(echo -e "${RED}INVALID URL${NC}")" ""
+        continue
+    fi
 
     # Check if workflow exists
     if gh api "repos/${org}/${repo}/contents/.github/workflows/publish-upm.yml" >/dev/null 2>&1; then

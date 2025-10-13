@@ -4,6 +4,10 @@
 
 set -euo pipefail
 
+# Emojis
+CHECK="✅"
+CROSS="❌"
+
 if [ $# -eq 0 ]; then
     echo "Usage: $0 <repository-url-or-org/name>"
     echo "Example: $0 The1Studio/UnityBuildScript"
@@ -13,30 +17,44 @@ fi
 
 INPUT="$1"
 
-# Parse input - extract org and repo from URL or org/repo format
-if [[ "$INPUT" =~ ^https?:// ]]; then
-    # Full URL provided
-    ORG=$(echo "$INPUT" | sed -n 's|https\?://github.com/\([^/]*\)/.*|\1|p')
-    REPO_NAME=$(echo "$INPUT" | sed -n 's|https\?://github.com/[^/]*/\([^/]*\)|\1|p')
-elif [[ "$INPUT" =~ / ]]; then
-    # org/repo format
-    ORG=$(echo "$INPUT" | cut -d'/' -f1)
-    REPO_NAME=$(echo "$INPUT" | cut -d'/' -f2)
-else
-    # Just repo name - look it up in config
+# FIX: Parse input with proper validation (use regex instead of sed)
+if [[ "$INPUT" =~ ^https?://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)$ ]]; then
+    # Full URL provided - extract using BASH_REMATCH
+    ORG="${BASH_REMATCH[1]}"
+    REPO_NAME="${BASH_REMATCH[2]}"
+elif [[ "$INPUT" =~ ^([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)$ ]]; then
+    # org/repo format - extract using BASH_REMATCH
+    ORG="${BASH_REMATCH[1]}"
+    REPO_NAME="${BASH_REMATCH[2]}"
+elif [[ "$INPUT" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    # Just repo name - validate alphanumeric only
     REPO_NAME="$INPUT"
     if [ -f "config/repositories.json" ]; then
-        repo_url=$(jq -r ".repositories[] | select(.name == \"$REPO_NAME\") | .url" config/repositories.json)
+        # Use jq with proper escaping
+        repo_url=$(jq -r --arg name "$REPO_NAME" '.repositories[] | select(.name == $name) | .url' config/repositories.json)
         if [ -n "$repo_url" ] && [ "$repo_url" != "null" ]; then
-            ORG=$(echo "$repo_url" | sed -n 's|https://github.com/\([^/]*\)/.*|\1|p')
+            # Extract using regex
+            if [[ "$repo_url" =~ ^https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)$ ]]; then
+                ORG="${BASH_REMATCH[1]}"
+            else
+                echo "${CROSS} Invalid URL in config: $repo_url"
+                exit 1
+            fi
         else
-            echo "❌ Repository '$REPO_NAME' not found in config/repositories.json"
+            echo "${CROSS} Repository '$REPO_NAME' not found in config/repositories.json"
             exit 1
         fi
     else
-        echo "❌ config/repositories.json not found"
+        echo "${CROSS} config/repositories.json not found"
         exit 1
     fi
+else
+    echo "${CROSS} Invalid input format: $INPUT"
+    echo "   Valid formats:"
+    echo "   - https://github.com/The1Studio/UnityBuildScript"
+    echo "   - The1Studio/UnityBuildScript"
+    echo "   - UnityBuildScript"
+    exit 1
 fi
 
 echo "🔍 Checking: ${ORG}/${REPO_NAME}"
@@ -45,7 +63,7 @@ echo ""
 
 # Check if workflow exists
 if gh api "repos/${ORG}/${REPO_NAME}/contents/.github/workflows/publish-upm.yml" >/dev/null 2>&1; then
-    echo "✅ Workflow file exists"
+    echo "${CHECK} Workflow file exists"
     echo ""
 
     # Get workflow details
@@ -79,7 +97,7 @@ if gh api "repos/${ORG}/${REPO_NAME}/contents/.github/workflows/publish-upm.yml"
     echo "  https://github.com/${ORG}/${REPO_NAME}/actions/workflows/publish-upm.yml"
 
 else
-    echo "❌ Workflow file does NOT exist"
+    echo "${CROSS} Workflow file does NOT exist"
     echo ""
     echo "To add workflow:"
     echo "  1. Add to config/repositories.json with status: 'pending'"

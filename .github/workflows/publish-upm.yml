@@ -100,6 +100,35 @@ jobs:
               continue
             fi
 
+            # FIX: Validate package name format (must start with com.theone.)
+            if [[ ! "$package_name" =~ ^com\.theone\. ]]; then
+              echo "❌ Invalid package name: $package_name"
+              echo "   Package names must start with 'com.theone.'"
+              ((skipped++))
+              continue
+            fi
+
+            # FIX: Validate semver format (MAJOR.MINOR.PATCH with optional prerelease/build)
+            if [[ ! "$new_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$ ]]; then
+              echo "❌ Invalid version format: $new_version"
+              echo "   Version must follow semantic versioning (e.g., 1.0.0, 1.0.0-beta.1)"
+              ((skipped++))
+              continue
+            fi
+
+            # FIX: Check for dangerous characters in package name or version
+            if [[ "$package_name" =~ [^a-zA-Z0-9._-] ]]; then
+              echo "❌ Package name contains invalid characters: $package_name"
+              ((skipped++))
+              continue
+            fi
+
+            if [[ "$new_version" =~ [^a-zA-Z0-9.+-] ]]; then
+              echo "❌ Version contains invalid characters: $new_version"
+              ((skipped++))
+              continue
+            fi
+
             echo "📦 Package: ${package_name}"
             echo "🏷️  Version: ${new_version}"
             echo "📍 Directory: ${package_dir}"
@@ -122,23 +151,40 @@ jobs:
 
             # Publish package
             echo "🚀 Publishing ${package_name}@${new_version}..."
-            cd "$package_dir"
 
-            # FIX: Explicit error handling for npm publish
+            # FIX: Validate directory exists before cd
+            if [ ! -d "$package_dir" ]; then
+              echo "❌ Directory does not exist: $package_dir"
+              ((skipped++))
+              continue
+            fi
+
+            # FIX: Safe directory change with error handling
+            if ! cd "$package_dir"; then
+              echo "❌ Failed to change directory to $package_dir"
+              ((skipped++))
+              continue
+            fi
+
+            # FIX: Explicit error handling for npm publish with trap-based cleanup
             publish_output=$(mktemp)
+            trap "rm -f '$publish_output'" EXIT ERR INT TERM
+
             if npm publish --registry https://upm.the1studio.org/ >"$publish_output" 2>&1; then
               echo "✅ Successfully published ${package_name}@${new_version}"
               cat "$publish_output"
-              rm -f "$publish_output"
               ((published++))
             else
               echo "❌ Failed to publish ${package_name}@${new_version}"
               echo "Error output:"
               cat "$publish_output"
-              rm -f "$publish_output"
               ((failed++))
               failed_packages="${failed_packages}${package_name}@${new_version} "
             fi
+
+            # Cleanup happens automatically via trap, but also clean up here for immediate removal
+            rm -f "$publish_output"
+            trap - EXIT ERR INT TERM
 
             # Return to root directory
             cd "$GITHUB_WORKSPACE"

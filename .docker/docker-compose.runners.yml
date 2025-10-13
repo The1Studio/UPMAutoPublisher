@@ -2,6 +2,9 @@ version: '3.8'
 
 # GitHub Actions Self-Hosted Runners for The1Studio
 # This creates a group of runners for UPM package publishing
+#
+# SECURITY NOTE: This setup uses Docker secrets for credential management
+# instead of environment variables to prevent token exposure.
 
 services:
   # Runner 1 - Primary UPM Publisher
@@ -11,25 +14,32 @@ services:
     environment:
       # Organization-level runner (recommended for multiple repos)
       - ORG_NAME=The1Studio
-      - ACCESS_TOKEN=${GITHUB_PAT}
+      # FIX: Use Docker secret file instead of environment variable
+      - ACCESS_TOKEN_FILE=/run/secrets/github_pat
 
       # Runner configuration
       - RUNNER_NAME=upm-runner-1
       - RUNNER_WORKDIR=/tmp/runner/work
       - RUNNER_GROUP=upm-publishers
-      - LABELS=upm,nodejs,npm,docker
+      # FIX: Removed 'docker' label since Docker socket will be removed
+      - LABELS=upm,nodejs,npm
 
       # Disable auto-update for stability
       - DISABLE_AUTO_UPDATE=true
 
       # Resource limits
       - RUNNER_SCOPE=org
+    # FIX: Use Docker secrets instead of .env file
+    secrets:
+      - github_pat
     volumes:
       # Persistent work directory
       - upm-runner-1-work:/tmp/runner/work
 
-      # Docker socket for docker-in-docker (if needed)
-      - /var/run/docker.sock:/var/run/docker.sock
+      # FIX: Docker socket removed - not needed for UPM publishing
+      # UPM publishing only needs Node.js and npm, not Docker
+      # If you need Docker, consider Docker-in-Docker (DinD) instead
+      # - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
     networks:
       - github-runners
@@ -45,16 +55,22 @@ services:
     container_name: theone-upm-runner-2
     environment:
       - ORG_NAME=The1Studio
-      - ACCESS_TOKEN=${GITHUB_PAT}
+      # FIX: Use Docker secret file instead of environment variable
+      - ACCESS_TOKEN_FILE=/run/secrets/github_pat
       - RUNNER_NAME=upm-runner-2
       - RUNNER_WORKDIR=/tmp/runner/work
       - RUNNER_GROUP=upm-publishers
-      - LABELS=upm,nodejs,npm,docker
+      # FIX: Removed 'docker' label
+      - LABELS=upm,nodejs,npm
       - DISABLE_AUTO_UPDATE=true
       - RUNNER_SCOPE=org
+    # FIX: Use Docker secrets
+    secrets:
+      - github_pat
     volumes:
       - upm-runner-2-work:/tmp/runner/work
-      - /var/run/docker.sock:/var/run/docker.sock
+      # FIX: Docker socket removed
+      # - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
     networks:
       - github-runners
@@ -70,16 +86,22 @@ services:
     container_name: theone-upm-runner-3
     environment:
       - ORG_NAME=The1Studio
-      - ACCESS_TOKEN=${GITHUB_PAT}
+      # FIX: Use Docker secret file instead of environment variable
+      - ACCESS_TOKEN_FILE=/run/secrets/github_pat
       - RUNNER_NAME=upm-runner-3
       - RUNNER_WORKDIR=/tmp/runner/work
       - RUNNER_GROUP=upm-publishers
-      - LABELS=upm,nodejs,npm,docker
+      # FIX: Removed 'docker' label
+      - LABELS=upm,nodejs,npm
       - DISABLE_AUTO_UPDATE=true
       - RUNNER_SCOPE=org
+    # FIX: Use Docker secrets
+    secrets:
+      - github_pat
     volumes:
       - upm-runner-3-work:/tmp/runner/work
-      - /var/run/docker.sock:/var/run/docker.sock
+      # FIX: Docker socket removed
+      # - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
     networks:
       - github-runners
@@ -88,6 +110,11 @@ services:
     labels:
       - "com.the1studio.service=github-runner"
       - "com.the1studio.project=upm-auto-publisher"
+
+# FIX: Add Docker secrets configuration
+secrets:
+  github_pat:
+    file: ./.secrets/github_pat
 
 networks:
   github-runners:
