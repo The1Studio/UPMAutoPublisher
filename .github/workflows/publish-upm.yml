@@ -34,6 +34,10 @@ jobs:
           # FIX: Use proper error handling instead of set +e
           set -euo pipefail
 
+          # Define emoji constants
+          CROSS="❌"
+          CHECK="✅"
+
           echo "========================================="
           echo "🔍 Detecting changed package.json files"
           echo "========================================="
@@ -173,11 +177,72 @@ jobs:
             if npm publish --registry https://upm.the1studio.org/ >"$publish_output" 2>&1; then
               echo "✅ Successfully published ${package_name}@${new_version}"
               cat "$publish_output"
-              ((published++))
+
+              # FIX: Verify package was published correctly
+              echo "🔍 Verifying publication..."
+              sleep 3  # Wait for registry to index
+
+              published_version=$(npm view "${package_name}@${new_version}" version --registry https://upm.the1studio.org/ 2>/dev/null || echo "")
+
+              if [ "$published_version" = "$new_version" ]; then
+                echo "✅ Verified: ${package_name}@${new_version} is available on registry"
+                ((published++))
+              else
+                echo "❌ Verification failed: Package not found on registry"
+                echo "   Expected: $new_version"
+                echo "   Got: ${published_version:-'not found'}"
+                echo "⚠️  Package may have been published but not yet indexed"
+                ((failed++))
+                failed_packages="${failed_packages}${package_name}@${new_version} "
+              fi
             else
               echo "❌ Failed to publish ${package_name}@${new_version}"
+              echo ""
               echo "Error output:"
               cat "$publish_output"
+              echo ""
+
+              # FIX: Add comprehensive debug information
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "Debug Information:"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "  Package: $package_name"
+              echo "  Version: $new_version"
+              echo "  Directory: $package_dir"
+              echo "  Registry: $(jq -r '.publishConfig.registry // "not set"' "$package_json")"
+              echo ""
+
+              # Check common issues
+              echo "Common Issue Checks:"
+
+              if ! jq -e '.publishConfig.registry' "$package_json" >/dev/null 2>&1; then
+                echo "  ${CROSS} Missing publishConfig.registry in package.json"
+              else
+                echo "  ✓ publishConfig.registry is set"
+              fi
+
+              if [ ! -f "$package_dir/package.json" ]; then
+                echo "  ${CROSS} package.json not found in package directory"
+              else
+                echo "  ✓ package.json exists"
+              fi
+
+              if [ ! -r "$package_dir/package.json" ]; then
+                echo "  ${CROSS} package.json is not readable"
+              else
+                echo "  ✓ package.json is readable"
+              fi
+
+              echo ""
+              echo "Files in package directory (top 20):"
+              ls -la "$package_dir" 2>/dev/null | head -20 || echo "  (failed to list files)"
+
+              echo ""
+              echo "Package.json contents:"
+              jq '.' "$package_json" 2>/dev/null || cat "$package_json" || echo "  (failed to read package.json)"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo ""
+
               ((failed++))
               failed_packages="${failed_packages}${package_name}@${new_version} "
             fi

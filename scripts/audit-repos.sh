@@ -70,10 +70,29 @@ echo "Scanning repositories..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
+# FIX: Function to check GitHub API rate limit
+check_rate_limit() {
+    local remaining=$(gh api rate_limit --jq '.rate.remaining' 2>/dev/null || echo "5000")
+    local reset=$(gh api rate_limit --jq '.rate.reset' 2>/dev/null || echo "0")
+    local current_time=$(date +%s)
+
+    if [ "$remaining" -lt 100 ]; then
+        local wait_time=$((reset - current_time))
+        if [ "$wait_time" -gt 0 ]; then
+            echo "⚠️  Approaching GitHub API rate limit ($remaining requests remaining)"
+            echo "   Waiting ${wait_time}s until reset..."
+            sleep "$wait_time"
+        fi
+    fi
+}
+
 # Process each repository
 # FIX: Use process substitution instead of pipe to avoid subshell issue with counters
 while IFS= read -r repo_json; do
     ((total_repos++))
+
+    # FIX: Check rate limit before expensive operations
+    check_rate_limit
 
     # Extract repository info
     name=$(echo "$repo_json" | jq -r '.name')
@@ -192,6 +211,9 @@ while IFS= read -r repo_json; do
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
+
+    # FIX: Small delay between repos to be nice to GitHub API
+    sleep 0.5
 done < <(jq -c '.repositories[]' config/repositories.json)
 
 # Print summary
