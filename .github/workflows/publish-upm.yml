@@ -26,6 +26,36 @@ jobs:
           node-version: '18'
           registry-url: 'https://upm.the1studio.org/'
 
+      # FIX: Add registry health check before attempting publish
+      - name: Health check registry
+        env:
+          UPM_REGISTRY: ${{ vars.UPM_REGISTRY || 'https://upm.the1studio.org/' }}
+        run: |
+          echo "🏥 Checking registry health..."
+          echo "Registry: $UPM_REGISTRY"
+
+          # Extract registry host for ping test
+          registry_host=$(echo "$UPM_REGISTRY" | sed -E 's|https?://([^/]+).*|\1|')
+          echo "Host: $registry_host"
+
+          # Try to access registry root
+          if curl -f -s -m 10 "$UPM_REGISTRY" >/dev/null 2>&1; then
+            echo "✅ Registry is accessible"
+          elif curl -f -s -m 10 "${UPM_REGISTRY}-/ping" >/dev/null 2>&1; then
+            echo "✅ Registry ping endpoint is accessible"
+          else
+            echo "❌ Registry is not accessible"
+            echo "   URL: $UPM_REGISTRY"
+            echo "   This may cause publish failures"
+            echo ""
+            echo "Troubleshooting:"
+            echo "  1. Check if registry is running"
+            echo "  2. Verify URL is correct"
+            echo "  3. Check network connectivity"
+            echo "  4. Verify firewall rules"
+            exit 1
+          fi
+
       - name: Detect and publish changed packages
         timeout-minutes: 15  # FIX: Add step-level timeout
         env:
@@ -157,6 +187,31 @@ jobs:
               continue
             fi
 
+            # FIX: Check if new version is actually newer than latest published version
+            echo "🔍 Checking version ordering..."
+            latest_version=$(npm view "$package_name" version --registry "$UPM_REGISTRY" 2>/dev/null || echo "0.0.0")
+
+            if [ "$latest_version" != "0.0.0" ]; then
+              echo "   Latest published: $latest_version"
+              echo "   New version: $new_version"
+
+              # Compare versions using sort -V (version sort)
+              newer=$(printf '%s\n' "$new_version" "$latest_version" | sort -V | tail -n1)
+
+              if [ "$newer" != "$new_version" ]; then
+                echo "⚠️  Warning: New version ($new_version) is not newer than latest ($latest_version)"
+                echo "   This appears to be a version rollback or mistake."
+                echo "   Skipping for safety - if intentional, publish manually with:"
+                echo "   npm publish --registry $UPM_REGISTRY"
+                ((skipped++))
+                continue
+              else
+                echo "✅ Version check passed: $new_version > $latest_version"
+              fi
+            else
+              echo "ℹ️  First publication of this package"
+            fi
+
             # Publish package
             echo "🚀 Publishing ${package_name}@${new_version}..."
 
@@ -165,6 +220,32 @@ jobs:
               echo "❌ Directory does not exist: $package_dir"
               ((skipped++))
               continue
+            fi
+
+            # FIX: Check package size and warn if unusually large
+            echo "📏 Checking package size..."
+            package_size=$(du -sb "$package_dir" 2>/dev/null | cut -f1 || echo "0")
+            package_size_mb=$((package_size / 1024 / 1024))
+
+            if [ "$package_size" -gt 0 ]; then
+              echo "   Package size: ${package_size_mb}MB"
+
+              # Warn if package is larger than 50MB
+              if [ "$package_size" -gt $((50 * 1024 * 1024)) ]; then
+                echo "⚠️  Warning: Package size is unusually large (${package_size_mb}MB)"
+                echo "   This might indicate accidentally included files."
+                echo ""
+                echo "   Largest files in package:"
+                find "$package_dir" -type f -exec ls -lh {} \; 2>/dev/null | sort -k5 -hr | head -10 | awk '{print "     " $9 " (" $5 ")"}'
+                echo ""
+                echo "   Common causes:"
+                echo "   - node_modules/ not excluded"
+                echo "   - Build artifacts included"
+                echo "   - Large binary files"
+                echo "   - Test files not excluded"
+                echo ""
+                echo "   Continuing with publish, but please review..."
+              fi
             fi
 
             # FIX: Safe directory change with error handling
