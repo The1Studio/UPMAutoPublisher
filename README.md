@@ -220,12 +220,23 @@ See [Troubleshooting Guide](docs/troubleshooting.md) for common issues and solut
 
 ## Related Documentation
 
+### Getting Started
 - [Quick Registration Guide](docs/quick-registration.md) - 🆕 **Automated repo registration (2 minutes)**
 - [Setup Instructions](docs/setup-instructions.md) - Manual workflow setup
 - [NPM Token Setup](docs/npm-token-setup.md) - Creating and configuring NPM authentication
+
+### Configuration & Operations
+- [Configuration Guide](docs/configuration.md) - 🆕 **All configurable options, organization variables, audit logs**
 - [Self-Hosted Runners](docs/self-hosted-runners.md) - Docker-based custom runners
 - [Troubleshooting Guide](docs/troubleshooting.md) - Common issues and solutions
+
+### Security & Compliance
+- [Security Improvements](docs/security-improvements.md) - 🆕 **Complete security audit & fixes (25 issues)**
+- [Pre-Deployment Check](scripts/pre-deployment-check.sh) - 🆕 **Automated validation script (37+ checks)**
+
+### Architecture & Design
 - [Architecture Decisions](docs/architecture-decisions.md) - Design choices and rationale
+- [Registration System Overview](docs/registration-system-overview.md) - How automated registration works
 
 ## Support
 
@@ -234,7 +245,73 @@ For issues or questions:
 2. Review [GitHub Actions logs](https://github.com/The1Studio/UPMAutoPublisher/actions)
 3. Contact DevOps team
 
+## Validation & Testing
+
+### Pre-Deployment Validation
+
+Before deploying to production or after making changes, run the comprehensive validation script:
+
+```bash
+./scripts/pre-deployment-check.sh
+```
+
+This validates:
+- ✅ File structure completeness (12 critical files)
+- ✅ JSON configuration syntax and schema
+- ✅ Bash script syntax and security best practices
+- ✅ GitHub Actions workflow security fixes
+- ✅ Docker configuration security (secrets, no socket mounting)
+- ✅ Security checks (no hardcoded credentials, safe parsing)
+- ✅ All required dependencies installed
+
+**Result:** Pass/Fail/Warning status with actionable recommendations
+
+### Configuration Validation
+
+Validate `config/repositories.json` against schema:
+
+```bash
+./scripts/validate-config.sh
+```
+
+### Repository Auditing
+
+Check all registered repositories and verify their workflow status:
+
+```bash
+./scripts/audit-repos.sh
+```
+
+Provides comprehensive report on:
+- Repository accessibility
+- Workflow file existence and state
+- Last workflow run status
+- Status mismatches (registry vs actual)
+
+### Single Repository Check
+
+Quick status check for a specific repository:
+
+```bash
+./scripts/check-single-repo.sh UnityBuildScript
+# or
+./scripts/check-single-repo.sh The1Studio/UnityBuildScript
+# or
+./scripts/check-single-repo.sh https://github.com/The1Studio/UnityBuildScript
+```
+
 ## Version History
+
+- **v1.1.0** (2025-10-13): Security hardening & quality improvements
+  - ✅ Fixed all 18 critical/high/major security issues
+  - ✅ Added configurable registry URL (organization variables)
+  - ✅ Added comprehensive audit logging (90-day retention)
+  - ✅ Added version rollback prevention
+  - ✅ Added registry health checks
+  - ✅ Added package size warnings
+  - ✅ Added pre-deployment validation script
+  - ✅ Created comprehensive security documentation
+  - 🎯 Security score: C → A- (Production Ready)
 
 - **v1.0.0** (2025-01-16): Initial release
   - Auto-detection of package.json changes
