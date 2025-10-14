@@ -302,24 +302,29 @@ Quick status check for a specific repository:
 
 ## Version History
 
-- **v1.1.0** (2025-10-14): Security hardening & quality improvements
-  - ✅ Fixed ALL 26 security issues (4 High, 5 Major, 6 Medium, 11 Low)
-  - ✅ Added configurable registry URL (organization variables)
-  - ✅ Added configurable audit log retention (default: 90 days)
-  - ✅ Added configurable package size threshold (default: 50MB)
-  - ✅ Added comprehensive audit logging with compliance tracking
-  - ✅ Added version rollback prevention with semver comparison
-  - ✅ Added registry health checks and connectivity validation
-  - ✅ Added retry logic for transient failures (3 attempts)
-  - ✅ Added Node.js version verification
-  - ✅ Added Docker resource limits with reservations
-  - ✅ Added token validation in setup script
-  - ✅ Added pre-deployment validation script (37+ checks)
-  - ✅ Added BATS testing framework documentation
-  - ✅ Added .editorconfig for consistent formatting
-  - ✅ Created comprehensive security documentation
+- **v1.2.0** (2025-10-14): Critical security fixes from fresh code review
+  - ✅ Fixed 3 HIGH priority issues (command injection, markdown injection, race conditions)
+  - ✅ Fixed 5 MAJOR priority issues (rate limiting, token exposure, temp file security)
+  - ✅ Fixed 2 MEDIUM/LOW issues (Docker versioning, Dependabot config)
+  - 🔒 Command injection prevention with complete jq JSON construction
+  - 🔒 Comprehensive markdown injection validation (links, HTML, code blocks)
+  - 🔒 GitHub concurrency control replaces file-based locking
+  - 🔒 npm rate limit handling with exponential backoff (5 attempts)
+  - 🔒 Secure token validation without process list exposure
+  - 🔒 Temp files with explicit 600 permissions
+  - 🔒 Early GITHUB_WORKSPACE validation
+  - 📦 Docker image version pinning (2.311.0)
+  - 🤖 Dependabot configuration for automated updates
+  - 🎯 Security score: A- → A (Hardened Production)
+  - 📊 Total fixes: 10 additional security issues resolved
+
+- **v1.1.0** (2025-10-14): Initial security hardening
+  - ✅ Fixed 26 security issues from first audit
+  - ✅ Added configurable registry URL, audit retention, package size threshold
+  - ✅ Added comprehensive audit logging
+  - ✅ Added version rollback prevention with semver
+  - ✅ Added retry logic, Node.js verification, Docker resource limits
   - 🎯 Security score: C → A- (Production Ready)
-  - 📊 Total fixes: 26 issues resolved across all severity levels
 
 - **v1.0.0** (2025-01-16): Initial release
   - Auto-detection of package.json changes
