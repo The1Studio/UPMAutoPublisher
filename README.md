@@ -302,16 +302,24 @@ Quick status check for a specific repository:
 
 ## Version History
 
-- **v1.1.0** (2025-10-13): Security hardening & quality improvements
-  - ✅ Fixed all 18 critical/high/major security issues
+- **v1.1.0** (2025-10-14): Security hardening & quality improvements
+  - ✅ Fixed ALL 26 security issues (4 High, 5 Major, 6 Medium, 11 Low)
   - ✅ Added configurable registry URL (organization variables)
-  - ✅ Added comprehensive audit logging (90-day retention)
-  - ✅ Added version rollback prevention
-  - ✅ Added registry health checks
-  - ✅ Added package size warnings
-  - ✅ Added pre-deployment validation script
+  - ✅ Added configurable audit log retention (default: 90 days)
+  - ✅ Added configurable package size threshold (default: 50MB)
+  - ✅ Added comprehensive audit logging with compliance tracking
+  - ✅ Added version rollback prevention with semver comparison
+  - ✅ Added registry health checks and connectivity validation
+  - ✅ Added retry logic for transient failures (3 attempts)
+  - ✅ Added Node.js version verification
+  - ✅ Added Docker resource limits with reservations
+  - ✅ Added token validation in setup script
+  - ✅ Added pre-deployment validation script (37+ checks)
+  - ✅ Added BATS testing framework documentation
+  - ✅ Added .editorconfig for consistent formatting
   - ✅ Created comprehensive security documentation
   - 🎯 Security score: C → A- (Production Ready)
+  - 📊 Total fixes: 26 issues resolved across all severity levels
 
 - **v1.0.0** (2025-01-16): Initial release
   - Auto-detection of package.json changes
