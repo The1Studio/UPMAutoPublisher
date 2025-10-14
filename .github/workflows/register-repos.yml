@@ -9,6 +9,12 @@ on:
     paths:
       - 'config/repositories.json'
 
+# FIX ME-6: Explicit permissions for security and clarity
+permissions:
+  contents: write         # Push branches to target repos
+  pull-requests: write    # Create PRs in target repos
+  issues: write           # Comment on PRs
+
 jobs:
   register-repos:
     runs-on: ubuntu-latest

@@ -43,8 +43,15 @@ services:
     restart: unless-stopped
     networks:
       - github-runners
-    mem_limit: 4g
-    cpus: 2
+    # FIX ME-3: Use deploy.resources for better production resource management
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
     labels:
       - "com.the1studio.service=github-runner"
       - "com.the1studio.project=upm-auto-publisher"
@@ -74,8 +81,15 @@ services:
     restart: unless-stopped
     networks:
       - github-runners
-    mem_limit: 4g
-    cpus: 2
+    # FIX ME-3: Use deploy.resources for better production resource management
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
     labels:
       - "com.the1studio.service=github-runner"
       - "com.the1studio.project=upm-auto-publisher"
@@ -105,8 +119,15 @@ services:
     restart: unless-stopped
     networks:
       - github-runners
-    mem_limit: 4g
-    cpus: 2
+    # FIX ME-3: Use deploy.resources for better production resource management
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
     labels:
       - "com.the1studio.service=github-runner"
       - "com.the1studio.project=upm-auto-publisher"

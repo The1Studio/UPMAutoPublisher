@@ -75,6 +75,26 @@ echo "✅ Secret file created: $SECRET_FILE"
 echo "✅ File permissions set to 600 (owner read/write only)"
 echo ""
 
+# FIX ME-4: Validate token works with GitHub API
+echo "🧪 Testing token with GitHub API..."
+if curl -f -s -H "Authorization: token $github_pat" https://api.github.com/user > /dev/null 2>&1; then
+    echo "✅ Token validated successfully with GitHub API"
+else
+    echo "❌ Token validation failed - token may be invalid or expired"
+    echo "   The token was saved but may not work with GitHub"
+    echo "   Please verify:"
+    echo "   - Token has correct scopes (admin:org, repo)"
+    echo "   - Token is not expired"
+    echo "   - You have network connectivity to GitHub"
+    read -rp "Continue anyway? (y/N): " response
+    if [[ ! "$response" =~ ^[Yy]$ ]]; then
+        rm -f "$SECRET_FILE"
+        echo "❌ Aborted and removed invalid token file"
+        exit 1
+    fi
+fi
+echo ""
+
 # Verify file
 echo "🔍 Verifying secret file..."
 if [ -f "$SECRET_FILE" ] && [ -r "$SECRET_FILE" ]; then
