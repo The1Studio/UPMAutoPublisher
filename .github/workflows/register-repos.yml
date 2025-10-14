@@ -20,6 +20,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30  # FIX: Add job-level timeout
     name: Deploy UPM workflow to registered repositories
+    # FIX HIGH-3: Use GitHub concurrency control instead of file-based locking
+    concurrency:
+      group: register-repos-${{ github.ref }}
+      cancel-in-progress: false  # Wait for completion, don't cancel
 
     steps:
       - name: Checkout UPMAutoPublisher
@@ -35,15 +39,29 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y jq gh
 
-      # FIX: Validate JSON schema before processing
+      # FIX MAJOR-6: Validate JSON schema with proper error handling
+      - name: Install ajv-cli
+        run: |
+          if ! npm install -g ajv-cli ajv-formats; then
+            echo "❌ Failed to install ajv-cli"
+            exit 1
+          fi
+          echo "✅ ajv-cli installed successfully"
+
       - name: Validate repositories.json
         run: |
-          npm install -g ajv-cli
-          ajv validate -s config/schema.json -d config/repositories.json
-          if [ $? -ne 0 ]; then
+          # Verify ajv is available
+          if ! command -v ajv &>/dev/null; then
+            echo "❌ ajv-cli not installed"
+            exit 1
+          fi
+
+          # Validate with explicit error handling
+          if ! ajv validate -s config/schema.json -d config/repositories.json --strict=false; then
             echo "❌ repositories.json validation failed"
             exit 1
           fi
+
           echo "✅ repositories.json validation passed"
 
       # FIX: Secure token handling (use printf to avoid variable expansion in command line)
@@ -288,13 +306,51 @@ EOF
             # Create pull request using here-doc for body (safer)
             echo "🎯 Creating pull request..."
 
-            # FIX M-1: Extract package list safely and validate for markdown injection
+            # FIX HIGH-2: Extract package list safely with comprehensive markdown injection validation
             package_list=$(echo "$repo_json" | jq -r '.packages[] | "- **\(.name)** at `\(.path)`"')
             package_paths=$(echo "$repo_json" | jq -r '.packages[] | "- `\(.path)/package.json`"')
 
-            # Validate no markdown injection attempts
-            if echo "$package_list" | grep -q ']\(http\|javascript:'; then
-              echo "❌ Potential markdown injection detected in package list"
+            # Comprehensive markdown injection validation
+            validate_markdown_safe() {
+              local text="$1"
+
+              # Check for link injection attempts (any protocol)
+              if echo "$text" | grep -qE '\]\([^)]*:'; then
+                echo "Link injection detected"
+                return 1
+              fi
+
+              # Check for HTML tags
+              if echo "$text" | grep -qE '<[^>]+>'; then
+                echo "HTML tag detected"
+                return 1
+              fi
+
+              # Check for dangerous characters in backticks (code injection)
+              if echo "$text" | grep -qE '`[^`]*[$<>`]'; then
+                echo "Dangerous characters in code block"
+                return 1
+              fi
+
+              # Check for excessive backticks (escape attempts)
+              if echo "$text" | grep -qE '`{3,}'; then
+                echo "Excessive backticks detected"
+                return 1
+              fi
+
+              return 0
+            }
+
+            if ! error_msg=$(validate_markdown_safe "$package_list" 2>&1); then
+              echo "❌ Markdown injection detected in package list: $error_msg"
+              cd "$GITHUB_WORKSPACE"
+              rm -rf "$temp_dir" "$lock_file"
+              trap - EXIT ERR
+              continue
+            fi
+
+            if ! error_msg=$(validate_markdown_safe "$package_paths" 2>&1); then
+              echo "❌ Markdown injection detected in package paths: $error_msg"
               cd "$GITHUB_WORKSPACE"
               rm -rf "$temp_dir" "$lock_file"
               trap - EXIT ERR

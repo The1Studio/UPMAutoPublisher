@@ -98,9 +98,46 @@ jobs:
           # FIX: Use proper error handling instead of set +e
           set -euo pipefail
 
+          # FIX MAJOR-5: Validate GITHUB_WORKSPACE at the START, not the end
+          if [ -z "${GITHUB_WORKSPACE:-}" ] || [ ! -d "${GITHUB_WORKSPACE:-/nonexistent}" ]; then
+            echo "❌ GITHUB_WORKSPACE not set or invalid"
+            exit 1
+          fi
+
+          # Store original directory for reference
+          readonly WORKSPACE_DIR="$GITHUB_WORKSPACE"
+
           # Define emoji constants
           CROSS="❌"
           CHECK="✅"
+
+          # FIX MAJOR-2: Add rate limit detection and backoff for npm commands
+          npm_view_with_retry() {
+            local package_spec="$1"
+            local max_attempts=5
+            local attempt=1
+
+            while [ $attempt -le $max_attempts ]; do
+              if output=$(npm view "$package_spec" --registry "$UPM_REGISTRY" 2>&1); then
+                echo "$output"
+                return 0
+              fi
+
+              # Check for rate limit error
+              if echo "$output" | grep -qi "rate limit\|429\|too many requests"; then
+                local wait_time=$((2 ** attempt))  # Exponential backoff: 2, 4, 8, 16, 32 seconds
+                echo "⚠️  Rate limited, waiting ${wait_time}s (attempt $attempt/$max_attempts)..." >&2
+                sleep "$wait_time"
+                ((attempt++))
+              else
+                # Other error, don't retry
+                return 1
+              fi
+            done
+
+            echo "❌ Failed after $max_attempts attempts due to rate limiting" >&2
+            return 1
+          }
 
           # FIX M-5: Validate registry URL format
           if [[ ! "$UPM_REGISTRY" =~ ^https://[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/?$ ]]; then
@@ -243,18 +280,20 @@ jobs:
               continue
             fi
 
-            # Check if version already exists on registry
+            # Check if version already exists on registry (with rate limit handling)
             echo "🔍 Checking if version exists on registry..."
-            # FIX: Use explicit error handling for version check
-            if npm view "${package_name}@${new_version}" --registry "$UPM_REGISTRY" >/dev/null 2>&1; then
+            if npm_view_with_retry "${package_name}@${new_version}" >/dev/null 2>&1; then
               echo "⏭️  Version ${new_version} already exists for ${package_name}, skipping"
               ((skipped++))
               continue
             fi
 
-            # FIX M-2: Use npm/npx semver for accurate version comparison (especially pre-releases)
+            # FIX M-2: Use npm/npx semver for accurate version comparison (with rate limit handling)
             echo "🔍 Checking version ordering..."
-            latest_version=$(npm view "$package_name" version --registry "$UPM_REGISTRY" 2>/dev/null || echo "0.0.0")
+            latest_version=$(npm_view_with_retry "$package_name" 2>/dev/null | grep '^version:' | awk '{print $2}' || echo "0.0.0")
+            if [ "$latest_version" = "" ]; then
+              latest_version="0.0.0"
+            fi
 
             if [ "$latest_version" != "0.0.0" ]; then
               echo "   Latest published: $latest_version"
@@ -382,11 +421,11 @@ jobs:
               echo "✅ Successfully published ${package_name}@${new_version}"
               cat "$publish_output"
 
-              # FIX: Verify package was published correctly
+              # FIX: Verify package was published correctly (with rate limit handling)
               echo "🔍 Verifying publication..."
               sleep 3  # Wait for registry to index
 
-              published_version=$(npm view "${package_name}@${new_version}" version --registry "$UPM_REGISTRY" 2>/dev/null || echo "")
+              published_version=$(npm_view_with_retry "${package_name}@${new_version}" 2>/dev/null | grep '^version:' | awk '{print $2}' || echo "")
 
               if [ "$published_version" = "$new_version" ]; then
                 echo "✅ Verified: ${package_name}@${new_version} is available on registry"
@@ -452,13 +491,8 @@ jobs:
             fi
 
             # Cleanup handled by global trap at script exit
-            # FIX H-2: Validate GITHUB_WORKSPACE before using it
-            # Return to root directory
-            if [ -z "$GITHUB_WORKSPACE" ] || [ ! -d "$GITHUB_WORKSPACE" ]; then
-              echo "❌ GITHUB_WORKSPACE not set or invalid"
-              exit 1
-            fi
-            cd "$GITHUB_WORKSPACE"
+            # Return to workspace directory (validated at script start)
+            cd "$WORKSPACE_DIR"
             echo ""
 
           done <<< "$changed_files"
@@ -489,34 +523,44 @@ jobs:
           echo "skipped=$skipped" >> $GITHUB_ENV
           echo "failed_packages=$failed_packages" >> $GITHUB_ENV
 
-      # FIX: Add audit logging for compliance and debugging
+      # FIX HIGH-1: Add audit logging with complete jq construction (prevents injection)
       - name: Record audit log
         if: always()
         run: |
-          # FIX H-1: Sanitize commit message to prevent command injection
-          # Use jq to properly escape and truncate commit message
-          commit_msg=$(git log -1 --pretty=%s | head -c 100 | jq -Rs .)
-
-          # Create audit log entry with proper JSON escaping
-          cat > audit-log.json <<EOF
-          {
-            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "workflow_run_id": "${{ github.run_id }}",
-            "workflow_run_number": "${{ github.run_number }}",
-            "repository": "${{ github.repository }}",
-            "commit_sha": "${{ github.sha }}",
-            "commit_message": ${commit_msg},
-            "actor": "${{ github.actor }}",
-            "event": "${{ github.event_name }}",
-            "ref": "${{ github.ref }}",
-            "published": ${{ env.published || 0 }},
-            "failed": ${{ env.failed || 0 }},
-            "skipped": ${{ env.skipped || 0 }},
-            "registry": "${{ vars.UPM_REGISTRY || 'https://upm.the1studio.org/' }}",
-            "failed_packages": "${{ env.failed_packages || 'none' }}",
-            "job_status": "${{ job.status }}"
-          }
-          EOF
+          # Use jq to construct entire JSON safely - no string interpolation
+          jq -n \
+            --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg workflow_run_id "${{ github.run_id }}" \
+            --argjson workflow_run_number "${{ github.run_number }}" \
+            --arg repository "${{ github.repository }}" \
+            --arg commit_sha "${{ github.sha }}" \
+            --arg commit_message "$(git log -1 --pretty=%s | head -c 100)" \
+            --arg actor "${{ github.actor }}" \
+            --arg event "${{ github.event_name }}" \
+            --arg ref "${{ github.ref }}" \
+            --argjson published "${{ env.published || 0 }}" \
+            --argjson failed "${{ env.failed || 0 }}" \
+            --argjson skipped "${{ env.skipped || 0 }}" \
+            --arg registry "${{ vars.UPM_REGISTRY || 'https://upm.the1studio.org/' }}" \
+            --arg failed_packages "${{ env.failed_packages || 'none' }}" \
+            --arg job_status "${{ job.status }}" \
+            '{
+              timestamp: $timestamp,
+              workflow_run_id: $workflow_run_id,
+              workflow_run_number: $workflow_run_number,
+              repository: $repository,
+              commit_sha: $commit_sha,
+              commit_message: $commit_message,
+              actor: $actor,
+              event: $event,
+              ref: $ref,
+              published: $published,
+              failed: $failed,
+              skipped: $skipped,
+              registry: $registry,
+              failed_packages: $failed_packages,
+              job_status: $job_status
+            }' > audit-log.json
 
           echo "📝 Audit log created:"
           cat audit-log.json

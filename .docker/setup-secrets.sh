@@ -75,9 +75,17 @@ echo "✅ Secret file created: $SECRET_FILE"
 echo "✅ File permissions set to 600 (owner read/write only)"
 echo ""
 
-# FIX ME-4: Validate token works with GitHub API
+# FIX MAJOR-4: Validate token securely without exposing in process list
 echo "🧪 Testing token with GitHub API..."
-if curl -f -s -H "Authorization: token $github_pat" https://api.github.com/user > /dev/null 2>&1; then
+
+# Create temporary header file to avoid token in process list
+header_file=$(mktemp)
+chmod 600 "$header_file"
+trap 'rm -f "$header_file"' EXIT
+
+echo "Authorization: token $github_pat" > "$header_file"
+
+if curl -f -s -H @"$header_file" https://api.github.com/user > /dev/null 2>&1; then
     echo "✅ Token validated successfully with GitHub API"
 else
     echo "❌ Token validation failed - token may be invalid or expired"
@@ -93,6 +101,9 @@ else
         exit 1
     fi
 fi
+
+# Cleanup header file
+rm -f "$header_file"
 echo ""
 
 # Verify file

@@ -63,8 +63,12 @@ disabled_repos=0
 matched_repos=0
 mismatched_repos=0
 
-# Temporary file for recommendations
+# FIX MAJOR-3: Create temporary file with explicit secure permissions
 recommendations_file=$(mktemp)
+chmod 600 "$recommendations_file"
+
+# Ensure cleanup on exit
+trap 'rm -f "$recommendations_file"' EXIT ERR INT TERM
 
 echo "Scanning repositories..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
