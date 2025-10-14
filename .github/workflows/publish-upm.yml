@@ -70,7 +70,23 @@ jobs:
           CROSS="❌"
           CHECK="✅"
 
-          echo "Registry: $UPM_REGISTRY"
+          # FIX M-5: Validate registry URL format
+          if [[ ! "$UPM_REGISTRY" =~ ^https://[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/?$ ]]; then
+            echo "❌ Invalid registry URL: $UPM_REGISTRY"
+            echo "   Registry must be HTTPS with valid domain"
+            exit 1
+          fi
+
+          # Ensure it's not a well-known public registry
+          if [[ "$UPM_REGISTRY" =~ (npmjs\.org|registry\.npmjs\.com) ]]; then
+            echo "❌ Cannot publish to public npm registry"
+            echo "   This appears to be the public npm registry"
+            exit 1
+          fi
+
+          echo "========================================="
+          echo "🎯 Target Registry: $UPM_REGISTRY"
+          echo "========================================="
 
           echo "========================================="
           echo "🔍 Detecting changed package.json files"
@@ -87,6 +103,11 @@ jobs:
           echo "📦 Found changed package.json files:"
           echo "$changed_files"
           echo ""
+
+          # FIX H-3: Set up consistent trap cleanup for all temp files
+          # Maintain array of files to clean up
+          cleanup_files=()
+          trap 'rm -f "${cleanup_files[@]}"' EXIT ERR INT TERM
 
           # Track results
           published=0
@@ -171,6 +192,18 @@ jobs:
             echo "🏷️  Version: ${new_version}"
             echo "📍 Directory: ${package_dir}"
 
+            # FIX M-4: Verify package name matches directory structure (warning only)
+            expected_suffix=$(basename "$package_dir" | tr '[:upper:]' '[:lower:]' | tr -d ' ')
+            package_suffix=$(echo "$package_name" | sed 's/^com\.theone\.//' | tr '[:upper:]' '[:lower:]')
+
+            if [[ "$package_suffix" != *"$expected_suffix"* ]] && [[ "$expected_suffix" != *"$package_suffix"* ]]; then
+              echo "⚠️  Warning: Package name '$package_name' doesn't match directory '$package_dir'"
+              echo "   This might indicate a configuration error"
+              echo "   Expected package name to contain: $expected_suffix"
+              echo "   Actual package suffix: $package_suffix"
+              echo "   Continuing with publish..."
+            fi
+
             # Check if this is a UPM package (has our registry configured)
             if [ -z "$registry" ] || [ "$registry" != "$UPM_REGISTRY" ]; then
               echo "⚠️  Not configured for $UPM_REGISTRY, skipping"
@@ -187,7 +220,7 @@ jobs:
               continue
             fi
 
-            # FIX: Check if new version is actually newer than latest published version
+            # FIX M-2: Use npm/npx semver for accurate version comparison (especially pre-releases)
             echo "🔍 Checking version ordering..."
             latest_version=$(npm view "$package_name" version --registry "$UPM_REGISTRY" 2>/dev/null || echo "0.0.0")
 
@@ -195,18 +228,34 @@ jobs:
               echo "   Latest published: $latest_version"
               echo "   New version: $new_version"
 
-              # Compare versions using sort -V (version sort)
-              newer=$(printf '%s\n' "$new_version" "$latest_version" | sort -V | tail -n1)
-
-              if [ "$newer" != "$new_version" ]; then
-                echo "⚠️  Warning: New version ($new_version) is not newer than latest ($latest_version)"
-                echo "   This appears to be a version rollback or mistake."
-                echo "   Skipping for safety - if intentional, publish manually with:"
-                echo "   npm publish --registry $UPM_REGISTRY"
-                ((skipped++))
-                continue
+              # Try using npx semver for accurate comparison (handles pre-releases correctly)
+              if command -v npx &>/dev/null && npx -q semver --version &>/dev/null; then
+                echo "   Using semver for accurate version comparison"
+                if npx -q semver "$new_version" -r ">$latest_version" &>/dev/null; then
+                  echo "✅ Version check passed: $new_version > $latest_version (semver)"
+                else
+                  echo "⚠️  Warning: New version ($new_version) is not newer than latest ($latest_version)"
+                  echo "   This appears to be a version rollback or mistake."
+                  echo "   Skipping for safety - if intentional, publish manually with:"
+                  echo "   npm publish --registry $UPM_REGISTRY"
+                  ((skipped++))
+                  continue
+                fi
               else
-                echo "✅ Version check passed: $new_version > $latest_version"
+                # Fallback to sort -V with warning
+                echo "   ⚠️  Using basic version sort (semver not available for pre-release accuracy)"
+                newer=$(printf '%s\n' "$new_version" "$latest_version" | sort -V | tail -n1)
+
+                if [ "$newer" != "$new_version" ]; then
+                  echo "⚠️  Warning: New version ($new_version) is not newer than latest ($latest_version)"
+                  echo "   This appears to be a version rollback or mistake."
+                  echo "   Skipping for safety - if intentional, publish manually with:"
+                  echo "   npm publish --registry $UPM_REGISTRY"
+                  ((skipped++))
+                  continue
+                else
+                  echo "✅ Version check passed: $new_version > $latest_version (basic sort)"
+                fi
               fi
             else
               echo "ℹ️  First publication of this package"
@@ -257,7 +306,7 @@ jobs:
 
             # FIX: Explicit error handling for npm publish with trap-based cleanup
             publish_output=$(mktemp)
-            trap "rm -f '$publish_output'" EXIT ERR INT TERM
+            cleanup_files+=("$publish_output")
 
             if npm publish --registry "$UPM_REGISTRY" >"$publish_output" 2>&1; then
               echo "✅ Successfully published ${package_name}@${new_version}"
@@ -332,11 +381,13 @@ jobs:
               failed_packages="${failed_packages}${package_name}@${new_version} "
             fi
 
-            # Cleanup happens automatically via trap, but also clean up here for immediate removal
-            rm -f "$publish_output"
-            trap - EXIT ERR INT TERM
-
+            # Cleanup handled by global trap at script exit
+            # FIX H-2: Validate GITHUB_WORKSPACE before using it
             # Return to root directory
+            if [ -z "$GITHUB_WORKSPACE" ] || [ ! -d "$GITHUB_WORKSPACE" ]; then
+              echo "❌ GITHUB_WORKSPACE not set or invalid"
+              exit 1
+            fi
             cd "$GITHUB_WORKSPACE"
             echo ""
 
@@ -372,7 +423,11 @@ jobs:
       - name: Record audit log
         if: always()
         run: |
-          # Create audit log entry
+          # FIX H-1: Sanitize commit message to prevent command injection
+          # Use jq to properly escape and truncate commit message
+          commit_msg=$(git log -1 --pretty=%s | head -c 100 | jq -Rs .)
+
+          # Create audit log entry with proper JSON escaping
           cat > audit-log.json <<EOF
           {
             "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
@@ -380,7 +435,7 @@ jobs:
             "workflow_run_number": "${{ github.run_number }}",
             "repository": "${{ github.repository }}",
             "commit_sha": "${{ github.sha }}",
-            "commit_message": "$(git log -1 --pretty=%B | head -1)",
+            "commit_message": ${commit_msg},
             "actor": "${{ github.actor }}",
             "event": "${{ github.event_name }}",
             "ref": "${{ github.ref }}",
