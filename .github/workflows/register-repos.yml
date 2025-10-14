@@ -246,9 +246,21 @@ jobs:
             # FIX: Properly escape commit message to prevent shell injection
             commit_date=$(date -u +%Y-%m-%d)
 
-            # Use here-doc for commit message (safer than string interpolation)
+            # FIX L-9: Configure git with validated email
             git config user.name "UPM Auto Publisher Bot"
-            git config user.email "noreply@the1studio.org"
+
+            # Validate email format before setting (basic RFC 5322 validation)
+            bot_email="noreply@the1studio.org"
+            if [[ "$bot_email" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+              git config user.email "$bot_email"
+            else
+              echo "❌ Invalid email format: $bot_email"
+              cd "$GITHUB_WORKSPACE"
+              rm -rf "$temp_dir" "$lock_file"
+              trap - EXIT ERR
+              continue
+            fi
+
             git add .github/workflows/publish-upm.yml
 
             git commit -F - <<EOF

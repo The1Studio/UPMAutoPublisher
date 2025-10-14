@@ -31,6 +31,33 @@ jobs:
           node-version: '18'
           registry-url: 'https://upm.the1studio.org/'
 
+      # FIX L-10: Verify Node.js version after setup
+      - name: Verify Node.js version
+        run: |
+          node_version=$(node --version | sed 's/^v//')
+          echo "📦 Node.js version: $node_version"
+
+          # Extract major version
+          major_version=$(echo "$node_version" | cut -d'.' -f1)
+
+          # Warn if not the expected version
+          if [ "$major_version" -ne 18 ]; then
+            echo "⚠️  Warning: Expected Node.js 18, got $major_version"
+            echo "   This may cause compatibility issues"
+          else
+            echo "✅ Node.js version matches expected (18.x)"
+          fi
+
+          # Verify npm is available
+          if ! command -v npm &>/dev/null; then
+            echo "❌ npm not found in PATH"
+            exit 1
+          fi
+
+          npm_version=$(npm --version)
+          echo "📦 npm version: $npm_version"
+          echo "✅ npm is available"
+
       # FIX: Add registry health check before attempting publish
       - name: Health check registry
         env:
@@ -289,16 +316,20 @@ jobs:
               continue
             fi
 
-            # FIX: Check package size and warn if unusually large
+            # FIX L-8: Check package size and warn if unusually large
             echo "📏 Checking package size..."
             package_size=$(du -sb "$package_dir" 2>/dev/null | cut -f1 || echo "0")
             package_size_mb=$((package_size / 1024 / 1024))
 
-            if [ "$package_size" -gt 0 ]; then
-              echo "   Package size: ${package_size_mb}MB"
+            # Make size threshold configurable (default: 50MB)
+            size_threshold_mb="${{ vars.PACKAGE_SIZE_THRESHOLD_MB || 50 }}"
+            size_threshold_bytes=$((size_threshold_mb * 1024 * 1024))
 
-              # Warn if package is larger than 50MB
-              if [ "$package_size" -gt $((50 * 1024 * 1024)) ]; then
+            if [ "$package_size" -gt 0 ]; then
+              echo "   Package size: ${package_size_mb}MB (threshold: ${size_threshold_mb}MB)"
+
+              # Warn if package is larger than threshold
+              if [ "$package_size" -gt "$size_threshold_bytes" ]; then
                 echo "⚠️  Warning: Package size is unusually large (${package_size_mb}MB)"
                 echo "   This might indicate accidentally included files."
                 echo ""
@@ -490,13 +521,14 @@ jobs:
           echo "📝 Audit log created:"
           cat audit-log.json
 
+      # FIX L-4: Make audit log retention configurable
       - name: Upload audit log
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: audit-log-${{ github.run_id }}
           path: audit-log.json
-          retention-days: 90
+          retention-days: ${{ vars.AUDIT_LOG_RETENTION_DAYS || 90 }}
 
       # FIX: Correct job.status comparison syntax
       - name: Summary
