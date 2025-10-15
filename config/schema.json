@@ -20,7 +20,7 @@
         "url": {
           "type": "string",
           "format": "uri",
-          "pattern": "^https://github\\.com/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$",
+          "pattern": "^https://github\\.com/[a-zA-Z0-9_-]+/[a-zA-Z0-9._-]+$",
           "description": "Full GitHub repository URL (e.g., https://github.com/The1Studio/UnityBuildScript)"
         },
         "status": {
