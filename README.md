@@ -6,9 +6,28 @@ Automated Unity Package Manager (UPM) publishing system for The1Studio organizat
 
 ## 📢 Want to Add Auto-Publishing to Your Repository?
 
-**👉 [Click here for the 2-minute setup guide](#-quick-start---adding-new-repositories)**
+### ⚡ New: Form-Based Registration (Easiest!)
 
-It's easy! Just add your repository to `config/repositories.json`, commit, and let automation do the rest. No manual workflow setup required.
+**👉 [Fill out a simple web form - no JSON editing!](https://github.com/The1Studio/UPMAutoPublisher/actions/workflows/manual-register-repo.yml)**
+
+Just click "Run workflow", fill in your repository details, and submit. The system automatically:
+- ✅ Validates your input
+- ✅ Updates the registry
+- ✅ Creates a pull request for you
+
+**Takes less than 1 minute!** 🎉
+
+📖 [Form Registration Guide](docs/form-registration.md)
+
+---
+
+### 📝 Alternative: Manual Registration
+
+**👉 [Traditional method: Edit JSON directly](#-quick-start---adding-new-repositories)**
+
+For users comfortable with JSON or bulk registrations.
+
+---
 
 **Already set up?** Just update your `package.json` version and push - publishing happens automatically! 🚀
 
@@ -317,7 +336,8 @@ the1studio-org-runners-7kfln-k7rr5    Running   the1studio
 ## Related Documentation
 
 ### Getting Started
-- [Quick Registration Guide](docs/quick-registration.md) - 🆕 **Automated repo registration (2 minutes)**
+- [Form Registration Guide](docs/form-registration.md) - ⚡ **NEW: Web form registration (1 minute, no JSON editing)**
+- [Quick Registration Guide](docs/quick-registration.md) - 🆕 **JSON-based registration (2 minutes)**
 - [Setup Instructions](docs/setup-instructions.md) - Manual workflow setup
 - [NPM Token Setup](docs/npm-token-setup.md) - Creating and configuring NPM authentication
 
