@@ -1,0 +1,150 @@
+name: Auto-Sync Repository Status
+
+# Automatically updates repository status from "pending" to "active" when workflow is deployed
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+
+  workflow_dispatch:  # Allow manual trigger
+
+  # Also run after register-repos completes
+  workflow_run:
+    workflows: ["Auto-Register Repositories"]
+    types: [completed]
+
+permissions:
+  contents: write  # Need to commit updated repositories.json
+
+jobs:
+  sync-status:
+    runs-on: ubuntu-latest
+    name: Auto-update repository statuses
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq gh
+
+      - name: Authenticate GitHub CLI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$GH_TOKEN" | gh auth login --with-token
+
+      - name: Sync repository statuses
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          echo "========================================="
+          echo "🔄 Auto-Syncing Repository Statuses"
+          echo "========================================="
+
+          # Check if there are any pending repos
+          pending_count=$(jq '[.repositories[] | select(.status == "pending")] | length' config/repositories.json)
+
+          if [ "$pending_count" -eq 0 ]; then
+            echo "ℹ️  No pending repositories to sync"
+            exit 0
+          fi
+
+          echo "📋 Found $pending_count pending repositories"
+          echo ""
+
+          # Track changes
+          changes_made=false
+          updated_repos=""
+
+          # Read all repositories
+          repos_json=$(jq -c '.repositories[]' config/repositories.json)
+
+          # Process each repository
+          echo "$repos_json" | while IFS= read -r repo_json; do
+            status=$(echo "$repo_json" | jq -r '.status')
+            repo_url=$(echo "$repo_json" | jq -r '.url')
+
+            # Only process pending repos
+            if [ "$status" != "pending" ]; then
+              continue
+            fi
+
+            # Extract org and repo from URL
+            if [[ "$repo_url" =~ ^https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)$ ]]; then
+              org="${BASH_REMATCH[1]}"
+              repo="${BASH_REMATCH[2]}"
+            else
+              echo "⚠️  Invalid URL: $repo_url"
+              continue
+            fi
+
+            echo "🔍 Checking ${org}/${repo}..."
+
+            # Check if workflow file exists in the repository
+            if gh api "repos/${org}/${repo}/contents/.github/workflows/publish-upm.yml" >/dev/null 2>&1; then
+              echo "  ✅ Workflow file exists - updating status to 'active'"
+
+              # Update the JSON file
+              jq --arg url "$repo_url" \
+                 '(.repositories[] | select(.url == $url) | .status) = "active"' \
+                 config/repositories.json > config/repositories.json.tmp
+
+              mv config/repositories.json.tmp config/repositories.json
+
+              changes_made=true
+              updated_repos="${updated_repos}  - ${org}/${repo}\n"
+            else
+              echo "  ⏳ Workflow not yet deployed - keeping status as 'pending'"
+            fi
+          done
+
+          # Check if changes were made
+          if git diff --quiet config/repositories.json; then
+            echo ""
+            echo "ℹ️  No status changes needed"
+            exit 0
+          fi
+
+          echo ""
+          echo "========================================="
+          echo "📝 Committing Status Updates"
+          echo "========================================="
+
+          # Configure git
+          git config user.name "UPM Auto Publisher Bot"
+          git config user.email "noreply@the1studio.org"
+
+          # Commit changes
+          git add config/repositories.json
+
+          git commit -m "$(cat <<'EOF'
+chore: Auto-update repository statuses to 'active'
+
+Automatically detected deployed workflows and updated statuses.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+EOF
+)"
+
+          # Push changes
+          echo "⬆️  Pushing changes..."
+          git push origin master || git push origin main
+
+          echo ""
+          echo "✅ Status sync completed successfully"
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == 'success' ]; then
+            echo "✅ Repository status sync completed"
+          else
+            echo "⚠️  Status sync encountered issues - check logs above"
+          fi

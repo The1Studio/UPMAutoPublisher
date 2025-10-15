@@ -26,18 +26,19 @@ Edit `config/repositories.json` in the UPMAutoPublisher repo:
     {
       "name": "YourNewRepo",
       "url": "https://github.com/The1Studio/YourNewRepo",
-      "status": "pending",  // ⚠️ Important: Set to "pending"
+      "status": "pending",
       "packages": [
         {
           "name": "com.theone.yourpackage",
           "path": "Assets/YourPackage"
         }
-      ],
-      "notes": "Your optional notes here"
+      ]
     }
   ]
 }
 ```
+
+**Note:** Set `status: "pending"` to trigger automation.
 
 **For multi-package repos:**
 ```json

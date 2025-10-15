@@ -96,36 +96,20 @@ jobs:
             echo "📋 Processing Repository"
             echo "========================================="
 
-            # FIX: Properly quote all variables
-            repo_name=$(echo "$repo_json" | jq -r '.name')
+            # Extract repository URL
             repo_url=$(echo "$repo_json" | jq -r '.url')
 
-            # FIX: Validate repository name (alphanumeric, dash, underscore only)
-            if [[ ! "$repo_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
-              echo "❌ Invalid repository name: $repo_name"
-              echo "   Repository names must contain only letters, numbers, dashes, and underscores"
-              continue
-            fi
-
-            # FIX: Validate repository URL format (must be GitHub URL)
-            if [[ ! "$repo_url" =~ ^https://github\.com/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$ ]]; then
+            # FIX: Validate repository URL format and extract org/repo
+            if [[ "$repo_url" =~ ^https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)$ ]]; then
+              org="${BASH_REMATCH[1]}"
+              repo="${BASH_REMATCH[2]}"
+            else
               echo "❌ Invalid repository URL: $repo_url"
               echo "   URL must be in format: https://github.com/org/repo"
               continue
             fi
 
-            echo "📦 Repository: ${repo_name}"
             echo "🔗 URL: ${repo_url}"
-
-            # Extract org and repo from URL using regex (safer than sed)
-            if [[ "$repo_url" =~ ^https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)$ ]]; then
-              org="${BASH_REMATCH[1]}"
-              repo="${BASH_REMATCH[2]}"
-            else
-              echo "❌ Failed to parse organization and repository from URL"
-              continue
-            fi
-
             echo "🏢 Organization: ${org}"
             echo "📁 Repository: ${repo}"
 
@@ -165,7 +149,7 @@ jobs:
             # Check if workflow already exists
             echo "🔍 Checking if workflow already exists..."
             if gh api "repos/${org}/${repo}/contents/.github/workflows/publish-upm.yml" >/dev/null 2>&1; then
-              echo "⚠️  Workflow already exists in ${repo_name}"
+              echo "⚠️  Workflow already exists in ${repo}"
               echo "ℹ️  Skipping deployment (manual update status to 'active' if confirmed)"
               continue
             fi
@@ -287,7 +271,7 @@ Add UPM auto-publishing workflow
 This workflow automatically publishes Unity packages to upm.the1studio.org when package.json versions are updated.
 
 Setup by UPM Auto Publisher system.
-Repository: ${repo_name}
+Repository: ${org}/${repo}
 Date: ${commit_date}
 
 Co-Authored-By: UPM Auto Publisher <noreply@the1studio.org>
@@ -306,9 +290,34 @@ EOF
             # Create pull request using here-doc for body (safer)
             echo "🎯 Creating pull request..."
 
-            # FIX HIGH-2: Extract package list safely with comprehensive markdown injection validation
-            package_list=$(echo "$repo_json" | jq -r '.packages[] | "- **\(.name)** at `\(.path)`"')
-            package_paths=$(echo "$repo_json" | jq -r '.packages[] | "- `\(.path)/package.json`"')
+            # Auto-detect packages by finding package.json files
+            echo "🔍 Auto-detecting UPM packages..."
+            package_files=$(find . -name "package.json" -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/Library/*" -not -path "*/Temp/*" 2>/dev/null || true)
+
+            package_list=""
+            package_count=0
+
+            if [ -n "$package_files" ]; then
+              while IFS= read -r pkg_file; do
+                # Extract package name and path
+                pkg_name=$(jq -r '.name // empty' "$pkg_file" 2>/dev/null || echo "")
+                pkg_path=$(dirname "$pkg_file" | sed 's|^\./||')
+
+                if [ -n "$pkg_name" ]; then
+                  package_list="${package_list}- **${pkg_name}** at \`${pkg_path}\`"$'\n'
+                  ((package_count++))
+                fi
+              done <<< "$package_files"
+            fi
+
+            # Remove trailing newline
+            package_list=$(echo "$package_list" | sed -z 's/\n$//')
+
+            if [ "$package_count" -eq 0 ]; then
+              package_list="⚠️ No package.json files detected. You may need to add them manually."
+            else
+              echo "✅ Detected $package_count package(s)"
+            fi
 
             # Comprehensive markdown injection validation
             validate_markdown_safe() {
@@ -349,14 +358,6 @@ EOF
               continue
             fi
 
-            if ! error_msg=$(validate_markdown_safe "$package_paths" 2>&1); then
-              echo "❌ Markdown injection detected in package paths: $error_msg"
-              cd "$GITHUB_WORKSPACE"
-              rm -rf "$temp_dir" "$lock_file"
-              trap - EXIT ERR
-              continue
-            fi
-
             pr_body=$(cat <<EOF
 ## 🤖 UPM Auto-Publishing Workflow
 
@@ -386,9 +387,9 @@ ${package_list}
 
 ### Checklist
 
-- [ ] Verify package.json has \`publishConfig.registry: https://upm.the1studio.org/\`
-- [ ] Confirm package names are correct
+- [ ] Review detected packages above
 - [ ] Review workflow file
+- [ ] Ensure \`NPM_TOKEN\` secret is set in organization settings
 - [ ] Merge PR
 - [ ] Test with a version bump
 
@@ -413,24 +414,21 @@ EOF
 
               # Add comment with additional info using here-doc
               comment_body=$(cat <<EOF
-### ⚙️ Configuration Check
+### ⚙️ Post-Merge Actions
 
-Please verify these package.json files have the correct configuration:
+After merging this PR:
 
-\`\`\`json
-{
-  "name": "com.theone.package",
-  "version": "1.0.0",
-  "publishConfig": {
-    "registry": "https://upm.the1studio.org/"
-  }
-}
-\`\`\`
+1. **Test the workflow**: Update a package version and push to trigger auto-publishing
+2. **Status auto-updates**: Within 6 hours, the status will automatically change from \`pending\` to \`active\` in UPMAutoPublisher's \`repositories.json\`
+   - Or manually trigger: \`gh workflow run sync-repo-status.yml\` in UPMAutoPublisher
 
-**Packages to verify:**
-${package_paths}
+### Registry Configuration
 
-After merging, update \`config/repositories.json\` in UPMAutoPublisher to change status from \`pending\` to \`active\`.
+The workflow is configured to publish to:
+- **Registry**: Configured via \`UPM_REGISTRY\` variable (default: \`https://upm.the1studio.org/\`)
+- **Authentication**: Uses organization-level \`NPM_TOKEN\` secret
+
+No need to set \`publishConfig.registry\` in your package.json - the workflow handles registry configuration automatically.
 EOF
 )
 
@@ -448,7 +446,7 @@ EOF
 
             echo ""
             echo "========================================="
-            echo "✅ Completed processing ${repo_name}"
+            echo "✅ Completed processing ${repo}"
             echo "========================================="
           done
 
@@ -457,7 +455,8 @@ EOF
           echo "📊 Registration Summary"
           echo "========================================="
           echo "Check the PRs created in target repositories"
-          echo "After PRs are merged, update status to 'active' in repositories.json"
+          echo "After PRs are merged, status will auto-update to 'active' within 6 hours"
+          echo "Or manually trigger: gh workflow run sync-repo-status.yml"
 
       # FIX: Correct job.status comparison syntax
       - name: Summary

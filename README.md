@@ -60,7 +60,10 @@ Register a new repository for auto-publishing in 2 minutes:
      "url": "https://github.com/The1Studio/YourRepo",
      "status": "pending",
      "packages": [
-       {"name": "com.theone.package", "path": "Assets/Package"}
+       {
+         "name": "com.theone.package",
+         "path": "Assets/Package"
+       }
      ]
    }
    ```
@@ -109,6 +112,7 @@ Track which repositories use auto-publishing in `config/repositories.json`:
     {
       "name": "UnityBuildScript",
       "url": "https://github.com/The1Studio/UnityBuildScript",
+      "status": "active",
       "packages": [
         {
           "name": "com.theone.foundation.buildscript",
@@ -119,6 +123,7 @@ Track which repositories use auto-publishing in `config/repositories.json`:
     {
       "name": "UnityUtilities",
       "url": "https://github.com/The1Studio/UnityUtilities",
+      "status": "active",
       "packages": [
         {
           "name": "com.theone.utilities.core",
@@ -133,6 +138,12 @@ Track which repositories use auto-publishing in `config/repositories.json`:
   ]
 }
 ```
+
+**Required Fields:**
+- `name` - Repository name
+- `url` - Full GitHub repository URL
+- `status` - `"pending"` (triggers deployment), `"active"` (deployed), or `"disabled"` (skip)
+- `packages[]` - Array of packages with `name` and `path`
 
 ### GitHub Secrets Required
 

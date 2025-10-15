@@ -219,19 +219,9 @@ jobs:
               continue
             fi
 
-            registry=$(jq -r '.publishConfig.registry // empty' "$package_json" 2>/dev/null || echo "")
-
             # Validate package info
             if [ -z "$package_name" ] || [ -z "$new_version" ]; then
               echo "⚠️  Missing name or version in package.json, skipping"
-              ((skipped++))
-              continue
-            fi
-
-            # FIX: Validate package name format (must start with com.theone.)
-            if [[ ! "$package_name" =~ ^com\.theone\. ]]; then
-              echo "❌ Invalid package name: $package_name"
-              echo "   Package names must start with 'com.theone.'"
               ((skipped++))
               continue
             fi
@@ -260,25 +250,7 @@ jobs:
             echo "📦 Package: ${package_name}"
             echo "🏷️  Version: ${new_version}"
             echo "📍 Directory: ${package_dir}"
-
-            # FIX M-4: Verify package name matches directory structure (warning only)
-            expected_suffix=$(basename "$package_dir" | tr '[:upper:]' '[:lower:]' | tr -d ' ')
-            package_suffix=$(echo "$package_name" | sed 's/^com\.theone\.//' | tr '[:upper:]' '[:lower:]')
-
-            if [[ "$package_suffix" != *"$expected_suffix"* ]] && [[ "$expected_suffix" != *"$package_suffix"* ]]; then
-              echo "⚠️  Warning: Package name '$package_name' doesn't match directory '$package_dir'"
-              echo "   This might indicate a configuration error"
-              echo "   Expected package name to contain: $expected_suffix"
-              echo "   Actual package suffix: $package_suffix"
-              echo "   Continuing with publish..."
-            fi
-
-            # Check if this is a UPM package (has our registry configured)
-            if [ -z "$registry" ] || [ "$registry" != "$UPM_REGISTRY" ]; then
-              echo "⚠️  Not configured for $UPM_REGISTRY, skipping"
-              ((skipped++))
-              continue
-            fi
+            echo "🎯 Registry: ${UPM_REGISTRY}"
 
             # Check if version already exists on registry (with rate limit handling)
             echo "🔍 Checking if version exists on registry..."
@@ -452,17 +424,11 @@ jobs:
               echo "  Package: $package_name"
               echo "  Version: $new_version"
               echo "  Directory: $package_dir"
-              echo "  Registry: $(jq -r '.publishConfig.registry // "not set"' "$package_json")"
+              echo "  Target Registry: $UPM_REGISTRY"
               echo ""
 
               # Check common issues
               echo "Common Issue Checks:"
-
-              if ! jq -e '.publishConfig.registry' "$package_json" >/dev/null 2>&1; then
-                echo "  ${CROSS} Missing publishConfig.registry in package.json"
-              else
-                echo "  ✓ publishConfig.registry is set"
-              fi
 
               if [ ! -f "$package_dir/package.json" ]; then
                 echo "  ${CROSS} package.json not found in package directory"
@@ -474,6 +440,13 @@ jobs:
                 echo "  ${CROSS} package.json is not readable"
               else
                 echo "  ✓ package.json is readable"
+              fi
+
+              # Check NPM_TOKEN
+              if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+                echo "  ${CROSS} NODE_AUTH_TOKEN not set (NPM_TOKEN secret missing?)"
+              else
+                echo "  ✓ NPM_TOKEN is configured"
               fi
 
               echo ""

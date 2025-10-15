@@ -1,20 +1,9 @@
 {
   "$schema": "./schema.json",
-  "description": "Registry of repositories using UPM auto-publishing. Add your repository here after setting up the workflow.",
-  "lastUpdated": "2025-01-16",
   "repositories": [
     {
-      "name": "UnityBuildScript",
       "url": "https://github.com/The1Studio/UnityBuildScript",
-      "status": "active",
-      "packages": [
-        {
-          "name": "com.theone.foundation.buildscript",
-          "path": "Assets/BuildScripts",
-          "latestVersion": "1.2.10"
-        }
-      ],
-      "notes": "First repository with auto-publishing enabled"
+      "status": "active"
     }
   ]
 }
