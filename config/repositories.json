@@ -8,6 +8,82 @@
     {
       "url": "https://github.com/The1Studio/TheOneFeature",
       "status": "pending"
+    },
+    {
+      "url": "https://github.com/The1Studio/UITemplate",
+      "status": "pending"
+    },
+    {
+      "url": "https://github.com/The1Studio/PlayableLabs",
+      "status": "pending"
+    },
+    {
+      "url": "https://github.com/The1Studio/GameFoundation",
+      "status": "pending"
+    },
+    {
+      "url": "https://github.com/The1Studio/LiveOps",
+      "status": "pending"
+    },
+    {
+      "url": "https://github.com/The1Studio/TheOne.Extensions",
+      "status": "pending"
+    },
+    {
+      "url": "https://github.com/The1Studio/TheOne.FTUE",
+      "status": "pending"
+    },
+    {
+      "url": "https://github.com/The1Studio/ThirdPartyServices",
+      "status": "pending"
+    },
+    {
+      "url": "https://github.com/The1Studio/TheOne.Entities",
+      "status": "pending"
+    },
+    {
+      "url": "https://github.com/The1Studio/UITemplateProjectMigration",
+      "status": "pending"
+    },
+    {
+      "url": "https://github.com/The1Studio/UITemplateLocalization",
+      "status": "pending"
+    },
+    {
+      "url": "https://github.com/The1Studio/UITemplateLocalData",
+      "status": "pending"
+    },
+    {
+      "url": "https://github.com/The1Studio/UITemplateEditorCore",
+      "status": "pending"
+    },
+    {
+      "url": "https://github.com/The1Studio/UnityOptimizationTools",
+      "status": "pending"
+    },
+    {
+      "url": "https://github.com/The1Studio/ICFeature",
+      "status": "pending"
+    },
+    {
+      "url": "https://github.com/The1Studio/NewVibration",
+      "status": "pending"
+    },
+    {
+      "url": "https://github.com/The1Studio/unity-mcp",
+      "status": "pending"
+    },
+    {
+      "url": "https://github.com/The1Studio/PlayableAdsTemplate",
+      "status": "pending"
+    },
+    {
+      "url": "https://github.com/The1Studio/TheOne.DI",
+      "status": "pending"
+    },
+    {
+      "url": "https://github.com/The1Studio/PLAGameFoundation",
+      "status": "pending"
     }
   ]
 }
