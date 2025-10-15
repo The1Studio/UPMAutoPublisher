@@ -3,32 +3,10 @@ name: Manual Repository Registration
 on:
   workflow_dispatch:
     inputs:
-      repo_name:
-        description: 'Repository name (e.g., UnityUtilities)'
-        required: true
-        type: string
       repo_url:
-        description: 'Full repository URL (e.g., https://github.com/The1Studio/UnityUtilities)'
+        description: 'Repository URL (e.g., https://github.com/The1Studio/UnityUtilities)'
         required: true
         type: string
-      package_name:
-        description: 'Package name (e.g., com.theone.utilities)'
-        required: true
-        type: string
-      package_path:
-        description: 'Package path in repository (e.g., Assets/Utilities)'
-        required: true
-        type: string
-      additional_packages:
-        description: 'Additional packages (optional, JSON array format: [{"name":"com.theone.pkg2","path":"Assets/Pkg2"}])'
-        required: false
-        type: string
-        default: '[]'
-      notes:
-        description: 'Optional notes about this repository'
-        required: false
-        type: string
-        default: ''
 
 jobs:
   register-repository:
@@ -45,11 +23,11 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 1
 
-      - name: Validate inputs
+      - name: Validate repository URL
         run: |
           set -euo pipefail
 
-          echo "🔍 Validating inputs..."
+          echo "🔍 Validating repository URL..."
 
           # Validate repository URL format
           if [[ ! "${{ inputs.repo_url }}" =~ ^https://github\.com/The1Studio/[a-zA-Z0-9._-]+$ ]]; then
@@ -57,29 +35,6 @@ jobs:
             echo "   Expected: https://github.com/The1Studio/YourRepo"
             echo "   Got: ${{ inputs.repo_url }}"
             exit 1
-          fi
-
-          # Validate package name format (must start with com.theone.)
-          if [[ ! "${{ inputs.package_name }}" =~ ^com\.theone\.[a-z0-9._-]+$ ]]; then
-            echo "❌ Invalid package name format"
-            echo "   Expected: com.theone.yourpackage (lowercase, dots and hyphens allowed)"
-            echo "   Got: ${{ inputs.package_name }}"
-            exit 1
-          fi
-
-          # Validate package path (should start with Assets/)
-          if [[ ! "${{ inputs.package_path }}" =~ ^Assets/ ]]; then
-            echo "⚠️  Warning: Package path should typically start with 'Assets/'"
-            echo "   Got: ${{ inputs.package_path }}"
-          fi
-
-          # Validate additional packages JSON if provided
-          if [ -n "${{ inputs.additional_packages }}" ] && [ "${{ inputs.additional_packages }}" != "[]" ]; then
-            if ! echo '${{ inputs.additional_packages }}' | jq empty 2>/dev/null; then
-              echo "❌ Invalid JSON format for additional packages"
-              echo "   Expected: [{\"name\":\"com.theone.pkg\",\"path\":\"Assets/Pkg\"}]"
-              exit 1
-            fi
           fi
 
           # Check if repository is accessible
@@ -92,7 +47,8 @@ jobs:
             exit 1
           fi
 
-          echo "✅ All validations passed"
+          echo "✅ Repository URL validated"
+          echo "✅ Repository is accessible"
 
       - name: Install dependencies
         run: |
@@ -114,34 +70,17 @@ jobs:
             exit 1
           fi
 
-          # Build packages array
-          PACKAGES='[{"name":"${{ inputs.package_name }}","path":"${{ inputs.package_path }}"}]'
-
-          # Merge with additional packages if provided
-          if [ -n "${{ inputs.additional_packages }}" ] && [ "${{ inputs.additional_packages }}" != "[]" ]; then
-            PACKAGES=$(jq -n \
-              --argjson base "$PACKAGES" \
-              --argjson additional '${{ inputs.additional_packages }}' \
-              '$base + $additional')
-          fi
+          # Extract repository name from URL for display
+          REPO_NAME=$(echo "${{ inputs.repo_url }}" | sed 's|https://github.com/The1Studio/||')
 
           # Build new repository entry using jq (safe from injection)
+          # Only url and status - packages are auto-discovered!
           NEW_REPO=$(jq -n \
-            --arg name "${{ inputs.repo_name }}" \
             --arg url "${{ inputs.repo_url }}" \
             --arg status "pending" \
-            --argjson packages "$PACKAGES" \
-            --arg notes "${{ inputs.notes }}" \
-            --arg added_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-            --arg added_by "${{ github.actor }}" \
             '{
-              name: $name,
               url: $url,
-              status: $status,
-              packages: $packages,
-              addedAt: $added_at,
-              addedBy: $added_by,
-              notes: $notes
+              status: $status
             }')
 
           # Check if repository already exists
@@ -152,7 +91,9 @@ jobs:
           if [ -n "$REPO_EXISTS" ]; then
             echo "⚠️  Repository already exists in config"
             echo "   URL: ${{ inputs.repo_url }}"
-            echo "   You may need to update it manually or remove it first"
+            echo "   Current status: $(jq -r --arg url "${{ inputs.repo_url }}" '.repositories[] | select(.url == $url) | .status' "$CONFIG_FILE")"
+            echo ""
+            echo "   If you need to change the status, edit repositories.json manually"
             exit 1
           fi
 
@@ -168,30 +109,19 @@ jobs:
             exit 1
           fi
 
-          # Validate against schema
-          if command -v ajv >/dev/null 2>&1; then
-            if ! npx ajv-cli validate -s config/schema.json -d "$CONFIG_FILE.tmp"; then
-              echo "❌ Validation against schema failed"
-              exit 1
-            fi
-          else
-            echo "⚠️  ajv-cli not available, skipping schema validation"
-          fi
-
           # Replace original file
           mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
 
           echo "✅ Successfully added repository to config"
           echo ""
           echo "Repository details:"
-          echo "  Name: ${{ inputs.repo_name }}"
           echo "  URL: ${{ inputs.repo_url }}"
           echo "  Status: pending"
-          echo "  Packages: $(echo "$PACKAGES" | jq -r '.[].name' | tr '\n' ', ' | sed 's/,$//')"
+          echo ""
+          echo "📦 Packages will be auto-discovered by the workflow!"
 
           # Set output for PR body
-          echo "repo_name=${{ inputs.repo_name }}" >> $GITHUB_OUTPUT
-          echo "packages_count=$(echo "$PACKAGES" | jq '. | length')" >> $GITHUB_OUTPUT
+          echo "repo_name=$REPO_NAME" >> $GITHUB_OUTPUT
 
       - name: Create pull request
         id: create_pr
@@ -200,23 +130,27 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Extract repo name from URL
+          REPO_NAME=$(echo "${{ inputs.repo_url }}" | sed 's|https://github.com/The1Studio/||')
+
           # Configure git
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # Create branch
-          BRANCH_NAME="auto-register/${{ inputs.repo_name }}-$(date +%s)"
+          BRANCH_NAME="auto-register/${REPO_NAME}-$(date +%s)"
           git checkout -b "$BRANCH_NAME"
 
           # Stage and commit changes
           git add config/repositories.json
 
           COMMIT_MSG=$(cat <<EOF
-          Register ${{ inputs.repo_name }} for UPM auto-publishing
+          Register ${REPO_NAME} for UPM auto-publishing
 
           Repository: ${{ inputs.repo_url }}
-          Primary package: ${{ inputs.package_name }}
           Status: pending (workflow will deploy automatically)
+
+          Packages will be auto-discovered by the workflow.
 
           Requested by: @${{ github.actor }}
 
@@ -239,37 +173,24 @@ jobs:
 
           ### Repository Details
 
-          - **Name:** \`${{ inputs.repo_name }}\`
           - **URL:** ${{ inputs.repo_url }}
           - **Status:** \`pending\` (triggers workflow deployment)
-          - **Primary Package:** \`${{ inputs.package_name }}\`
-          - **Package Path:** \`${{ inputs.package_path }}\`
           - **Requested by:** @${{ github.actor }}
 
-          ### Packages to Register
+          ### 📦 Package Discovery
 
-          EOF
-          )
+          **Packages are auto-discovered!** The workflow will automatically:
+          - Find all \`package.json\` files in the repository
+          - Publish each package when its version changes
+          - Work for single and multi-package repositories
 
-          # Add package list
-          PACKAGES='[{"name":"${{ inputs.package_name }}","path":"${{ inputs.package_path }}"}]'
-          if [ -n "${{ inputs.additional_packages }}" ] && [ "${{ inputs.additional_packages }}" != "[]" ]; then
-            PACKAGES=$(jq -n \
-              --argjson base "$PACKAGES" \
-              --argjson additional '${{ inputs.additional_packages }}' \
-              '$base + $additional')
-          fi
-
-          PR_BODY+="$(echo "$PACKAGES" | jq -r '.[] | "- \(.name) → \(.path)"')"
-
-          PR_BODY+=$(cat <<EOF
-
+          No package configuration needed in the registry.
 
           ### What Happens Next
 
-          1. **Review this PR** - Verify repository details are correct
+          1. **Review this PR** - Verify repository URL is correct
           2. **Merge this PR** - Triggers automated workflow deployment
-          3. **Automation creates PR** - Workflow will create PR in target repo
+          3. **Automation creates PR** - Workflow will create PR in target repo (1-2 minutes)
           4. **Merge target PR** - Review and merge the workflow addition
           5. **Update status** - Change status to \`"active"\` in another PR
           6. **Test it** - Bump package version to test publishing
@@ -277,24 +198,19 @@ jobs:
           ### Validation Checks
 
           - ✅ Repository URL format validated
-          - ✅ Package name format validated (\`com.theone.*\`)
           - ✅ Repository is accessible
           - ✅ JSON syntax validated
-          - ✅ Schema validation passed
-
-          ### Notes
-
-          ${{ inputs.notes }}
+          - ✅ Not a duplicate entry
 
           ---
 
-          **📖 Documentation:** [Quick Registration Guide](docs/quick-registration.md)
+          **📖 Documentation:** [Form Registration Guide](docs/form-registration.md) | [Quick Registration Guide](docs/quick-registration.md)
           EOF
           )
 
           # Create PR
           PR_URL=$(gh pr create \
-            --title "🤖 Register ${{ inputs.repo_name }} for UPM auto-publishing" \
+            --title "🤖 Register ${REPO_NAME} for UPM auto-publishing" \
             --body "$PR_BODY" \
             --base master \
             --head "$BRANCH_NAME" \
@@ -308,7 +224,7 @@ jobs:
         run: |
           echo "# 🎉 Registration Initiated" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Repository **${{ inputs.repo_name }}** has been added to the registry!" >> $GITHUB_STEP_SUMMARY
+          echo "Repository **${{ steps.update_json.outputs.repo_name }}** has been added to the registry!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## What's Next?" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -321,7 +237,7 @@ jobs:
           echo "## Repository Details" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **URL:** ${{ inputs.repo_url }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Packages:** ${{ steps.update_json.outputs.packages_count }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status:** pending" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** pending (triggers deployment)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Packages:** Auto-discovered by workflow 📦" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📖 [Read the full guide](docs/quick-registration.md)" >> $GITHUB_STEP_SUMMARY
+          echo "📖 [Form Registration Guide](docs/form-registration.md) | [Quick Registration Guide](docs/quick-registration.md)" >> $GITHUB_STEP_SUMMARY

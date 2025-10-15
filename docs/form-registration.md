@@ -19,21 +19,13 @@ Visit the UPMAutoPublisher repository Actions page:
 
 ### Step 3: Fill Out the Form
 
-**Required Fields:**
+**Only One Field Required:**
 
 | Field | Example | Description |
 |-------|---------|-------------|
-| Repository name | `UnityUtilities` | Short name (no spaces) |
-| Full repository URL | `https://github.com/The1Studio/UnityUtilities` | Complete GitHub URL |
-| Package name | `com.theone.utilities` | Must start with `com.theone.` |
-| Package path | `Assets/Utilities` | Path to package.json |
+| Repository URL | `https://github.com/The1Studio/UnityUtilities` | Complete GitHub URL |
 
-**Optional Fields:**
-
-| Field | Example | Description |
-|-------|---------|-------------|
-| Additional packages | `[{"name":"com.theone.pkg2","path":"Assets/Pkg2"}]` | JSON array for multi-package repos |
-| Notes | `Core utility package` | Any helpful notes |
+**That's it!** The workflow automatically discovers all packages in your repository.
 
 ### Step 4: Submit
 
@@ -51,100 +43,33 @@ The workflow will:
 
 ---
 
-## 📋 Example: Single Package Repository
+## 📋 Example: Register Any Repository
 
-**Use case:** You have a repository with one Unity package.
+**Use case:** You have a repository with Unity package(s).
 
-### Form Inputs:
+### Form Input:
 
 ```
-Repository name:     TheOne.Extensions
-Repository URL:      https://github.com/The1Studio/TheOne.Extensions
-Package name:        com.theone.extensions
-Package path:        Assets/TheOne.Extensions
-Additional packages: (leave empty)
-Notes:               Common extension methods for Unity
+Repository URL: https://github.com/The1Studio/TheOne.Extensions
 ```
 
 ### Result:
 
-Creates this entry in `repositories.json`:
+Creates this minimal entry in `repositories.json`:
 ```json
 {
-  "name": "TheOne.Extensions",
   "url": "https://github.com/The1Studio/TheOne.Extensions",
-  "status": "pending",
-  "packages": [
-    {
-      "name": "com.theone.extensions",
-      "path": "Assets/TheOne.Extensions"
-    }
-  ],
-  "notes": "Common extension methods for Unity",
-  "addedAt": "2025-10-15T12:00:00Z",
-  "addedBy": "yourusername"
+  "status": "pending"
 }
 ```
 
----
+**That's all!** The workflow will:
+- ✅ Auto-discover all `package.json` files in your repository
+- ✅ Work for single-package repositories
+- ✅ Work for multi-package repositories
+- ✅ Publish each package when its version changes
 
-## 📋 Example: Multi-Package Repository
-
-**Use case:** You have a repository with multiple Unity packages.
-
-### Form Inputs:
-
-```
-Repository name:     UnityUtilities
-Repository URL:      https://github.com/The1Studio/UnityUtilities
-Package name:        com.theone.utilities.core
-Package path:        Assets/Utilities/Core
-Additional packages: [{"name":"com.theone.utilities.ui","path":"Assets/Utilities/UI"}]
-Notes:               Collection of Unity utility packages
-```
-
-### Additional Packages Format:
-
-For multiple packages, use JSON array:
-```json
-[
-  {"name": "com.theone.utilities.ui", "path": "Assets/Utilities/UI"},
-  {"name": "com.theone.utilities.net", "path": "Assets/Utilities/Network"}
-]
-```
-
-**Important:**
-- Must be valid JSON
-- Use double quotes (`"`)
-- No trailing commas
-
-### Result:
-
-Creates entry with all packages:
-```json
-{
-  "name": "UnityUtilities",
-  "url": "https://github.com/The1Studio/UnityUtilities",
-  "status": "pending",
-  "packages": [
-    {
-      "name": "com.theone.utilities.core",
-      "path": "Assets/Utilities/Core"
-    },
-    {
-      "name": "com.theone.utilities.ui",
-      "path": "Assets/Utilities/UI"
-    },
-    {
-      "name": "com.theone.utilities.net",
-      "path": "Assets/Utilities/Network"
-    }
-  ],
-  "notes": "Collection of Unity utility packages",
-  "addedAt": "2025-10-15T12:00:00Z",
-  "addedBy": "yourusername"
-}
-```
+**No package configuration needed!**
 
 ---
 
@@ -156,21 +81,9 @@ The workflow automatically validates:
 - ✅ Must be `https://github.com/The1Studio/*`
 - ✅ Repository must exist and be accessible
 - ✅ Must be in The1Studio organization
-
-### Package Name
-- ✅ Must start with `com.theone.`
-- ✅ Must be lowercase
-- ✅ Can contain dots, hyphens, numbers
-
-### Package Path
-- ⚠️ Should start with `Assets/` (warning if not)
-
-### Additional Packages (if provided)
-- ✅ Must be valid JSON array
-- ✅ Each entry must have `name` and `path`
-
-### Duplicate Check
 - ✅ Repository URL must not already exist in registry
+
+**That's it!** Package validation happens automatically when the workflow runs.
 
 ---
 
@@ -345,11 +258,6 @@ After merge, the `register-repos` workflow:
 - ❌ Not: `github.com/...` or `git@github.com:...`
 - ❌ Not from other organizations
 
-**Error: "Invalid package name format"**
-- ✅ Must start with: `com.theone.`
-- ✅ Must be lowercase
-- ✅ Examples: `com.theone.utilities`, `com.theone.ui-toolkit`
-
 **Error: "Cannot access repository"**
 - Check repository exists
 - Verify it's in The1Studio organization
@@ -357,8 +265,8 @@ After merge, the `register-repos` workflow:
 
 **Error: "Repository already exists in config"**
 - Repository is already registered
-- Check `config/repositories.json`
-- You may need to update it manually instead
+- Check `config/repositories.json` to see current status
+- You may need to update the status manually instead of registering again
 
 ### Workflow Doesn't Run
 
@@ -375,30 +283,20 @@ After merge, the `register-repos` workflow:
 
 ## 💡 Tips & Best Practices
 
-### Repository Naming
-- Use PascalCase: `UnityUtilities` not `unity-utilities`
-- Match the actual GitHub repository name
-- Keep it short and descriptive
+### Repository URL
+- Copy directly from GitHub - avoid typos!
+- Must be the full HTTPS URL starting with `https://github.com/The1Studio/`
+- Double-check the repository name matches exactly
 
-### Package Naming
-- Always lowercase: `com.theone.utilities`
-- Use dots for namespacing: `com.theone.utilities.core`
-- Be consistent with existing packages
+### Before Registering
+- Ensure your repository has at least one `package.json` file
+- Verify each `package.json` has `publishConfig.registry: https://upm.the1studio.org/`
+- Make sure packages follow naming convention (`com.theone.*`)
 
-### Package Paths
-- Start with `Assets/`: `Assets/YourPackage`
-- Match the actual directory structure
-- Use relative paths from repository root
-
-### Additional Packages
-- Test JSON syntax before submitting
-- Use a JSON validator if unsure
-- Each package needs both `name` and `path`
-
-### Notes Field
-- Describe what the package does
-- Mention any special setup requirements
-- Reference related packages
+### After Registering
+- Review the auto-created PR carefully
+- Check that the repository URL is correct
+- Merge promptly to trigger workflow deployment
 
 ---
 
