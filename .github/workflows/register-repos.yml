@@ -286,20 +286,23 @@ jobs:
 
             # Auto-detect packages by finding package.json files
             echo "🔍 Auto-detecting UPM packages..."
-            package_files=$(find . -name "package.json" -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/Library/*" -not -path "*/Temp/*" 2>/dev/null || true)
+            package_files=$(find . -name "package.json" -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/Library/*" -not -path "*/Temp/*" 2>/dev/null || echo "")
 
             package_list=""
             package_count=0
 
             if [ -n "$package_files" ]; then
-              while IFS= read -r pkg_file; do
+              while IFS= read -r pkg_file || [ -n "$pkg_file" ]; do
+                # Skip empty lines
+                [ -z "$pkg_file" ] && continue
+
                 # Extract package name and path
                 pkg_name=$(jq -r '.name // empty' "$pkg_file" 2>/dev/null || echo "")
-                pkg_path=$(dirname "$pkg_file" | sed 's|^\./||')
+                pkg_path=$(dirname "$pkg_file" | sed 's|^\./||' || echo ".")
 
                 if [ -n "$pkg_name" ]; then
                   package_list="${package_list}- **${pkg_name}** at \`${pkg_path}\`"$'\n'
-                  ((package_count++))
+                  package_count=$((package_count + 1))
                 fi
               done <<< "$package_files"
             fi
