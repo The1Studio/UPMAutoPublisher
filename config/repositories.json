@@ -7,11 +7,11 @@
     },
     {
       "url": "https://github.com/The1Studio/TheOneFeature",
-      "status": "pending"
+      "status": "active"
     },
     {
       "url": "https://github.com/The1Studio/UITemplate",
-      "status": "pending"
+      "status": "active"
     },
     {
       "url": "https://github.com/The1Studio/PlayableLabs",
@@ -19,7 +19,7 @@
     },
     {
       "url": "https://github.com/The1Studio/GameFoundation",
-      "status": "pending"
+      "status": "active"
     },
     {
       "url": "https://github.com/The1Studio/LiveOps",
@@ -27,19 +27,19 @@
     },
     {
       "url": "https://github.com/The1Studio/TheOne.Extensions",
-      "status": "pending"
+      "status": "active"
     },
     {
       "url": "https://github.com/The1Studio/TheOne.FTUE",
-      "status": "pending"
+      "status": "active"
     },
     {
       "url": "https://github.com/The1Studio/ThirdPartyServices",
-      "status": "pending"
+      "status": "active"
     },
     {
       "url": "https://github.com/The1Studio/TheOne.Entities",
-      "status": "pending"
+      "status": "active"
     },
     {
       "url": "https://github.com/The1Studio/UITemplateProjectMigration",
@@ -71,22 +71,19 @@
     },
     {
       "url": "https://github.com/The1Studio/unity-mcp",
-      "status": "pending"
+      "status": "active"
     },
     {
       "url": "https://github.com/The1Studio/PlayableAdsTemplate",
-      "status": "pending"
+      "status": "active"
     },
     {
       "url": "https://github.com/The1Studio/TheOne.DI",
-      "status": "pending"
+      "status": "active"
     },
     {
       "url": "https://github.com/The1Studio/PLAGameFoundation",
-      "status": "pending"
+      "status": "active"
     }
   ]
 }
-
-
-
