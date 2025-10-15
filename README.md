@@ -223,11 +223,50 @@ See [Troubleshooting Guide](docs/troubleshooting.md) for common issues and solut
 
 ## Requirements
 
-- GitHub repository in The1Studio organization
+### GitHub Repository
+- Repository in The1Studio organization
 - Unity package with package.json containing:
   - `name`: Package identifier
   - `version`: Semantic version
   - `publishConfig.registry`: Set to `https://upm.the1studio.org/`
+
+### Self-Hosted Runners (ARC)
+
+**⚠️ IMPORTANT**: This project uses **Actions Runner Controller (ARC)** self-hosted runners.
+
+**Current Configuration:**
+- **Platform**: Kubernetes with ARC
+- **Namespace**: `arc-runners`
+- **Runner Set**: `the1studio-org-runners`
+- **Required Labels**: `[self-hosted, linux, arc, the1studio]`
+- **Active Runners**: 2+ runners must be available
+
+**Benefits:**
+- ✅ Unlimited GitHub Actions minutes
+- ✅ Faster execution with local network and caching
+- ✅ Running on dedicated 128GB RAM Kubernetes cluster
+- ✅ Cost savings (no per-minute charges)
+
+**Verify Runners:**
+```bash
+# Check runner status
+kubectl get runner -n arc-runners
+
+# View runner details
+kubectl get pods -n arc-runners
+```
+
+**Expected Output:**
+```
+NAME                                   STATUS    ORGANIZATION
+the1studio-org-runners-7kfln-b9z2r    Running   the1studio
+the1studio-org-runners-7kfln-k7rr5    Running   the1studio
+```
+
+**Troubleshooting:**
+- If workflows queue indefinitely: Check runner availability
+- See [Self-Hosted Runners Guide](docs/self-hosted-runners.md) for setup and management
+- To use GitHub-hosted runners: Change `runs-on` to `ubuntu-latest` in workflow files
 
 ## Related Documentation
 
