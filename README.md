@@ -71,19 +71,14 @@ Edit `config/repositories.json` in this repository and add your repo:
 
 ```json
 {
-  "name": "YourRepo",
   "url": "https://github.com/The1Studio/YourRepo",
-  "status": "pending",
-  "packages": [
-    {
-      "name": "com.theone.yourpackage",
-      "path": "Assets/YourPackage"
-    }
-  ]
+  "status": "pending"
 }
 ```
 
-**Important:** Set `status: "pending"` to trigger automation.
+**Important:**
+- Set `status: "pending"` to trigger automation
+- The workflow automatically detects all `package.json` files in your repository - no need to configure package names or paths!
 
 #### Step 2: Commit and Push (10 seconds)
 
@@ -154,46 +149,53 @@ See [Setup Instructions](docs/setup-instructions.md) for adding the workflow to 
 
 ### Repository Registry
 
-Track which repositories use auto-publishing in `config/repositories.json`:
+The registry in `config/repositories.json` tracks which repositories have auto-publishing enabled:
 
 ```json
 {
   "repositories": [
     {
-      "name": "UnityBuildScript",
       "url": "https://github.com/The1Studio/UnityBuildScript",
-      "status": "active",
-      "packages": [
-        {
-          "name": "com.theone.foundation.buildscript",
-          "path": "Assets/BuildScripts"
-        }
-      ]
+      "status": "active"
     },
     {
-      "name": "UnityUtilities",
-      "url": "https://github.com/The1Studio/UnityUtilities",
-      "status": "active",
-      "packages": [
-        {
-          "name": "com.theone.utilities.core",
-          "path": "Assets/Utilities/Core"
-        },
-        {
-          "name": "com.theone.utilities.ui",
-          "path": "Assets/Utilities/UI"
-        }
-      ]
+      "url": "https://github.com/The1Studio/TheOneFeature",
+      "status": "pending"
+    },
+    {
+      "url": "https://github.com/The1Studio/UITemplate",
+      "status": "disabled"
     }
   ]
 }
 ```
 
-**Required Fields:**
-- `name` - Repository name
-- `url` - Full GitHub repository URL
-- `status` - `"pending"` (triggers deployment), `"active"` (deployed), or `"disabled"` (skip)
-- `packages[]` - Array of packages with `name` and `path`
+**Required Fields (per schema):**
+- `url` (string, required) - Full GitHub repository URL
+  - Must match pattern: `^https://github\.com/[a-zA-Z0-9_-]+/[a-zA-Z0-9._-]+$`
+  - Example: `"https://github.com/The1Studio/UnityBuildScript"`
+- `status` (string, required) - One of: `"active"`, `"pending"`, or `"disabled"`
+  - `"pending"` - Triggers automated workflow deployment to the repository
+  - `"active"` - Workflow deployed and operational
+  - `"disabled"` - Temporarily disabled, skipped by automation
+
+**How Package Detection Works:**
+
+The workflow automatically discovers packages in your repository:
+
+1. Monitors commits to master/main branch
+2. Detects any changed `package.json` files via `git diff`
+3. Publishes each changed package to the registry
+4. Handles single-package and multi-package repositories automatically
+
+**No package configuration needed** - the workflow finds all packages automatically!
+
+**Multi-Package Repositories:**
+
+For repositories with multiple Unity packages (e.g., `/Assets/Core/package.json` and `/Assets/UI/package.json`):
+- Both packages are automatically detected
+- Each is published independently when its version changes
+- No need to list packages in the registry
 
 ### GitHub Secrets Required
 
@@ -201,19 +203,13 @@ Track which repositories use auto-publishing in `config/repositories.json`:
   - Used to publish to upm.the1studio.org
   - Set once at organization level, available to all repos
 
-## Tag Naming Convention
+## Historical Note: Tag Naming Convention
 
-For multi-package repositories, we use:
-```
-upm/{package-name}/{version}
-```
+**⚠️ NOTE**: This system does NOT use git tags for publishing.
 
-Examples:
-- `upm/buildscript/1.2.10`
-- `upm/utilities-core/2.0.1`
-- `upm/utilities-ui/1.5.3`
+Early discussions considered using tags like `upm/{package-name}/{version}`, but this was removed to simplify the workflow. Publishing now triggers directly on `package.json` changes without requiring manual tag creation.
 
-**Note**: Based on discussion, we're actually NOT creating tags automatically anymore to simplify the workflow. This section is kept for reference.
+This section is kept for historical reference only.
 
 ## Workflow Logic
 

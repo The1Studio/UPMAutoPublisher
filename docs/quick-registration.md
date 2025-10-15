@@ -24,15 +24,8 @@ Edit `config/repositories.json` in the UPMAutoPublisher repo:
 {
   "repositories": [
     {
-      "name": "YourNewRepo",
       "url": "https://github.com/The1Studio/YourNewRepo",
-      "status": "pending",
-      "packages": [
-        {
-          "name": "com.theone.yourpackage",
-          "path": "Assets/YourPackage"
-        }
-      ]
+      "status": "pending"
     }
   ]
 }
@@ -40,24 +33,16 @@ Edit `config/repositories.json` in the UPMAutoPublisher repo:
 
 **Note:** Set `status: "pending"` to trigger automation.
 
-**For multi-package repos:**
-```json
-{
-  "name": "UnityUtilities",
-  "url": "https://github.com/The1Studio/UnityUtilities",
-  "status": "pending",
-  "packages": [
-    {
-      "name": "com.theone.utilities.core",
-      "path": "Assets/Utilities/Core"
-    },
-    {
-      "name": "com.theone.utilities.ui",
-      "path": "Assets/Utilities/UI"
-    }
-  ]
-}
-```
+### About Package Auto-Discovery
+
+**You don't need to list packages!** The workflow automatically:
+- Detects all `package.json` files in your repository
+- Publishes each package when its version changes
+- Handles single-package and multi-package repos the same way
+
+The only configuration needed is the repository URL and status.
+
+**Multi-package repositories work automatically** - whether you have one package or ten, the workflow finds them all via `git diff` when you push changes.
 
 ### Step 2: Commit and Push (10 seconds)
 
@@ -108,9 +93,8 @@ cd /mnt/Work/1M/UPM/The1Studio/UPMAutoPublisher
 
 ```json
 {
-  "name": "YourNewRepo",
-  "status": "active",  // ✅ Changed from "pending"
-  // ... rest of config
+  "url": "https://github.com/The1Studio/YourNewRepo",
+  "status": "active"  // ✅ Changed from "pending"
 }
 ```
 
@@ -154,37 +138,18 @@ npm view com.theone.yourpackage@1.0.1 --registry https://upm.the1studio.org/
 {
   "repositories": [
     {
-      "name": "UnityBuildScript",
       "url": "https://github.com/The1Studio/UnityBuildScript",
-      "status": "active",
-      "packages": [
-        {
-          "name": "com.theone.foundation.buildscript",
-          "path": "Assets/BuildScripts",
-          "latestVersion": "1.2.10"
-        }
-      ],
-      "notes": "First repository with auto-publishing"
+      "status": "active"
     },
     {
-      "name": "UnityUtilities",  // ← NEW REPO
       "url": "https://github.com/The1Studio/UnityUtilities",
-      "status": "pending",  // ← Will trigger automation
-      "packages": [
-        {
-          "name": "com.theone.utilities.core",
-          "path": "Assets/Utilities/Core"
-        },
-        {
-          "name": "com.theone.utilities.ui",
-          "path": "Assets/Utilities/UI"
-        }
-      ],
-      "notes": "Multi-package utility repository"
+      "status": "pending"  // ← Will trigger automation
     }
   ]
 }
 ```
+
+**That's it!** The workflow automatically discovers all packages in each repository.
 
 ---
 
@@ -311,28 +276,22 @@ Register multiple repos at once:
   "repositories": [
     // Existing repos...
     {
-      "name": "Repo1",
       "url": "https://github.com/The1Studio/Repo1",
-      "status": "pending",
-      "packages": [{"name": "com.theone.package1", "path": "Assets/Package1"}]
+      "status": "pending"
     },
     {
-      "name": "Repo2",
       "url": "https://github.com/The1Studio/Repo2",
-      "status": "pending",
-      "packages": [{"name": "com.theone.package2", "path": "Assets/Package2"}]
+      "status": "pending"
     },
     {
-      "name": "Repo3",
       "url": "https://github.com/The1Studio/Repo3",
-      "status": "pending",
-      "packages": [{"name": "com.theone.package3", "path": "Assets/Package3"}]
+      "status": "pending"
     }
   ]
 }
 ```
 
-**Commit once**, automation processes all pending repos.
+**Commit once**, automation processes all pending repos and discovers all packages automatically.
 
 ---
 
