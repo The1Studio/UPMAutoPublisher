@@ -121,6 +121,8 @@ jobs:
               continue
             fi
 
+            # Initialize temp_dir as empty (will be set later)
+            temp_dir=""
             # Add lock cleanup to trap
             trap "rm -rf '${lock_file}' '${temp_dir}'" EXIT ERR
 
