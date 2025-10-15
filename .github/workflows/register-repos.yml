@@ -304,8 +304,10 @@ jobs:
               done <<< "$package_files"
             fi
 
-            # Remove trailing newline
-            package_list=$(echo "$package_list" | sed -z 's/\n$//')
+            # Remove trailing newline (only if not empty)
+            if [ -n "$package_list" ]; then
+              package_list=$(echo "$package_list" | sed -z 's/\n$//' || echo "$package_list")
+            fi
 
             if [ "$package_count" -eq 0 ]; then
               package_list="⚠️ No package.json files detected. You may need to add them manually."
