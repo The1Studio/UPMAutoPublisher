@@ -64,13 +64,6 @@ jobs:
 
           echo "✅ repositories.json validation passed"
 
-      # FIX: Secure token handling (use printf to avoid variable expansion in command line)
-      - name: Authenticate GitHub CLI
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          printf '%s' "$GH_TOKEN" | gh auth login --with-token
-
       - name: Process pending repositories
         timeout-minutes: 25  # FIX: Add step-level timeout
         env:
