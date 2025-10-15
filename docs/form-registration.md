@@ -31,12 +31,13 @@ Visit the UPMAutoPublisher repository Actions page:
 
 Click the green **"Run workflow"** button at the bottom of the form.
 
-### Step 5: Wait for PR
+### Step 5: Wait for Completion
 
 The workflow will:
 - ✅ Validate all inputs
 - ✅ Update `repositories.json` automatically
-- ✅ Create a pull request
+- ✅ Commit directly to master branch
+- ✅ Trigger deployment workflow automatically
 - ✅ Show you a summary with next steps
 
 **This takes ~30 seconds!**
@@ -92,48 +93,33 @@ The workflow automatically validates:
 ### 1. Workflow Runs (~30 seconds)
 
 The workflow:
-- Validates all inputs
+- Validates repository URL
 - Updates `config/repositories.json`
-- Creates a new branch
-- Commits the changes
-- Creates a pull request
+- Commits directly to master branch
+- Automatically triggers `register-repos` workflow
 
-### 2. You Get a PR
+### 2. Automatic Deployment (1-2 minutes)
 
-A pull request is created with:
-- ✅ Clear title: "🤖 Register YourRepo for UPM auto-publishing"
-- ✅ Detailed description of changes
-- ✅ Validation results
-- ✅ Next steps instructions
-- ✅ Automatic labels: `registration`, `automated`
-
-**Example PR:** https://github.com/The1Studio/UPMAutoPublisher/pulls
-
-### 3. Review and Merge
-
-**Review the PR:**
-- Check repository details are correct
-- Verify package names and paths
-- Read any validation warnings
-
-**Merge when ready:**
-- Click "Merge pull request"
-- This triggers the deployment workflow
-
-### 4. Automation Deploys
-
-After merge, the `register-repos` workflow:
+The `register-repos` workflow automatically:
 - Detects the new `"pending"` repository
 - Creates a PR in the target repository
 - Adds the publishing workflow file
 
-### 5. Complete Setup
+**No manual intervention needed!**
+
+### 3. Review Target Repository PR
 
 **In the target repository:**
-- Merge the automated PR
+- Go to Pull Requests
+- Find PR titled "🤖 Add UPM Auto-Publishing Workflow"
+- Review the workflow file
+- Merge the PR
+
+### 4. Complete Setup
 
 **Back in UPMAutoPublisher:**
-- Create another PR to change status to `"active"`
+- Update status from `"pending"` to `"active"` in repositories.json
+- Can be done via another form submission or manual edit
 
 ---
 
@@ -145,18 +131,18 @@ After merge, the `register-repos` workflow:
 - ✅ No JSON editing required
 - ✅ Built-in validation
 - ✅ User-friendly web interface
-- ✅ Automatic PR creation
-- ✅ Tracks who registered and when
+- ✅ Fully automatic - commits directly to master
 - ✅ Great for non-technical users
+- ✅ Instant deployment trigger
 
 **Cons:**
 - ⏱️ Requires waiting for workflow to run (~30s)
-- 📝 Additional PR to review/merge
 
 **Best for:**
 - Quick one-off registrations
 - Users unfamiliar with JSON
 - When you want validation before commit
+- Prefer fully automatic process
 
 ### Manual JSON Editing
 
