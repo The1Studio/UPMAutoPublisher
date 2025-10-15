@@ -264,18 +264,15 @@ jobs:
             fi
 
             git add .github/workflows/publish-upm.yml
-
-            git commit -F - <<EOF
-Add UPM auto-publishing workflow
-
-This workflow automatically publishes Unity packages to upm.the1studio.org when package.json versions are updated.
-
-Setup by UPM Auto Publisher system.
-Repository: ${org}/${repo}
-Date: ${commit_date}
-
-Co-Authored-By: UPM Auto Publisher <noreply@the1studio.org>
-EOF
+            git commit -m "Add UPM auto-publishing workflow" \
+                       -m "" \
+                       -m "This workflow automatically publishes Unity packages to upm.the1studio.org when package.json versions are updated." \
+                       -m "" \
+                       -m "Setup by UPM Auto Publisher system." \
+                       -m "Repository: ${org}/${repo}" \
+                       -m "Date: ${commit_date}" \
+                       -m "" \
+                       -m "Co-Authored-By: UPM Auto Publisher <noreply@the1studio.org>"
 
             # Push branch
             echo "⬆️  Pushing branch ${branch_name}..."
@@ -358,26 +355,28 @@ EOF
               continue
             fi
 
-            pr_body=$(cat <<EOF
+            # Create PR body file
+            pr_body_file="/tmp/pr-body-$$"
+            cat > "$pr_body_file" << 'PR_BODY'
 ## 🤖 UPM Auto-Publishing Workflow
 
 This PR adds automated Unity Package Manager (UPM) publishing to this repository.
 
 ### What This Does
 
-- **Triggers**: Automatically when \`package.json\` is updated on \`${default_branch}\`
-- **Action**: Publishes packages to \`upm.the1studio.org\`
-- **Registry**: Uses organization-level \`NPM_TOKEN\` secret
+- **Triggers**: Automatically when `package.json` is updated on `DEFAULT_BRANCH_PLACEHOLDER`
+- **Action**: Publishes packages to `upm.the1studio.org`
+- **Registry**: Uses organization-level `NPM_TOKEN` secret
 
 ### How to Use After Merge
 
-1. Update version in your \`package.json\`
-2. Commit and push to ${default_branch}
+1. Update version in your `package.json`
+2. Commit and push to DEFAULT_BRANCH_PLACEHOLDER
 3. GitHub Actions automatically publishes
 
 ### Package Details
 
-${package_list}
+PACKAGE_LIST_PLACEHOLDER
 
 ### Documentation
 
@@ -389,7 +388,7 @@ ${package_list}
 
 - [ ] Review detected packages above
 - [ ] Review workflow file
-- [ ] Ensure \`NPM_TOKEN\` secret is set in organization settings
+- [ ] Ensure `NPM_TOKEN` secret is set in organization settings
 - [ ] Merge PR
 - [ ] Test with a version bump
 
@@ -397,42 +396,51 @@ ${package_list}
 
 🤖 This PR was automatically created by the UPM Auto Publisher registration system.
 
-Repository registered: ${commit_date}
-EOF
-)
+Repository registered: COMMIT_DATE_PLACEHOLDER
+PR_BODY
+
+            # Replace placeholders
+            sed -i "s/DEFAULT_BRANCH_PLACEHOLDER/${default_branch}/g" "$pr_body_file"
+            sed -i "s/COMMIT_DATE_PLACEHOLDER/${commit_date}/g" "$pr_body_file"
+            # Escape special characters in package_list for sed
+            package_list_escaped=$(echo "$package_list" | sed 's/[&/\]/\\&/g')
+            sed -i "s|PACKAGE_LIST_PLACEHOLDER|${package_list_escaped}|g" "$pr_body_file"
 
             pr_url=$(gh pr create \
               --title "🤖 Add UPM Auto-Publishing Workflow" \
-              --body "$pr_body" \
+              --body-file "$pr_body_file" \
               --base "$default_branch" \
               --head "$branch_name" \
               2>&1)
+
+            rm -f "$pr_body_file"
 
             if [ $? -eq 0 ]; then
               echo "✅ Pull request created: ${pr_url}"
               echo "📧 PR URL: ${pr_url}"
 
-              # Add comment with additional info using here-doc
-              comment_body=$(cat <<EOF
+              # Add comment with additional info
+              comment_body_file="/tmp/pr-comment-$$"
+              cat > "$comment_body_file" << 'COMMENT_BODY'
 ### ⚙️ Post-Merge Actions
 
 After merging this PR:
 
 1. **Test the workflow**: Update a package version and push to trigger auto-publishing
-2. **Status auto-updates**: Within 6 hours, the status will automatically change from \`pending\` to \`active\` in UPMAutoPublisher's \`repositories.json\`
-   - Or manually trigger: \`gh workflow run sync-repo-status.yml\` in UPMAutoPublisher
+2. **Status auto-updates**: Within 6 hours, the status will automatically change from `pending` to `active` in UPMAutoPublisher's `repositories.json`
+   - Or manually trigger: `gh workflow run sync-repo-status.yml` in UPMAutoPublisher
 
 ### Registry Configuration
 
 The workflow is configured to publish to:
-- **Registry**: Configured via \`UPM_REGISTRY\` variable (default: \`https://upm.the1studio.org/\`)
-- **Authentication**: Uses organization-level \`NPM_TOKEN\` secret
+- **Registry**: Configured via `UPM_REGISTRY` variable (default: `https://upm.the1studio.org/`)
+- **Authentication**: Uses organization-level `NPM_TOKEN` secret
 
-No need to set \`publishConfig.registry\` in your package.json - the workflow handles registry configuration automatically.
-EOF
-)
+No need to set `publishConfig.registry` in your package.json - the workflow handles registry configuration automatically.
+COMMENT_BODY
 
-              gh pr comment "$pr_url" --body "$comment_body" || echo "⚠️  Failed to add PR comment (non-fatal)"
+              gh pr comment "$pr_url" --body-file "$comment_body_file" || echo "⚠️  Failed to add PR comment (non-fatal)"
+              rm -f "$comment_body_file"
 
             else
               echo "❌ Failed to create pull request"

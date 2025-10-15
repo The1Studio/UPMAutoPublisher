@@ -121,17 +121,13 @@ jobs:
 
           # Commit changes
           git add config/repositories.json
-
-          git commit -m "$(cat <<'EOF'
-chore: Auto-update repository statuses to 'active'
-
-Automatically detected deployed workflows and updated statuses.
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude <noreply@anthropic.com>
-EOF
-)"
+          git commit -m "chore: Auto-update repository statuses to 'active'" \
+                     -m "" \
+                     -m "Automatically detected deployed workflows and updated statuses." \
+                     -m "" \
+                     -m "🤖 Generated with [Claude Code](https://claude.com/claude-code)" \
+                     -m "" \
+                     -m "Co-Authored-By: Claude <noreply@anthropic.com>"
 
           # Push changes
           echo "⬆️  Pushing changes..."
