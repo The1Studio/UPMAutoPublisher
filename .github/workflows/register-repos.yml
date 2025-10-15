@@ -99,6 +99,8 @@ jobs:
             exit 0
           fi
 
+          # Disable pipefail for the while loop to prevent early exit on PR creation failures
+          set +o pipefail
           echo "$pending_repos" | while IFS= read -r repo_json; do
             echo ""
             echo "========================================="
@@ -325,7 +327,7 @@ jobs:
 
             # Remove trailing newline (only if not empty)
             if [ -n "$package_list" ]; then
-              package_list=$(echo "$package_list" | sed -z 's/\n$//' || echo "$package_list")
+              package_list=$(echo "$package_list" | sed 's/\n$//')
             fi
 
             if [ "$package_count" -eq 0 ]; then
@@ -378,10 +380,10 @@ jobs:
               --body "$pr_body" \
               --base "$default_branch" \
               --head "$branch_name" \
-              2>&1)
+              2>&1) || true
             pr_create_status=$?
 
-            if [ $pr_create_status -eq 0 ]; then
+            if [ $pr_create_status -eq 0 ] && [[ "$pr_url" =~ ^https://github\.com/ ]]; then
               echo "✅ Pull request created: ${pr_url}"
               echo "📧 PR URL: ${pr_url}"
 
@@ -396,12 +398,17 @@ jobs:
                 "The workflow is configured to publish to:" \
                 "- **Registry**: Configured via \`UPM_REGISTRY\` variable (default: \`https://upm.the1studio.org/\`)" \
                 "- **Authentication**: Uses organization-level \`NPM_TOKEN\` secret" \
-                "No need to set \`publishConfig.registry\` in your package.json - the workflow handles registry configuration automatically.")
+                "No need to set \`publishConfig.registry\` in your package.json - the workflow handles registry configuration automatically.") || true
               gh pr comment "$pr_url" --body "$pr_comment" || echo "⚠️  Failed to add PR comment (non-fatal)"
 
             else
-              echo "❌ Failed to create pull request"
-              echo "Error: ${pr_url}"
+              echo "❌ Failed to create pull request for ${repo}"
+              echo "   Exit code: $pr_create_status"
+              echo "   Output: ${pr_url}"
+              echo "   Branch: ${branch_name}"
+              echo "   Base: ${default_branch}"
+              echo "   Org/Repo: ${org}/${repo}"
+              echo "⚠️  Skipping PR creation, but continuing with other repositories"
             fi
 
             # Cleanup
