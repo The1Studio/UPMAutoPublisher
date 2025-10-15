@@ -238,7 +238,7 @@ See [Troubleshooting Guide](docs/troubleshooting.md) for common issues and solut
 - **Platform**: Kubernetes with ARC
 - **Namespace**: `arc-runners`
 - **Runner Set**: `the1studio-org-runners`
-- **Required Labels**: `[self-hosted, linux, arc, the1studio]`
+- **Required Labels**: `[self-hosted, arc, the1studio, org]`
 - **Active Runners**: 2+ runners must be available
 
 **Benefits:**

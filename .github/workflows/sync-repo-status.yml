@@ -20,7 +20,7 @@ jobs:
   sync-status:
     # Use ARC self-hosted runners for The1Studio organization
     # Labels: self-hosted, linux, x64, arc, the1studio, org
-    runs-on: [self-hosted, linux, arc, the1studio]
+    runs-on: [self-hosted, arc, the1studio, org]
     name: Auto-update repository statuses
 
     steps:

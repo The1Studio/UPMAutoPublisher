@@ -19,7 +19,7 @@ jobs:
   register-repos:
     # Use ARC self-hosted runners for The1Studio organization
     # Labels: self-hosted, linux, x64, arc, the1studio, org
-    runs-on: [self-hosted, linux, arc, the1studio]
+    runs-on: [self-hosted, arc, the1studio, org]
     timeout-minutes: 30  # FIX: Add job-level timeout
     name: Deploy UPM workflow to registered repositories
     # FIX HIGH-3: Use GitHub concurrency control instead of file-based locking
