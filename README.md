@@ -2,6 +2,18 @@
 
 Automated Unity Package Manager (UPM) publishing system for The1Studio organization. This system automatically detects package version changes and publishes them to `upm.the1studio.org` registry.
 
+---
+
+## 📢 Want to Add Auto-Publishing to Your Repository?
+
+**👉 [Click here for the 2-minute setup guide](#-quick-start---adding-new-repositories)**
+
+It's easy! Just add your repository to `config/repositories.json`, commit, and let automation do the rest. No manual workflow setup required.
+
+**Already set up?** Just update your `package.json` version and push - publishing happens automatically! 🚀
+
+---
+
 ## Overview
 
 This repository contains the GitHub Actions workflow and documentation for automatically publishing Unity packages to The1Studio's private UPM registry whenever package.json versions are updated.
@@ -47,32 +59,70 @@ This repository contains the GitHub Actions workflow and documentation for autom
    - NPM token configuration
    - GitHub organization secret setup
 
-## Quick Start
+## 🚀 Quick Start - Adding New Repositories
 
-### For Adding New Repositories (Automated) 🆕
+### ⚡ For Normal Users: Register Your Repository (2 Minutes)
 
-Register a new repository for auto-publishing in 2 minutes:
+**Want to add UPM auto-publishing to your repository?** Follow these simple steps:
 
-1. **Add to registry** (`config/repositories.json`):
-   ```json
-   {
-     "name": "YourRepo",
-     "url": "https://github.com/The1Studio/YourRepo",
-     "status": "pending",
-     "packages": [
-       {
-         "name": "com.theone.package",
-         "path": "Assets/Package"
-       }
-     ]
-   }
-   ```
+#### Step 1: Add Your Repository to the Registry (30 seconds)
 
-2. **Commit and push** - Automation creates PR in target repo
+Edit `config/repositories.json` in this repository and add your repo:
 
-3. **Merge PR** and update status to `"active"`
+```json
+{
+  "name": "YourRepo",
+  "url": "https://github.com/The1Studio/YourRepo",
+  "status": "pending",
+  "packages": [
+    {
+      "name": "com.theone.yourpackage",
+      "path": "Assets/YourPackage"
+    }
+  ]
+}
+```
 
-See [Quick Registration Guide](docs/quick-registration.md) for details.
+**Important:** Set `status: "pending"` to trigger automation.
+
+#### Step 2: Commit and Push (10 seconds)
+
+```bash
+git add config/repositories.json
+git commit -m "Register YourRepo for UPM auto-publishing"
+git push origin master
+```
+
+#### Step 3: Wait for Automation (1-2 minutes)
+
+The system automatically:
+- ✅ Creates a pull request in your repository
+- ✅ Adds the publishing workflow file
+- ✅ Includes setup documentation
+
+#### Step 4: Merge the PR (30 seconds)
+
+Go to your repository and merge the automated PR titled "🤖 Add UPM Auto-Publishing Workflow"
+
+#### Step 5: Update Status (20 seconds)
+
+Change `"status": "pending"` to `"status": "active"` in `repositories.json` and commit.
+
+#### Step 6: Test It! (1 minute)
+
+Update your `package.json` version and push:
+```bash
+# Bump version in your package.json
+sed -i 's/"version": "1.0.0"/"version": "1.0.1"/' Assets/YourPackage/package.json
+
+git add Assets/YourPackage/package.json
+git commit -m "Bump version to 1.0.1"
+git push origin master
+```
+
+**Done!** 🎉 Your package will be automatically published to https://upm.the1studio.org/
+
+**📖 Detailed Guide:** See [Quick Registration Guide](docs/quick-registration.md) for complete instructions, troubleshooting, and advanced options.
 
 ### For Repository Maintainers
 
