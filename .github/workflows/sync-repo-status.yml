@@ -85,7 +85,7 @@ jobs:
             fi
 
             # Extract org and repo from URL
-            if [[ "$repo_url" =~ ^https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)$ ]]; then
+            if [[ "$repo_url" =~ ^https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9._-]+)$ ]]; then
               org="${BASH_REMATCH[1]}"
               repo="${BASH_REMATCH[2]}"
             else
