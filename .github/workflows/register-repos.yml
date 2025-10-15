@@ -269,8 +269,10 @@ jobs:
                        -m "" \
                        -m "Co-Authored-By: UPM Auto Publisher <noreply@the1studio.org>"
 
-            # Push branch
+            # Push branch (configure git to use GH_TOKEN)
             echo "⬆️  Pushing branch ${branch_name}..."
+            # Configure git to use the token for authentication
+            git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${org}/${repo}.git"
             if ! git push origin "$branch_name"; then
               echo "❌ Failed to push branch"
               cd "$GITHUB_WORKSPACE"
