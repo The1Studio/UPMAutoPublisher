@@ -123,10 +123,8 @@ jobs:
           # Set output for PR body
           echo "repo_name=$REPO_NAME" >> $GITHUB_OUTPUT
 
-      - name: Create pull request
-        id: create_pr
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Commit and push to master
+        id: commit_push
         run: |
           set -euo pipefail
 
@@ -136,10 +134,6 @@ jobs:
           # Configure git
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Create branch
-          BRANCH_NAME="auto-register/${REPO_NAME}-$(date +%s)"
-          git checkout -b "$BRANCH_NAME"
 
           # Stage and commit changes
           git add config/repositories.json
@@ -162,82 +156,41 @@ jobs:
 
           git commit -m "$COMMIT_MSG"
 
-          # Push branch
-          git push origin "$BRANCH_NAME"
+          # Push directly to master
+          git push origin master
 
-          # Create PR body
-          PR_BODY=$(cat <<EOF
-          ## 🤖 Automated Repository Registration
+          echo "✅ Repository registered and pushed to master"
+          echo "✅ This will trigger the register-repos workflow automatically"
 
-          This PR registers a new repository for UPM auto-publishing.
-
-          ### Repository Details
-
-          - **URL:** ${{ inputs.repo_url }}
-          - **Status:** \`pending\` (triggers workflow deployment)
-          - **Requested by:** @${{ github.actor }}
-
-          ### 📦 Package Discovery
-
-          **Packages are auto-discovered!** The workflow will automatically:
-          - Find all \`package.json\` files in the repository
-          - Publish each package when its version changes
-          - Work for single and multi-package repositories
-
-          No package configuration needed in the registry.
-
-          ### What Happens Next
-
-          1. **Review this PR** - Verify repository URL is correct
-          2. **Merge this PR** - Triggers automated workflow deployment
-          3. **Automation creates PR** - Workflow will create PR in target repo (1-2 minutes)
-          4. **Merge target PR** - Review and merge the workflow addition
-          5. **Update status** - Change status to \`"active"\` in another PR
-          6. **Test it** - Bump package version to test publishing
-
-          ### Validation Checks
-
-          - ✅ Repository URL format validated
-          - ✅ Repository is accessible
-          - ✅ JSON syntax validated
-          - ✅ Not a duplicate entry
-
-          ---
-
-          **📖 Documentation:** [Form Registration Guide](docs/form-registration.md) | [Quick Registration Guide](docs/quick-registration.md)
-          EOF
-          )
-
-          # Create PR
-          PR_URL=$(gh pr create \
-            --title "🤖 Register ${REPO_NAME} for UPM auto-publishing" \
-            --body "$PR_BODY" \
-            --base master \
-            --head "$BRANCH_NAME" \
-            --label "registration" \
-            --label "automated")
-
-          echo "✅ Pull request created: $PR_URL"
-          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+          # Get commit SHA for reference
+          COMMIT_SHA=$(git rev-parse HEAD)
+          echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
 
       - name: Summary
         run: |
-          echo "# 🎉 Registration Initiated" >> $GITHUB_STEP_SUMMARY
+          echo "# 🎉 Repository Registered!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Repository **${{ steps.update_json.outputs.repo_name }}** has been added to the registry!" >> $GITHUB_STEP_SUMMARY
+          echo "Repository **${{ steps.update_json.outputs.repo_name }}** has been registered automatically!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## What's Next?" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ What Just Happened" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "1. **Review the PR** - ${{ steps.create_pr.outputs.pr_url }}" >> $GITHUB_STEP_SUMMARY
-          echo "2. **Merge it** - This will trigger automatic workflow deployment" >> $GITHUB_STEP_SUMMARY
-          echo "3. **Wait 1-2 minutes** - Automation creates PR in target repo" >> $GITHUB_STEP_SUMMARY
-          echo "4. **Merge target PR** - Review and merge workflow addition" >> $GITHUB_STEP_SUMMARY
-          echo "5. **Update status** - Change to \`active\` in repositories.json" >> $GITHUB_STEP_SUMMARY
+          echo "1. ✅ Repository added to registry" >> $GITHUB_STEP_SUMMARY
+          echo "2. ✅ Changes committed to master" >> $GITHUB_STEP_SUMMARY
+          echo "3. ✅ This triggers the \`register-repos\` workflow automatically" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Repository Details" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 What Happens Next (Automatic)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. **Wait 1-2 minutes** - \`register-repos\` workflow runs" >> $GITHUB_STEP_SUMMARY
+          echo "2. **PR created automatically** - Workflow file added to target repo" >> $GITHUB_STEP_SUMMARY
+          echo "3. **Merge the PR** - Review and merge in target repository" >> $GITHUB_STEP_SUMMARY
+          echo "4. **Update status** - Change status to \`active\` in repositories.json" >> $GITHUB_STEP_SUMMARY
+          echo "5. **Test it** - Bump package version to test publishing" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📦 Repository Details" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **URL:** ${{ inputs.repo_url }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Status:** pending (triggers deployment)" >> $GITHUB_STEP_SUMMARY
           echo "- **Packages:** Auto-discovered by workflow 📦" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ steps.commit_push.outputs.commit_sha }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📖 [Form Registration Guide](docs/form-registration.md) | [Quick Registration Guide](docs/quick-registration.md)" >> $GITHUB_STEP_SUMMARY
