@@ -67,7 +67,7 @@ jobs:
       - name: Process pending repositories
         timeout-minutes: 25  # FIX: Add step-level timeout
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           set -euo pipefail  # FIX: Add -u and -o pipefail for better error handling
 

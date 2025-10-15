@@ -32,7 +32,7 @@ jobs:
 
       - name: Sync repository statuses
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           set -euo pipefail
 
