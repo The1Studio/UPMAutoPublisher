@@ -84,6 +84,10 @@
     {
       "url": "https://github.com/The1Studio/PLAGameFoundation",
       "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/TheOne.Pooling",
+      "status": "pending"
     }
   ]
 }
