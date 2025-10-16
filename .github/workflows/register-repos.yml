@@ -8,6 +8,7 @@ on:
       - main
     paths:
       - 'config/repositories.json'
+  workflow_dispatch:  # Allow manual trigger
 
 # FIX ME-6: Explicit permissions for security and clarity
 permissions:
