@@ -388,6 +388,14 @@ jobs:
               echo "✅ Pull request created: ${pr_url}"
               echo "📧 PR URL: ${pr_url}"
 
+              # Enable auto-merge with squash strategy
+              echo "🤖 Enabling auto-merge..."
+              if gh pr merge "$pr_url" --auto --squash 2>&1; then
+                echo "✅ Auto-merge enabled - PR will merge automatically when checks pass"
+              else
+                echo "⚠️  Could not enable auto-merge (may require branch protection or checks)"
+              fi
+
               # Add comment (using printf for safety)
               pr_comment=$(printf '%s\n\n%s\n\n%s\n%s\n%s\n\n%s\n\n%s\n%s\n%s\n\n%s' \
                 "### ⚙️ Post-Merge Actions" \
