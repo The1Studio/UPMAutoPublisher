@@ -183,11 +183,11 @@ else
   failed=$((failed + 1))
 fi
 
-if grep -q 'if \[\[ ! "\$package_name" =~ \^com\\.theone\\. \]\]' .github/workflows/publish-upm.yml; then
-  echo "    ${CHECK} Package name validation"
+if grep -q 'if \[\[ "\$package_name" =~ \[\^a-zA-Z0-9._-\] \]\]' .github/workflows/publish-upm.yml; then
+  echo "    ${CHECK} Package name validation (dangerous characters)"
   passed=$((passed + 1))
 else
-  echo "    ${CROSS} Missing package name validation"
+  echo "    ${CROSS} Missing package name validation (dangerous characters)"
   failed=$((failed + 1))
 fi
 
