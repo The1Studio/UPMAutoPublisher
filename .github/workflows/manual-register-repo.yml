@@ -37,22 +37,12 @@ jobs:
             exit 1
           fi
 
-          # Extract repository short form (e.g., The1Studio/UITemplateEditorCore)
-          REPO_SHORT=$(echo "${{ inputs.repo_url }}" | sed 's|https://github.com/||')
-          echo "Repository: $REPO_SHORT"
-
-          # Check if repository is accessible (using short form)
-          if ! gh repo view "$REPO_SHORT" --json name,owner >/dev/null 2>&1; then
-            echo "❌ Cannot access repository: $REPO_SHORT"
-            echo "   Make sure:"
-            echo "   1. Repository exists"
-            echo "   2. It's in The1Studio organization"
-            echo "   3. You have access permissions"
-            exit 1
-          fi
-
-          echo "✅ Repository URL validated"
-          echo "✅ Repository is accessible"
+          # Extract repository name for display
+          REPO_NAME=$(echo "${{ inputs.repo_url }}" | sed 's|https://github.com/The1Studio/||')
+          echo "Repository: $REPO_NAME"
+          echo "✅ Repository URL format validated"
+          echo ""
+          echo "Note: Repository accessibility will be verified when the register-repos workflow runs"
 
       - name: Install dependencies
         run: |
