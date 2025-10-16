@@ -37,9 +37,13 @@ jobs:
             exit 1
           fi
 
-          # Check if repository is accessible
-          if ! gh repo view "${{ inputs.repo_url }}" --json name,owner >/dev/null 2>&1; then
-            echo "❌ Cannot access repository: ${{ inputs.repo_url }}"
+          # Extract repository short form (e.g., The1Studio/UITemplateEditorCore)
+          REPO_SHORT=$(echo "${{ inputs.repo_url }}" | sed 's|https://github.com/||')
+          echo "Repository: $REPO_SHORT"
+
+          # Check if repository is accessible (using short form)
+          if ! gh repo view "$REPO_SHORT" --json name,owner >/dev/null 2>&1; then
+            echo "❌ Cannot access repository: $REPO_SHORT"
             echo "   Make sure:"
             echo "   1. Repository exists"
             echo "   2. It's in The1Studio organization"
@@ -52,6 +56,14 @@ jobs:
 
       - name: Install dependencies
         run: |
+          # Fix APT sources to use HTTPS instead of HTTP (port 80 blocked)
+          sudo sed -i 's|http://archive.ubuntu.com|https://archive.ubuntu.com|g' /etc/apt/sources.list
+          sudo sed -i 's|http://security.ubuntu.com|https://security.ubuntu.com|g' /etc/apt/sources.list
+
+          # Disable PPA repositories (have invalid HTTPS certificates)
+          sudo mv /etc/apt/sources.list.d /etc/apt/sources.list.d.bak 2>/dev/null || true
+          sudo mkdir -p /etc/apt/sources.list.d
+
           sudo apt-get update -qq
           sudo apt-get install -y -qq jq
 
