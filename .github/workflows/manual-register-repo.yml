@@ -32,8 +32,29 @@ jobs:
           # Validate repository URL format
           if [[ ! "${{ inputs.repo_url }}" =~ ^https://github\.com/The1Studio/[a-zA-Z0-9._-]+$ ]]; then
             echo "❌ Invalid repository URL format"
-            echo "   Expected: https://github.com/The1Studio/YourRepo"
-            echo "   Got: ${{ inputs.repo_url }}"
+            echo ""
+            echo "Expected format:"
+            echo "  https://github.com/The1Studio/RepositoryName"
+            echo ""
+            echo "Examples:"
+            echo "  ✅ https://github.com/The1Studio/UITemplate"
+            echo "  ✅ https://github.com/The1Studio/TheOneFeature"
+            echo "  ✅ https://github.com/The1Studio/PlayableLabs"
+            echo ""
+            echo "Got:"
+            echo "  ❌ ${{ inputs.repo_url }}"
+            echo ""
+
+            # Check if user provided a workflow/actions URL
+            if [[ "${{ inputs.repo_url }}" =~ /actions/ ]]; then
+              echo "⚠️  It looks like you provided a GitHub Actions workflow URL."
+              echo "   Please provide the repository URL instead (not the workflow run URL)."
+              echo ""
+              # Try to extract the repository URL from the actions URL
+              REPO_URL=$(echo "${{ inputs.repo_url }}" | sed -E 's|(https://github.com/[^/]+/[^/]+)/.*|\1|')
+              echo "Did you mean: $REPO_URL ?"
+            fi
+
             exit 1
           fi
 
