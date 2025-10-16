@@ -293,7 +293,7 @@ See [Troubleshooting Guide](docs/troubleshooting.md) for common issues and solut
 - Unity package with package.json containing:
   - `name`: Package identifier
   - `version`: Semantic version
-  - `publishConfig.registry`: Set to `https://upm.the1studio.org/`
+  - ~~`publishConfig.registry`~~ **NOT REQUIRED** - The workflow specifies registry via `--registry` flag using environment variables
 
 ### Self-Hosted Runners (ARC)
 

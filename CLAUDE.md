@@ -55,6 +55,33 @@ on:
 - **Discovery:** Auto-detect packages (no config needed)
 - **Error Handling:** Continue on failure (multi-package support)
 - **Tags:** No automatic git tag creation
+- **Registry Configuration:** Uses `--registry` flag with environment variables (NOT publishConfig in package.json)
+
+### Registry Configuration Approach
+
+**IMPORTANT:** The workflow does NOT require `publishConfig` in `package.json`.
+
+**How it works:**
+```yaml
+# In .github/workflows/publish-upm.yml:
+env:
+  UPM_REGISTRY: ${{ vars.UPM_REGISTRY || 'https://upm.the1studio.org/' }}
+
+# Publishing command (line 377):
+npm publish --registry "$UPM_REGISTRY"
+```
+
+**Why this approach:**
+- ✅ Centralized registry configuration (change once, applies to all)
+- ✅ No need to modify each package.json
+- ✅ Supports organization-level registry variable
+- ✅ Falls back to default if variable not set
+- ✅ Cleaner package.json files
+
+**What this means for package.json:**
+- `publishConfig.registry` is **optional** (NOT required)
+- Workflow always provides registry via `--registry` flag
+- If present, publishConfig is ignored (workflow flag takes precedence)
 
 ## Common Tasks
 
@@ -174,11 +201,11 @@ See `docs/npm-token-setup.md` for complete instructions.
 
 ### Publish Failed
 - Verify NPM_TOKEN secret exists
-- Check package.json has `publishConfig.registry`
+- ~~Check package.json has `publishConfig.registry`~~ **NOT REQUIRED** - Workflow uses `--registry` flag with environment variables
 - Ensure version doesn't already exist
 
 ### Multi-Package Issues
-- Each must have `publishConfig.registry`
+- ~~Each must have `publishConfig.registry`~~ **NOT REQUIRED** - Registry configured via workflow environment variables
 - Check workflow logs for each package
 - Verify all packages have unique names
 
@@ -271,7 +298,7 @@ To test workflow changes:
 - Minimal permissions principle
 
 ### Package Validation
-- Only publishes if `publishConfig.registry` matches
+- ~~Only publishes if `publishConfig.registry` matches~~ **Registry specified via `--registry` flag in workflow**
 - Checks version doesn't exist first
 - Validates package.json structure
 
