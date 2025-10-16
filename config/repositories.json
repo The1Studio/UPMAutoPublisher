@@ -92,6 +92,10 @@
     {
       "url": "https://github.com/The1Studio/TheOne.WebGL.Poki",
       "status": "pending"
+    },
+    {
+      "url": "https://github.com/The1Studio/TheOne.WebGL.Core",
+      "status": "pending"
     }
   ]
 }
