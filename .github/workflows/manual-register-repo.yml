@@ -20,7 +20,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Use GH_PAT instead of GITHUB_TOKEN to allow triggering other workflows
+          # GITHUB_TOKEN commits don't trigger workflows (security feature to prevent loops)
+          token: ${{ secrets.GH_PAT }}
           fetch-depth: 1
 
       - name: Validate repository URL
