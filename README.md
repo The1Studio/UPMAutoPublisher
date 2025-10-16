@@ -218,9 +218,37 @@ For repositories with multiple Unity packages (e.g., `/Assets/Core/package.json`
 
 ### GitHub Secrets Required
 
-- `NPM_TOKEN`: Organization-level secret for npm authentication
-  - Used to publish to upm.the1studio.org
-  - Set once at organization level, available to all repos
+#### NPM_TOKEN
+- **Purpose**: Authentication for publishing packages to `upm.the1studio.org`
+- **Scope**: Organization-level secret
+- **Usage**: Used by publish-upm.yml workflow in target repositories
+- **Setup**: See [NPM Token Setup](docs/npm-token-setup.md)
+
+#### GH_PAT (Personal Access Token)
+- **Purpose**: Enable workflows to trigger other workflows and create PRs in target repos
+- **Why Required**: GitHub's `GITHUB_TOKEN` cannot trigger other workflows (security feature to prevent infinite loops)
+- **Scope**: Organization-level secret with `repo` and `workflow` permissions
+- **Usage**:
+  - Used by manual-register-repo.yml to trigger register-repos workflow
+  - Used by register-repos.yml to create PRs in target repositories
+- **Expiration**: Must be rotated periodically (recommended: 90 days)
+
+**To create GH_PAT:**
+1. Go to https://github.com/settings/tokens
+2. Click "Generate new token (classic)"
+3. Select scopes:
+   - ✅ `repo` (Full control of private repositories)
+   - ✅ `workflow` (Update GitHub Action workflows)
+4. Set expiration (recommended: 90 days)
+5. Generate token and copy it
+6. Go to https://github.com/organizations/The1Studio/settings/secrets/actions
+7. Create new secret named `GH_PAT` with the token value
+
+**Token Validation:**
+The workflows automatically validate GH_PAT before processing:
+- Checks if secret is set
+- Verifies authentication is valid
+- Provides clear error messages if expired or missing
 
 ## Historical Note: Tag Naming Convention
 

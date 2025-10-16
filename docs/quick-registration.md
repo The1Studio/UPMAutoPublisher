@@ -76,7 +76,9 @@ You'll see a PR titled: **"🤖 Add UPM Auto-Publishing Workflow"**
 **Review checklist** (automated PR includes this):
 - [ ] Workflow file looks correct
 - [ ] Package paths are accurate
-- [ ] `package.json` has `publishConfig.registry: https://upm.the1studio.org/`
+- [ ] `package.json` has valid `name` and `version` fields
+
+**Note**: `publishConfig.registry` in package.json is **optional** - the workflow handles registry configuration automatically.
 
 **Merge the PR**
 
@@ -297,9 +299,28 @@ Register multiple repos at once:
 
 ## Package Configuration Requirements
 
-Each target repository **must** have `package.json` configured:
+Each target repository **must** have `package.json` with required Unity package fields:
 
-### ✅ Correct Configuration
+### ✅ Minimal Required Configuration
+
+```json
+{
+  "name": "com.theone.yourpackage",
+  "version": "1.0.0",
+  "displayName": "Your Package",
+  "description": "Package description",
+  "unity": "2022.3"
+}
+```
+
+**Registry Configuration**: The workflow automatically publishes to the configured registry using the `--registry` flag. You do **NOT** need to add `publishConfig.registry` to your package.json.
+
+**How it works:**
+- Workflow uses `UPM_REGISTRY` organization variable (default: `https://upm.the1studio.org/`)
+- Publishing command: `npm publish --registry "$UPM_REGISTRY"`
+- This approach allows centralized registry management without modifying each package.json
+
+### ✅ Optional: Including publishConfig
 
 ```json
 {
@@ -314,29 +335,22 @@ Each target repository **must** have `package.json` configured:
 }
 ```
 
-### ❌ Missing publishConfig
+If you prefer to include `publishConfig.registry` in your package.json, that's fine too - but the workflow's `--registry` flag takes precedence.
+
+### ❌ Missing Required Fields
 
 ```json
 {
-  "name": "com.theone.yourpackage",
   "version": "1.0.0"
-  // ❌ Missing publishConfig - workflow will skip publishing
+  // ❌ Missing "name" field - workflow will skip publishing
 }
 ```
 
-**Fix before merging PR:**
-```bash
-cd Assets/YourPackage
-
-# Add publishConfig to package.json
-jq '. + {"publishConfig": {"registry": "https://upm.the1studio.org/"}}' \
-  package.json > package.json.tmp
-mv package.json.tmp package.json
-
-git add package.json
-git commit -m "Add publishConfig for UPM registry"
-git push
-```
+**Ensure required fields are present:**
+- `name`: Package identifier (e.g., `com.theone.yourpackage`)
+- `version`: Semantic version (e.g., `1.0.0`)
+- `displayName`: Human-readable name (recommended)
+- `unity`: Minimum Unity version (recommended)
 
 ---
 
@@ -461,9 +475,9 @@ Before registering a new repo, verify:
 - [ ] Package has valid `package.json` file
 - [ ] `package.json` has `name` starting with `com.theone.`
 - [ ] `package.json` has `version` field
-- [ ] `package.json` has `publishConfig.registry: https://upm.the1studio.org/`
 - [ ] You have write access to UPMAutoPublisher repo
 - [ ] Organization has `NPM_TOKEN` secret configured
+- [ ] Organization has `GH_PAT` secret configured (required for auto-trigger)
 
 ---
 

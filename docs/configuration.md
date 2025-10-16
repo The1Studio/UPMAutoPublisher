@@ -175,10 +175,12 @@ gh variable delete VARIABLE_NAME --org The1Studio
 
 ### Required Secrets
 
-| Secret | Purpose | How to Obtain |
-|--------|---------|---------------|
-| `NPM_TOKEN` | Authentication for NPM registry | See [npm-token-setup.md](./npm-token-setup.md) |
-| `GITHUB_TOKEN` | Repository registration (auto-provided) | Automatically available in workflows |
+| Secret | Purpose | Scope | How to Obtain |
+|--------|---------|-------|---------------|
+| `NPM_TOKEN` | Authentication for NPM registry | Organization | See [npm-token-setup.md](./npm-token-setup.md) |
+| `GH_PAT` | Workflow triggering and PR creation | Organization | See [GH_PAT Setup](#gh_pat-setup) below |
+
+**Note**: `GITHUB_TOKEN` is automatically provided by GitHub Actions but has limitations (cannot trigger other workflows). That's why we need `GH_PAT`.
 
 ### NPM_TOKEN Setup
 
@@ -186,6 +188,55 @@ The `NPM_TOKEN` must have:
 - **Scope**: Publish access to your NPM registry
 - **Type**: Automation token (not user token)
 - **Lifetime**: No expiration (or > 1 year)
+
+### GH_PAT Setup
+
+The `GH_PAT` (GitHub Personal Access Token) is **required** for:
+1. **Workflow Triggering**: Commits made by `github-actions[bot]` using `GITHUB_TOKEN` don't trigger other workflows (GitHub security feature to prevent infinite loops)
+2. **PR Creation**: Creating PRs in target repositories during automated registration
+
+**Requirements:**
+- **Type**: Classic Personal Access Token
+- **Scopes**:
+  - ✅ `repo` (Full control of private repositories)
+  - ✅ `workflow` (Update GitHub Action workflows)
+- **Expiration**: Set to 90 days (must be rotated periodically)
+- **Owner**: Should be created by organization admin or service account
+
+**How to Create:**
+
+1. Go to https://github.com/settings/tokens
+2. Click "Generate new token (classic)"
+3. Fill in token details:
+   - **Note**: `UPMAutoPublisher Workflow Token`
+   - **Expiration**: 90 days (recommended)
+   - **Scopes**: Select `repo` and `workflow`
+4. Click "Generate token"
+5. **Copy the token immediately** (you won't be able to see it again)
+6. Add to organization secrets:
+   ```bash
+   gh secret set GH_PAT \
+     --body "ghp_your_token_here" \
+     --org The1Studio
+   ```
+   Or via GitHub web UI at https://github.com/organizations/The1Studio/settings/secrets/actions
+
+**Token Validation:**
+
+The workflows automatically validate `GH_PAT` before processing:
+```yaml
+- name: Validate GH_PAT
+  run: |
+    if ! gh auth status 2>/dev/null; then
+      echo "❌ GH_PAT is invalid or expired"
+      exit 1
+    fi
+```
+
+This validation:
+- ✅ Checks if secret is set
+- ✅ Verifies authentication is valid
+- ✅ Provides clear error messages with rotation instructions if expired
 
 **Set via GitHub CLI:**
 ```bash
@@ -203,6 +254,8 @@ gh secret set NPM_TOKEN \
 
 ### Token Rotation
 
+#### NPM_TOKEN Rotation
+
 **Recommended**: Rotate `NPM_TOKEN` annually
 
 ```bash
@@ -215,6 +268,33 @@ gh secret set NPM_TOKEN \
 # 3. Verify with a test publish
 # 4. Revoke old token from registry
 ```
+
+#### GH_PAT Rotation
+
+**Required**: Rotate `GH_PAT` every 90 days (or at expiration)
+
+```bash
+# 1. Create new PAT at https://github.com/settings/tokens
+#    - Scopes: repo, workflow
+#    - Expiration: 90 days
+
+# 2. Update GitHub secret
+gh secret set GH_PAT \
+  --body "ghp_new_token_here" \
+  --org The1Studio
+
+# 3. Verify with test workflow run
+gh workflow run manual-register-repo.yml \
+  --repo The1Studio/UPMAutoPublisher \
+  --field repo_url=https://github.com/The1Studio/TestRepo
+
+# 4. Delete old PAT at https://github.com/settings/tokens
+```
+
+**Set Reminder:**
+- Add a calendar reminder for 80 days from creation
+- GitHub will email warnings before expiration
+- Workflows will fail with clear error message if GH_PAT expires
 
 ---
 

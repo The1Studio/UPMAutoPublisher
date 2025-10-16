@@ -6,14 +6,14 @@ Complete guide for adding UPM auto-publishing to your repository.
 
 - Repository must be in The1Studio GitHub organization
 - Must have a Unity package with `package.json`
-- Package must have `publishConfig.registry` set to `https://upm.the1studio.org/`
 - Organization NPM token must be configured (see [NPM Token Setup](npm-token-setup.md))
+- **Note**: `publishConfig.registry` in package.json is **optional** - the workflow handles registry configuration automatically
 
 ## Step-by-Step Setup
 
 ### 1. Verify Package Configuration
 
-Ensure your `package.json` has the correct registry configuration:
+Ensure your `package.json` has the required Unity package fields:
 
 ```json
 {
@@ -21,12 +21,18 @@ Ensure your `package.json` has the correct registry configuration:
   "version": "1.0.0",
   "displayName": "Your Package Name",
   "description": "Package description",
-  "unity": "2022.3",
-  "publishConfig": {
-    "registry": "https://upm.the1studio.org/"
-  }
+  "unity": "2022.3"
 }
 ```
+
+**Registry Configuration**: The workflow automatically publishes to the configured registry using the `--registry` flag. You do **NOT** need to add `publishConfig.registry` to your package.json.
+
+**How it works:**
+- Workflow uses `UPM_REGISTRY` organization variable (default: `https://upm.the1studio.org/`)
+- Publishing command: `npm publish --registry "$UPM_REGISTRY"`
+- This approach allows centralized registry management without modifying each package.json
+
+**Optional**: If you prefer to include `publishConfig.registry` in your package.json, that's fine too - but the workflow's `--registry` flag takes precedence.
 
 **Location**: The package.json can be anywhere in your repo (e.g., `Assets/YourPackage/package.json`)
 
@@ -130,14 +136,13 @@ For **multi-package repositories**, add multiple package entries:
 - ✅ Commit to `master` or `main` branch
 - ✅ Changes to any `package.json` file
 - ✅ Version in package.json doesn't exist on registry
-- ✅ Package has `publishConfig.registry` set correctly
+- ✅ Package has valid `name` and `version` fields
 
 ### What Skips Publishing
 
 - ⏭️ Version already exists on registry
-- ⏭️ No `publishConfig.registry` in package.json
 - ⏭️ Missing `name` or `version` in package.json
-- ⏭️ Registry is not `https://upm.the1studio.org/`
+- ⏭️ Package.json is not a valid Unity package (missing required fields)
 
 ### Error Handling
 
@@ -150,9 +155,9 @@ For **multi-package repositories**, add multiple package entries:
 For repositories with multiple UPM packages:
 
 1. Each package must have its own `package.json`
-2. Each must have `publishConfig.registry` configured
-3. Update all package versions independently
-4. Workflow automatically handles all changed packages
+2. Update all package versions independently
+3. Workflow automatically handles all changed packages
+4. Registry configuration is centralized in the workflow (no per-package setup needed)
 
 **Example structure:**
 ```
@@ -199,8 +204,8 @@ git push
 **Solutions**:
 1. Check workflow logs in Actions tab
 2. Verify NPM_TOKEN secret is set correctly
-3. Ensure package.json has correct `publishConfig.registry`
-4. Check if version already exists: `npm view package@version --registry https://upm.the1studio.org/`
+3. Check if version already exists: `npm view package@version --registry https://upm.the1studio.org/`
+4. Verify package.json has required fields (name, version)
 
 ### Multiple Packages Not Publishing
 
@@ -208,7 +213,7 @@ git push
 
 **Solutions**:
 - Check workflow logs for each package
-- Verify each package.json has `publishConfig.registry`
+- Verify each package.json has required fields (name, version)
 - Check if some versions already exist on registry
 
 ### Authentication Errors

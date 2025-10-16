@@ -86,6 +86,35 @@ The workflow automatically validates:
 
 **That's it!** Package validation happens automatically when the workflow runs.
 
+### ⚠️ Prerequisites
+
+**Before using form registration, ensure:**
+
+1. **GH_PAT is configured** (organization secret)
+   - Required for automatic workflow triggering
+   - Without it, the workflow will fail
+   - See [Configuration Guide - GH_PAT Setup](configuration.md#gh_pat-setup) for setup instructions
+
+2. **NPM_TOKEN is configured** (organization secret)
+   - Required for publishing packages
+   - See [NPM Token Setup](npm-token-setup.md)
+
+**Why GH_PAT is required:**
+- GitHub's `GITHUB_TOKEN` cannot trigger other workflows (security feature)
+- Form commits to master using `github-actions[bot]`
+- We need `GH_PAT` to trigger `register-repos` workflow automatically
+- Without it: Registration adds to JSON but workflow won't deploy
+
+**How to check if secrets are set:**
+```bash
+# Check organization secrets (names only, not values)
+gh secret list --org The1Studio
+
+# Should see:
+# GH_PAT
+# NPM_TOKEN
+```
+
 ---
 
 ## 🎯 What Happens After Submission
@@ -276,8 +305,8 @@ The `register-repos` workflow automatically:
 
 ### Before Registering
 - Ensure your repository has at least one `package.json` file
-- Verify each `package.json` has `publishConfig.registry: https://upm.the1studio.org/`
 - Make sure packages follow naming convention (`com.theone.*`)
+- **Note**: `publishConfig.registry` in package.json is **optional** - the workflow handles registry configuration automatically
 
 ### After Registering
 - Review the auto-created PR carefully

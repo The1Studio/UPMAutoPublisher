@@ -83,6 +83,64 @@ npm publish --registry "$UPM_REGISTRY"
 - Workflow always provides registry via `--registry` flag
 - If present, publishConfig is ignored (workflow flag takes precedence)
 
+### Auto-Merge Feature
+
+**NEW:** PRs created in target repositories now have auto-merge enabled automatically.
+
+**How it works:**
+```yaml
+# In register-repos.yml after PR creation:
+gh pr merge "$pr_url" --auto --squash
+```
+
+**Behavior:**
+- ✅ PR auto-merges when all checks pass
+- ✅ Uses squash strategy for clean history
+- ⚠️ May fail if branch protection requires reviews
+- 📝 Graceful failure - PR remains open for manual merge if auto-merge fails
+
+**Benefits:**
+- Reduces manual overhead
+- Faster deployment cycle
+- PRs merge automatically when CI passes
+
+**When manual merge is needed:**
+- Repository has branch protection requiring reviews
+- Repository requires status checks that haven't passed yet
+- Auto-merge permission not available
+
+### GH_PAT Requirement
+
+**CRITICAL:** The system requires `GH_PAT` (Personal Access Token) organization secret.
+
+**Why needed:**
+- `GITHUB_TOKEN` cannot trigger other workflows (GitHub security feature to prevent infinite loops)
+- `manual-register-repo.yml` commits to master and needs to trigger `register-repos` workflow
+- `register-repos.yml` needs to create PRs in target repositories
+
+**Setup:**
+1. Create PAT at https://github.com/settings/tokens
+2. Select scopes: `repo`, `workflow`
+3. Set expiration: 90 days (recommended)
+4. Add to organization secrets as `GH_PAT`
+
+**Token Validation:**
+Workflows automatically validate GH_PAT before processing:
+```yaml
+- name: Validate GH_PAT
+  run: |
+    if ! gh auth status 2>/dev/null; then
+      echo "❌ GH_PAT is invalid or expired"
+      exit 1
+    fi
+```
+
+**Rotation:**
+- Must rotate every 90 days (or at expiration)
+- GitHub will email warnings before expiration
+- Workflows fail with clear error if GH_PAT expires
+- See `docs/configuration.md#gh_pat-setup` for rotation procedure
+
 ## Common Tasks
 
 ### Adding a New Repository to the Registry

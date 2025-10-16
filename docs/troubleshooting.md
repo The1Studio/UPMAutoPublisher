@@ -62,15 +62,15 @@ Common issues and solutions for UPM auto-publishing system.
    # If it returns data, version exists
    ```
 
-2. **Missing publishConfig:**
+2. **Missing required fields:**
    ```json
    // package.json must have:
    {
-     "publishConfig": {
-       "registry": "https://upm.the1studio.org/"
-     }
+     "name": "com.theone.yourpackage",
+     "version": "1.0.0"
    }
    ```
+   **Note**: `publishConfig.registry` is **optional** - the workflow handles registry configuration automatically.
 
 3. **Check workflow logs:**
    - Go to Actions → Click the workflow run
@@ -217,12 +217,12 @@ npm ERR! Missing required field: name
    - Look for each package in logs
    - Check for skip/error messages
 
-2. **Verify all have publishConfig:**
+2. **Verify all have required fields:**
    ```bash
-   # Check all package.json files
-   find . -name "package.json" -exec sh -c '
+   # Check all package.json files for required fields
+   find . -name "package.json" -not -path "*/node_modules/*" -exec sh -c '
      echo "Checking: $1"
-     jq ".publishConfig.registry" "$1"
+     jq -r ".name // \"❌ missing name\", .version // \"❌ missing version\"" "$1"
    ' _ {} \;
    ```
 
@@ -430,7 +430,7 @@ Before pushing version bump:
 - [ ] Version number follows semver
 - [ ] Version doesn't already exist on registry
 - [ ] package.json has valid JSON
-- [ ] publishConfig.registry is correct
+- [ ] package.json has required fields (name, version)
 - [ ] Tested package locally
 - [ ] Changelog updated (if applicable)
 

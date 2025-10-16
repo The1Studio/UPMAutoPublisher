@@ -81,6 +81,49 @@ jobs:
 
           echo "✅ repositories.json validation passed"
 
+      # FIX MAJOR-1: Validate GH_PAT before processing repositories
+      - name: Validate GH_PAT
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "🔐 Validating GH_PAT authentication..."
+
+          # Check if GH_PAT is set
+          if [ -z "$GH_TOKEN" ]; then
+            echo "❌ GH_PAT secret is not set"
+            echo ""
+            echo "Please configure GH_PAT in organization secrets:"
+            echo "https://github.com/organizations/The1Studio/settings/secrets/actions"
+            echo ""
+            echo "GH_PAT is required because:"
+            echo "  - GITHUB_TOKEN cannot trigger other workflows (security feature)"
+            echo "  - We need to commit to master and trigger register-repos workflow"
+            echo "  - We need to create PRs in target repositories"
+            exit 1
+          fi
+
+          # Validate authentication
+          if ! gh auth status 2>/dev/null; then
+            echo "❌ GH_PAT is invalid or expired"
+            echo ""
+            echo "Please check or rotate GH_PAT in organization secrets:"
+            echo "https://github.com/organizations/The1Studio/settings/secrets/actions"
+            echo ""
+            echo "To create a new token:"
+            echo "  1. Go to: https://github.com/settings/tokens"
+            echo "  2. Generate new token (classic) with scopes: repo, workflow"
+            echo "  3. Set expiration (recommended: 90 days)"
+            echo "  4. Update GH_PAT secret in organization settings"
+            exit 1
+          fi
+
+          echo "✅ GH_PAT is valid and authenticated"
+
+          # Show token info (without exposing the token)
+          echo ""
+          echo "Token information:"
+          gh auth status 2>&1 | grep -E "(Logged in|Token:|Account:)" || true
+
       - name: Process pending repositories
         timeout-minutes: 25  # FIX: Add step-level timeout
         env:
