@@ -431,12 +431,51 @@ jobs:
               echo "✅ Pull request created: ${pr_url}"
               echo "📧 PR URL: ${pr_url}"
 
-              # Enable auto-merge with squash strategy
-              echo "🤖 Enabling auto-merge..."
-              if gh pr merge "$pr_url" --auto --squash 2>&1; then
-                echo "✅ Auto-merge enabled - PR will merge automatically when checks pass"
+              # Check branch protection before attempting auto-merge
+              echo "🔍 Checking branch protection settings..."
+              branch_protection_json=$(gh api "repos/${org}/${repo}/branches/${default_branch}/protection" 2>/dev/null || echo "{}")
+
+              # Check if branch protection requires reviews
+              required_reviews=$(echo "$branch_protection_json" | jq -r '.required_pull_request_reviews.required_approving_review_count // 0' 2>/dev/null || echo "0")
+
+              if [ "$required_reviews" -gt 0 ]; then
+                echo "📋 Branch protection requires $required_reviews review(s)"
+                echo "⏭️  Auto-merge will not work - manual merge required"
+                echo ""
+                echo "💡 To enable auto-merge, either:"
+                echo "   1. Disable required reviews for this branch, OR"
+                echo "   2. Approve the PR manually and merge"
               else
-                echo "⚠️  Could not enable auto-merge (may require branch protection or checks)"
+                # Enable auto-merge with squash strategy
+                echo "🤖 Enabling auto-merge..."
+                auto_merge_output=$(gh pr merge "$pr_url" --auto --squash 2>&1)
+                auto_merge_status=$?
+
+                if [ $auto_merge_status -eq 0 ]; then
+                  echo "✅ Auto-merge enabled - PR will merge automatically when checks pass"
+                else
+                  echo "⚠️  Could not enable auto-merge"
+                  echo ""
+
+                  # Provide specific error context
+                  if echo "$auto_merge_output" | grep -qi "not configured"; then
+                    echo "❌ Branch protection rules prevent auto-merge"
+                    echo "   This may be due to:"
+                    echo "   - Required status checks that must pass first"
+                    echo "   - Required reviews (even if count is 0)"
+                    echo "   - Branch protection settings"
+                    echo ""
+                    echo "💡 PR will remain open for manual merge"
+                  elif echo "$auto_merge_output" | grep -qi "auto-merge"; then
+                    echo "❌ Auto-merge feature may not be enabled for this repository"
+                    echo ""
+                    echo "💡 PR will remain open for manual merge"
+                  else
+                    echo "❌ Unknown error: $auto_merge_output"
+                    echo ""
+                    echo "💡 PR will remain open for manual merge"
+                  fi
+                fi
               fi
 
               # Add comment (using printf for safety)

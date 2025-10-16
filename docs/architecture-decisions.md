@@ -258,6 +258,119 @@ This document explains the design choices made for the UPM auto-publishing syste
 
 ---
 
+### ADR-009: GH_PAT for Workflow Triggering
+
+**Decision:** Use GH_PAT (Personal Access Token) instead of GITHUB_TOKEN for operations that need to trigger other workflows.
+
+**Context:**
+- Manual registration form commits to master and needs to trigger register-repos workflow
+- Register-repos workflow creates PRs in target repositories
+- GITHUB_TOKEN has security limitation: commits made by github-actions[bot] using GITHUB_TOKEN don't trigger other workflows (prevents infinite loops)
+
+**Options Considered:**
+1. Use GITHUB_TOKEN (built-in, automatic)
+2. Use GH_PAT (Personal Access Token)
+3. Use GitHub App with installation token
+4. Deploy keys per repository
+
+**Decision:** GH_PAT (Personal Access Token)
+
+**Rationale:**
+- **Workflow Triggering:** Only GH_PAT and GitHub Apps can trigger workflows from automated commits
+- **Simplicity:** PAT is simpler to set up than GitHub App
+- **Organization-Wide:** Single token works for all repos in organization
+- **Scoped Permissions:** Can limit to `repo` and `workflow` scopes only
+- **Manageable:** Standard GitHub token management and rotation process
+
+**Consequences:**
+- ✅ Enables fully automated registration flow (form → commit → trigger → PR)
+- ✅ Single token for all workflow automation needs
+- ✅ Standard GitHub token rotation procedures apply
+- ⚠️ Must rotate token periodically (recommended: 90 days)
+- ⚠️ Token has broader permissions than GITHUB_TOKEN
+- ⚠️ If compromised, attacker can create workflows and PRs across org
+- ⚠️ Requires organization admin to create and manage
+
+**Security Mitigations:**
+- Set 90-day expiration on token
+- Workflows validate GH_PAT before use (fail fast if expired)
+- Clear error messages guide users to rotation procedures
+- Document rotation process in configuration guide
+- GitHub emails warnings before expiration
+
+**Validation Implementation:**
+```yaml
+- name: Validate GH_PAT
+  run: |
+    if ! gh auth status 2>/dev/null; then
+      echo "❌ GH_PAT is invalid or expired"
+      echo "See: docs/configuration.md#gh_pat-setup"
+      exit 1
+    fi
+```
+
+---
+
+### ADR-010: Automatic PR Merge with Graceful Degradation
+
+**Decision:** Enable auto-merge on created PRs with graceful failure handling.
+
+**Context:**
+- Register-repos workflow creates PRs in target repositories
+- Users must manually merge PRs to complete setup
+- Want to reduce manual overhead where possible
+- Some repositories have branch protection requiring reviews
+
+**Options Considered:**
+1. Always require manual merge
+2. Auto-merge with --auto flag (graceful failure)
+3. Auto-merge with branch protection bypass
+4. Conditional auto-merge based on repo settings
+
+**Decision:** Auto-merge with graceful degradation
+
+**Rationale:**
+- **Reduced Friction:** PRs merge automatically when checks pass in repos without protection
+- **Faster Deployment:** No waiting for manual merge in simple cases
+- **Graceful Failure:** If auto-merge fails (branch protection), PR stays open for manual merge
+- **No Breaking Changes:** Works with any repository configuration
+- **User Choice:** Repositories can enable/disable via branch protection
+- **Clean History:** Uses squash strategy for atomic commits
+
+**Implementation:**
+```yaml
+gh pr merge "$pr_url" --auto --squash 2>&1 || true
+```
+
+**Consequences:**
+- ✅ Faster setup for repos without branch protection
+- ✅ PRs merge automatically when CI passes
+- ✅ Backwards compatible (works with all repos)
+- ✅ Graceful failure doesn't break workflow
+- ⚠️ Silent failure if auto-merge not available
+- ⚠️ May merge without human review in some repos
+- ⚠️ Requires repository auto-merge feature enabled
+
+**When Auto-Merge Works:**
+- ✅ Repository has auto-merge feature enabled
+- ✅ No required reviewers configured
+- ✅ All required status checks pass
+- ✅ Branch protection allows auto-merge
+
+**When Manual Merge Required:**
+- ⏭️ Branch protection requires reviews
+- ⏭️ Required status checks haven't passed
+- ⏭️ Auto-merge feature disabled
+- ⏭️ Repository settings don't allow auto-merge
+
+**Error Handling:**
+- Workflow logs warning if auto-merge fails
+- PR remains open for manual merge
+- User sees clear message in PR comments
+- No workflow failure (graceful degradation)
+
+---
+
 ## Design Principles
 
 ### 1. Developer Experience First
@@ -358,5 +471,6 @@ These were explicitly decided against:
 
 ## Changelog
 
+- **2025-10-16:** Added ADR-009 (GH_PAT for workflow triggering) and ADR-010 (auto-merge with graceful degradation)
 - **2025-01-16:** Initial architecture decisions documented
 - **ADR-007:** Added no automatic tag creation decision based on user feedback
