@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           # Use GH_PAT instead of GITHUB_TOKEN to allow triggering other workflows
           # GITHUB_TOKEN commits don't trigger workflows (security feature to prevent loops)
