@@ -68,7 +68,10 @@ echo ""
 
 # Process each repository
 while IFS= read -r repo_json; do
-  ((total_repos++))
+  # Skip empty lines
+  [ -z "$repo_json" ] && continue
+
+  total_repos=$((total_repos + 1))
 
   url=$(echo "$repo_json" | jq -r '.url')
   status=$(echo "$repo_json" | jq -r '.status')
@@ -76,7 +79,7 @@ while IFS= read -r repo_json; do
   # Skip disabled repos
   if [ "$status" = "disabled" ]; then
     echo "⏭️  Skipping disabled: $url"
-    ((skipped_repos++))
+    skipped_repos=$((skipped_repos + 1))
     continue
   fi
 
@@ -86,7 +89,7 @@ while IFS= read -r repo_json; do
     repo="${BASH_REMATCH[2]}"
   else
     echo "${CROSS} Invalid URL: $url"
-    ((skipped_repos++))
+    skipped_repos=$((skipped_repos + 1))
     continue
   fi
 
@@ -95,7 +98,7 @@ while IFS= read -r repo_json; do
   # Check if repository is accessible
   if ! gh repo view "$org/$repo" &>/dev/null; then
     echo "  ${CROSS} Repository not accessible"
-    ((skipped_repos++))
+    skipped_repos=$((skipped_repos + 1))
     echo ""
     continue
   fi
@@ -168,7 +171,7 @@ while IFS= read -r repo_json; do
 
     mv "$CACHE_FILE.tmp2" "$CACHE_FILE.tmp"
 
-    ((total_packages++))
+    total_packages=$((total_packages + 1))
 
   done <<< "$package_files"
 
