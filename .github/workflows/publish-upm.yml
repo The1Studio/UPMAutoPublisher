@@ -8,6 +8,14 @@ on:
     paths:
       - '**/package.json'
 
+  # Allow manual trigger for publishing stale packages
+  workflow_dispatch:
+    inputs:
+      package_path:
+        description: 'Path to package.json (optional, e.g., Assets/MyPackage/package.json). Leave empty to publish all packages.'
+        required: false
+        type: string
+
 # FIX ME-6: Explicit permissions for security and clarity
 permissions:
   contents: read      # Read repository contents

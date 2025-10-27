@@ -1,0 +1,109 @@
+name: Build Package Cache
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - 'config/repositories.json'  # When repos added/removed
+
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours (matches sync-repo-status)
+
+  workflow_dispatch:  # Manual trigger
+
+permissions:
+  contents: write  # Need to commit cache file
+
+jobs:
+  build-cache:
+    runs-on: [self-hosted, arc, the1studio, org]
+    timeout-minutes: 20
+    name: Scan repositories and build package cache
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          # Fix APT sources to use HTTPS instead of HTTP (port 80 blocked)
+          sudo sed -i 's|http://archive.ubuntu.com|https://archive.ubuntu.com|g' /etc/apt/sources.list
+          sudo sed -i 's|http://security.ubuntu.com|https://security.ubuntu.com|g' /etc/apt/sources.list
+
+          # Disable PPA repositories (have invalid HTTPS certificates)
+          sudo mv /etc/apt/sources.list.d /etc/apt/sources.list.d.bak 2>/dev/null || true
+          sudo mkdir -p /etc/apt/sources.list.d
+
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+          # Install GitHub CLI from official source
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y gh
+
+      - name: Build package cache
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          ./scripts/build-package-cache.sh
+
+      - name: Commit updated cache
+        run: |
+          if git diff --quiet config/package-cache.json; then
+            echo "ℹ️  No changes to cache"
+            exit 0
+          fi
+
+          git config user.name "UPM Auto Publisher Bot"
+          git config user.email "noreply@the1studio.org"
+          git add config/package-cache.json
+          git commit -m "chore: Update package cache [skip ci]" \
+                     -m "" \
+                     -m "Updated package cache with current versions from GitHub and registry." \
+                     -m "" \
+                     -m "🤖 Generated with [Claude Code](https://claude.com/claude-code)" \
+                     -m "" \
+                     -m "Co-Authored-By: Claude <noreply@anthropic.com>"
+
+          git push origin master || git push origin main
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "# 📦 Package Cache Build Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ ! -f config/package-cache.json ]; then
+            echo "❌ Cache file not created" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          total=$(jq '.packages | length' config/package-cache.json)
+          updated=$(jq -r '.updated' config/package-cache.json)
+          uptodate=$(jq '[.packages | to_entries[] | select(.value.v == .value.pv)] | length' config/package-cache.json)
+          stale=$(jq '[.packages | to_entries[] | select(.value.v != .value.pv and .value.pv != null)] | length' config/package-cache.json)
+          new=$(jq '[.packages | to_entries[] | select(.value.pv == null)] | length' config/package-cache.json)
+
+          echo "## Statistics" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Total packages**: $total" >> $GITHUB_STEP_SUMMARY
+          echo "- **Last updated**: $updated" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Version Status" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Up-to-date: $uptodate" >> $GITHUB_STEP_SUMMARY
+          echo "- ⚠️ Stale (needs publish): $stale" >> $GITHUB_STEP_SUMMARY
+          echo "- 🆕 Not published: $new" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Show stale packages if any
+          if [ "$stale" -gt 0 ]; then
+            echo "## ⚠️ Packages Needing Publish" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            jq -r '.packages | to_entries[] | select(.value.v != .value.pv and .value.pv != null) | "- **\(.key)**: \(.value.v) (published: \(.value.pv))"' config/package-cache.json >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "💡 Run the \`trigger-stale-publishes\` workflow to publish these packages." >> $GITHUB_STEP_SUMMARY
+          fi

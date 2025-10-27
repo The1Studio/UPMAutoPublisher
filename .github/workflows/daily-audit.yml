@@ -1,0 +1,95 @@
+name: Daily Repository Audit
+
+on:
+  schedule:
+    - cron: '0 9 * * *'  # Daily at 9 AM UTC
+
+  workflow_dispatch:  # Manual trigger
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: [self-hosted, arc, the1studio, org]
+    timeout-minutes: 15
+    name: Comprehensive repository health check
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          # Fix APT sources to use HTTPS instead of HTTP (port 80 blocked)
+          sudo sed -i 's|http://archive.ubuntu.com|https://archive.ubuntu.com|g' /etc/apt/sources.list
+          sudo sed -i 's|http://security.ubuntu.com|https://security.ubuntu.com|g' /etc/apt/sources.list
+
+          # Disable PPA repositories
+          sudo mv /etc/apt/sources.list.d /etc/apt/sources.list.d.bak 2>/dev/null || true
+          sudo mkdir -p /etc/apt/sources.list.d
+
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+          # Install GitHub CLI
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y gh
+
+      - name: Run comprehensive audit
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          ./scripts/audit-repos.sh
+
+      - name: Create audit report
+        if: always()
+        run: |
+          echo "# 🔍 Daily Audit Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Date**: $(date -u +%Y-%m-%d\ %H:%M:%S)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Repository status
+          total=$(jq '.repositories | length' config/repositories.json)
+          active=$(jq '[.repositories[] | select(.status == "active")] | length' config/repositories.json)
+          pending=$(jq '[.repositories[] | select(.status == "pending")] | length' config/repositories.json)
+          disabled=$(jq '[.repositories[] | select(.status == "disabled")] | length' config/repositories.json)
+
+          echo "## 📊 Repository Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Total**: $total" >> $GITHUB_STEP_SUMMARY
+          echo "- **Active**: $active" >> $GITHUB_STEP_SUMMARY
+          echo "- **Pending**: $pending" >> $GITHUB_STEP_SUMMARY
+          echo "- **Disabled**: $disabled" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Package status (if cache exists)
+          if [ -f config/package-cache.json ]; then
+            echo "## 📦 Package Status" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            total_pkgs=$(jq '.packages | length' config/package-cache.json)
+            uptodate=$(jq '[.packages | to_entries[] | select(.value.v == .value.pv)] | length' config/package-cache.json)
+            stale=$(jq '[.packages | to_entries[] | select(.value.v != .value.pv and .value.pv != null)] | length' config/package-cache.json)
+            new=$(jq '[.packages | to_entries[] | select(.value.pv == null)] | length' config/package-cache.json)
+
+            echo "- **Total packages**: $total_pkgs" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ **Up-to-date**: $uptodate" >> $GITHUB_STEP_SUMMARY
+            echo "- ⚠️ **Needs publish**: $stale" >> $GITHUB_STEP_SUMMARY
+            echo "- 🆕 **Not published**: $new" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            cache_age=$(( ($(date +%s) - $(date -d "$(jq -r '.updated' config/package-cache.json)" +%s 2>/dev/null || echo 0)) / 3600 ))
+            echo "📅 Cache age: $cache_age hours" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Package cache not found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Check for failures
+        run: |
+          # Audit script exits with 1 if mismatches found
+          # This step will show failure status in workflow
+          exit 0  # But don't fail the workflow

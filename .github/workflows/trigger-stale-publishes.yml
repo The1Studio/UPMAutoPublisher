@@ -1,0 +1,224 @@
+name: Trigger Publishing for Stale Packages
+
+on:
+  schedule:
+    - cron: '0 12 * * *'  # Daily at noon UTC (after cache built)
+
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (report only, do not trigger workflows)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  trigger-publishes:
+    runs-on: [self-hosted, arc, the1studio, org]
+    timeout-minutes: 30
+    name: Trigger publishing workflows for stale packages
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq jq
+
+      - name: Find stale packages
+        id: find_stale
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "🔍 Finding packages with version mismatches..."
+          echo ""
+
+          # Check if cache exists
+          if [ ! -f config/package-cache.json ]; then
+            echo "❌ Cache not found. Run build-package-cache workflow first."
+            exit 1
+          fi
+
+          # Check cache age
+          cache_updated=$(jq -r '.updated' config/package-cache.json)
+          cache_age=$(( ($(date +%s) - $(date -d "$cache_updated" +%s 2>/dev/null || echo 0)) / 3600 ))
+
+          echo "Cache age: $cache_age hours"
+
+          if [ "$cache_age" -gt 12 ]; then
+            echo "⚠️  Cache is stale (>12 hours old)"
+            echo "   Consider running build-package-cache workflow first"
+          fi
+
+          # Find packages where current version != published version
+          stale_count=0
+          rm -f /tmp/stale_packages.txt
+
+          while IFS= read -r entry; do
+            pkg_name=$(echo "$entry" | jq -r '.key')
+            pkg_data=$(echo "$entry" | jq -r '.value')
+
+            repo=$(echo "$pkg_data" | jq -r '.repo')
+            path=$(echo "$pkg_data" | jq -r '.path')
+            current=$(echo "$pkg_data" | jq -r '.v')
+            published=$(echo "$pkg_data" | jq -r '.pv // "not-published"')
+
+            # Only process if versions differ and package was published before
+            if [ "$current" != "$published" ] && [ "$published" != "not-published" ]; then
+              echo "📦 $pkg_name"
+              echo "   Repository: $repo"
+              echo "   Path: $path"
+              echo "   Current: $current"
+              echo "   Published: $published"
+              echo "   Status: ⚠️ Needs publishing"
+              echo ""
+
+              # Save to file for next step
+              echo "$pkg_name|$repo|$path|$current|$published" >> /tmp/stale_packages.txt
+
+              ((stale_count++))
+            fi
+          done < <(jq -c '.packages | to_entries[]' config/package-cache.json)
+
+          if [ "$stale_count" -eq 0 ]; then
+            echo "✅ All packages are up to date!"
+            echo "stale_count=0" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Found $stale_count package(s) needing publishing"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          echo "stale_count=$stale_count" >> $GITHUB_OUTPUT
+
+      - name: Trigger publishing workflows
+        if: steps.find_stale.outputs.stale_count > 0 && inputs.dry_run != true
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "🚀 Triggering publishing workflows..."
+          echo ""
+
+          triggered=0
+          failed=0
+          no_dispatch=0
+
+          while IFS='|' read -r pkg_name repo path current published; do
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "📦 $pkg_name"
+            echo "   Repository: $repo"
+            echo "   Current: $current → Published: $published"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+            # Check if workflow exists
+            if ! gh api "repos/$repo/actions/workflows/publish-upm.yml" >/dev/null 2>&1; then
+              echo "   ❌ Workflow not found in $repo"
+              echo "   Skipping..."
+              ((failed++))
+              echo ""
+              continue
+            fi
+
+            # Check if workflow has workflow_dispatch trigger
+            workflow_content=$(gh api "repos/$repo/contents/.github/workflows/publish-upm.yml" \
+              --jq '.content' 2>/dev/null | base64 -d 2>/dev/null || echo "")
+
+            if ! echo "$workflow_content" | grep -q "workflow_dispatch:"; then
+              echo "   ⚠️  Workflow doesn't have workflow_dispatch trigger"
+              echo "   This workflow needs to be updated with workflow_dispatch"
+              echo ""
+              echo "   To fix: The register-repos workflow will update it on next run"
+              echo ""
+              ((no_dispatch++))
+              continue
+            fi
+
+            # Trigger the workflow
+            echo "   🚀 Triggering workflow..."
+
+            if gh workflow run publish-upm.yml \
+              --repo "$repo" \
+              --ref master 2>&1 || gh workflow run publish-upm.yml \
+              --repo "$repo" \
+              --ref main 2>&1; then
+              echo "   ✅ Workflow triggered successfully!"
+              echo "   📊 Check status: https://github.com/$repo/actions/workflows/publish-upm.yml"
+              ((triggered++))
+            else
+              echo "   ❌ Failed to trigger workflow"
+              ((failed++))
+            fi
+
+            echo ""
+            sleep 2  # Rate limit protection
+
+          done < /tmp/stale_packages.txt
+
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📊 Summary"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Triggered: $triggered"
+          echo "⚠️  Missing workflow_dispatch: $no_dispatch"
+          echo "❌ Failed: $failed"
+          echo ""
+
+          if [ "$no_dispatch" -gt 0 ]; then
+            echo "💡 To fix missing workflow_dispatch:"
+            echo "   Workflows will be updated automatically on next register-repos run"
+            echo "   Or manually add 'workflow_dispatch:' to the workflow file"
+          fi
+
+          # Save stats for summary
+          echo "triggered=$triggered" >> $GITHUB_ENV
+          echo "no_dispatch=$no_dispatch" >> $GITHUB_ENV
+          echo "failed=$failed" >> $GITHUB_ENV
+
+      - name: Summary
+        if: always()
+        run: |
+          stale_count="${{ steps.find_stale.outputs.stale_count }}"
+
+          echo "# 🚀 Publish Trigger Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Date**: $(date -u +%Y-%m-%d\ %H:%M:%S)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$stale_count" = "0" ] || [ -z "$stale_count" ]; then
+            echo "✅ **All packages are up to date!**" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          echo "## Stale Packages Found: $stale_count" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f /tmp/stale_packages.txt ]; then
+            echo "| Package | Repository | Current | Published |" >> $GITHUB_STEP_SUMMARY
+            echo "|---------|-----------|---------|-----------|" >> $GITHUB_STEP_SUMMARY
+
+            while IFS='|' read -r pkg_name repo path current published; do
+              echo "| \`$pkg_name\` | $repo | \`$current\` | \`$published\` |" >> $GITHUB_STEP_SUMMARY
+            done < /tmp/stale_packages.txt
+
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "---" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **Dry run mode** - No workflows were triggered" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "To actually trigger workflows, run with \`dry_run: false\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "---" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## Results" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ **Triggered**: ${{ env.triggered }}" >> $GITHUB_STEP_SUMMARY
+            echo "- ⚠️ **Missing workflow_dispatch**: ${{ env.no_dispatch }}" >> $GITHUB_STEP_SUMMARY
+            echo "- ❌ **Failed**: ${{ env.failed }}" >> $GITHUB_STEP_SUMMARY
+          fi
