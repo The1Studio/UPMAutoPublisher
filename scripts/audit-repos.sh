@@ -210,7 +210,13 @@ while IFS= read -r repo_json; do
     # Check package.json configuration
     echo ""
     echo "  ${BLUE}Package Configuration:${NC}"
-    echo "$repo_json" | jq -r '.packages[] | "    - \(.name) at \(.path)"'
+    # Handle null or empty packages array
+    packages=$(echo "$repo_json" | jq -r '.packages // [] | .[] | "    - \(.name) at \(.path)"')
+    if [ -z "$packages" ]; then
+      echo "    (none configured)"
+    else
+      echo "$packages"
+    fi
 
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
