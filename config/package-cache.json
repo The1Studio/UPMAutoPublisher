@@ -1,0 +1,821 @@
+{
+  "updated": "2025-10-27T10:57:22Z",
+  "packages": {
+    "com.theone.foundation.buildscript": {
+      "repo": "The1Studio/UnityBuildScript",
+      "path": "Assets/BuildScripts/package.json",
+      "v": "1.2.10",
+      "pv": null
+    },
+    "com.theone.feature.adapters": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Adapters/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Core/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.data.commoncondition": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Data/CommonCondition/Core/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.data.jsonconverter": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Data/JsonConverter/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.authentication.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/Authentication/Core/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.battlepass.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/BattlePass/Core/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.battlepass.final-chest": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/BattlePass/FinalChest/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.battlepass.rewardhandlers": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/BattlePass/RewardHandlers/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.booster.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/Booster/Core/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.features.booster.default": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/Booster/Default/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.features.collectibleobject.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/CollectibleObject/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.currencyprogress.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/CurrencyProgress/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.dailymission.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/DailyMission/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.dailyreward.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/DailyReward/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.economy.entry.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/EconomyEntry/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.endlesstreasure.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/NoInternet/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.example.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/Example/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.features.ftue.userexperience": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/FTUE/UserExperience/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.featureconditions": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/FeatureConditions/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.entry.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/FeatureEntry/Core/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.freepack.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/FreePack/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.gameplay.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/Gameplay/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.generics": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/Generics/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.homeanimation": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/HomeAnimation/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.iaa.entry.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/IAAEntry/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.iap.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/IAP/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.features.inventory.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/Inventory/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.leaderboard.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/Leaderboard/Core/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.leaderboard.passedlevelstracker": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/Leaderboard/PassedLevelsTracker/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.features.lives.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/Lives/Core/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.lives.initialinfinitelives": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/Lives/InitialInfiniteLives/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.milestonestreak": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/MilestoneStreak/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.notification": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/Notification/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.piggybank.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/PiggyBank/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.playfab.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/Playfab/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.potentialloss.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/PotentialLoss/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.profile.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/Profile/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.progression-reward.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/ProgressionReward/Core/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.progressionreward.levelchest": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/ProgressionReward/LevelChest/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.racing.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/RaceEvent/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.features.time.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/Time/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.upcomingfeature.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/UpComingFeature/Core/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.upcomingfeature.default": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/UpComingFeature/Default/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.userexperience.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/UserExperience/Core/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.userexperience.defaultimplement": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/UserExperience/DefaultImplement/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.winstreak.beforeplay.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/WinStreak/BeforePlay/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.winstreak.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/WinStreak/Core/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.winstreak.leaderboard.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/WinStreak/Leaderboard/Core/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.winstreak.leaderboard.pve": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/WinStreak/Leaderboard/PvE/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.winstreak.suddendead.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Features/WinStreak/SuddenDead/Core/Scripts/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.tracking": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Core/Tracking/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.package.trueshadow": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Packages/Le Tai's Asset/TrueShadow/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.package.ui.gradient.effect": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "Packages/P&C UI Gradient Effect/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.ui.autosuggest.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Common/AutoSuggest/Core/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.ui.autosuggest.default": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Common/AutoSuggest/Default/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.ui.common.featureentry.condition": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Common/FeatureEntryCondition/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.entry.view": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Common/FeatureEntryView/package.json",
+      "v": "1.0.1",
+      "pv": null
+    },
+    "com.theone.ui.common.highlight": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Common/Highlight/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.ui.common.informationpopup": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Common/InformationPopup/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.ui.common.timelineanimation": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Common/TimelineAnimation/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.ui.common.transitionloading": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Common/TransitionLoading/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.ui.layouts.baseprefabs": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/BasePrefabs/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.actionhandlers.core": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/ActionHandlers/Abstractions/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.actionhandlers.default": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/ActionHandlers/DefaultImplementations/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.screw3doriginal.ui.bottomnavbar": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/TopNavBar/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.screw3doriginal.ui.gameplay": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/Gameplay/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.screw3doriginal.ui.home": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/Home/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.screw3doriginal.ui.leaderboard": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/Leaderboard/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.screw3doriginal.ui.piggybank": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/PiggyBank/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.screw3doriginal.ui.screentransition": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/ScreenTransition/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.screw3doriginal.ui.shop": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/Shop/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.ui.layouts.puzzle3d1.baseprefabs": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/LayoutBasePrefabs/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.battlepass": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/BattlePass/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.beforeplay": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/BeforePlay/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.common.bottomnavbar": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/BottomNavBar/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.common.claimreward": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/ClaimReward/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.currency": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/Currency/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.common.dailymission": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/DailyMission/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.dailyreward": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/DailyReward/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.endlesstreasure": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/EndlessTreasure/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.common.freepack": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/FreePack/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.gameplay": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/Gameplay/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.common.home": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/Home/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.iap": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/IAP/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.iappacks": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/IapPacks/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.common.items": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/Items/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.leaderboard": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/Leaderboard/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.lives": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/Lives/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.lose": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/Lose/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.ui.puzzle3d_1.milestonestreak": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/MilestoneStreak/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.piggybank": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/PiggyBank/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.profile": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/Profile/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.ui.puzzle3d_1.progressionreward": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/ProgressionReward/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.purchasebooster": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/PurchaseBooster/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.racing": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/RaceEvent/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.rateus": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/RateUs/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.removeadsbottom": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/RemoveAdsBottom/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.ui.puzzle3d_1.setting": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/Setting/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.shop": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/Shop/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.streakleaderboard": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/StreakLeaderboard/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.streaksuddendead": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/StreakSuddenDead/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.topnavbar": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/TopNavView/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.ui_stuff": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/UIStuff/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.unlockitem": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/UnlockItem/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.upcomingfeature": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/UpComingFeature/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.feature.puzzle3d_1.ui.win": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/Scripts/Win/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.ui.puzzle3d_1.uifx": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Layouts/Puzzle3D_1/UIFX/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.spriteprimitives": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/SpritePrimitives/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.ui.utilities": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/Utilities/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.package.ui.vfx": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "UI/VFX/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "theone-feature-monorepo": {
+      "repo": "The1Studio/TheOneFeature",
+      "path": "package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.template.editor": {
+      "repo": "The1Studio/UITemplate",
+      "path": "Editor/Core/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.tool.localdata": {
+      "repo": "The1Studio/UITemplate",
+      "path": "Editor/LocalData/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.tool.localization": {
+      "repo": "The1Studio/UITemplate",
+      "path": "Editor/Localization/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.tool.optimization": {
+      "repo": "The1Studio/UITemplate",
+      "path": "Editor/Optimization/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.tool.migration": {
+      "repo": "The1Studio/UITemplate",
+      "path": "Editor/ProjectMigration/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.heurekagames.assethunterpro": {
+      "repo": "The1Studio/UITemplate",
+      "path": "Packages/com.heurekagames.assethunterpro/package.json",
+      "v": "2.2.23",
+      "pv": null
+    },
+    "com.heurekagames.utils": {
+      "repo": "The1Studio/UITemplate",
+      "path": "Packages/com.heurekagames.utils/package.json",
+      "v": "1.0.3",
+      "pv": null
+    },
+    "com.theone.utils.autogeneratechildrenfromfields": {
+      "repo": "The1Studio/UITemplate",
+      "path": "Scripts/Utils/AutoGenerateChildrenFromFields/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "@playablelabs/api": {
+      "repo": "The1Studio/PlayableLabs",
+      "path": "apps/api/package.json",
+      "v": "0.1.0",
+      "pv": null
+    },
+    "@playablelabs/web": {
+      "repo": "The1Studio/PlayableLabs",
+      "path": "apps/web/package.json",
+      "v": "0.1.0",
+      "pv": null
+    },
+    "playablelabs": {
+      "repo": "The1Studio/PlayableLabs",
+      "path": "package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "@playablelabs/playable-engine": {
+      "repo": "The1Studio/PlayableLabs",
+      "path": "packages/playable-engine/package.json",
+      "v": "0.1.0",
+      "pv": null
+    },
+    "@playablelabs/shared": {
+      "repo": "The1Studio/PlayableLabs",
+      "path": "packages/shared/package.json",
+      "v": "0.1.0",
+      "pv": null
+    },
+    "@playablelabs/preview": {
+      "repo": "The1Studio/PlayableLabs",
+      "path": "services/preview/package.json",
+      "v": "0.1.0",
+      "pv": null
+    },
+    "com.gdk.core": {
+      "repo": "The1Studio/GameFoundation",
+      "path": "package.json",
+      "v": "0.0.3",
+      "pv": null
+    },
+    "com.theone.extensions": {
+      "repo": "The1Studio/TheOne.Extensions",
+      "path": "package.json",
+      "v": "1.1.12",
+      "pv": null
+    },
+    "3rd.remoteconfig.bytebrew": {
+      "repo": "The1Studio/ThirdPartyServices",
+      "path": "ServiceImplementation/RemoteConfig/ByteBrewRemoteConfig/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.theone.3rd.remoteconfig.core": {
+      "repo": "The1Studio/ThirdPartyServices",
+      "path": "ServiceImplementation/RemoteConfig/Core/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "3rd.remoteconfig.firebase": {
+      "repo": "The1Studio/ThirdPartyServices",
+      "path": "ServiceImplementation/RemoteConfig/FireBaseRemoteConfig/package.json",
+      "v": "1.0.0",
+      "pv": null
+    },
+    "com.gdk.3rd": {
+      "repo": "The1Studio/ThirdPartyServices",
+      "path": "package.json",
+      "v": "0.0.1",
+      "pv": null
+    },
+    "com.theone.entities": {
+      "repo": "The1Studio/TheOne.Entities",
+      "path": "package.json",
+      "v": "1.1.2",
+      "pv": null
+    },
+    "com.theone.di": {
+      "repo": "The1Studio/TheOne.DI",
+      "path": "package.json",
+      "v": "1.1.0",
+      "pv": null
+    },
+    "com.theone.pooling": {
+      "repo": "The1Studio/TheOne.Pooling",
+      "path": "package.json",
+      "v": "1.1.2",
+      "pv": null
+    },
+    "com.theone.lifecycle": {
+      "repo": "The1Studio/TheOne.Lifecycle",
+      "path": "package.json",
+      "v": "1.1.0",
+      "pv": null
+    }
+  }
+}
