@@ -93,7 +93,7 @@ check_rate_limit() {
 # Process each repository
 # FIX: Use process substitution instead of pipe to avoid subshell issue with counters
 while IFS= read -r repo_json; do
-    ((total_repos++))
+    total_repos=$((total_repos + 1))
 
     # FIX: Check rate limit before expensive operations
     check_rate_limit
@@ -121,9 +121,9 @@ while IFS= read -r repo_json; do
 
     # Count by status
     case $status in
-        "active") ((active_repos++)) ;;
-        "pending") ((pending_repos++)) ;;
-        "disabled") ((disabled_repos++)) ;;
+        "active") active_repos=$((active_repos + 1)) ;;
+        "pending") pending_repos=$((pending_repos + 1)) ;;
+        "disabled") disabled_repos=$((disabled_repos + 1)) ;;
     esac
 
     # Check if repository exists and is accessible
@@ -177,34 +177,34 @@ while IFS= read -r repo_json; do
 
     if [ "$status" = "active" ] && [ "$workflow_exists" = true ]; then
         echo "  ${CHECK} ${GREEN}MATCHED${NC} - Registry 'active' and workflow exists"
-        ((matched_repos++))
+        matched_repos=$((matched_repos + 1))
     elif [ "$status" = "pending" ] && [ "$workflow_exists" = false ]; then
         echo "  ${PENDING} ${YELLOW}EXPECTED${NC} - Registry 'pending' and workflow not deployed yet"
         echo "  ${INFO} Next push to config/repositories.json will trigger deployment"
-        ((matched_repos++))
+        matched_repos=$((matched_repos + 1))
     elif [ "$status" = "disabled" ]; then
         echo "  ${INFO} ${YELLOW}DISABLED${NC} - Repository intentionally disabled"
         if [ "$workflow_exists" = true ]; then
             echo "      (Note: Workflow file still exists but status is 'disabled')"
         fi
-        ((matched_repos++))
+        matched_repos=$((matched_repos + 1))
     elif [ "$status" = "active" ] && [ "$workflow_exists" = false ]; then
         echo "  ${CROSS} ${RED}MISMATCH!${NC} - Registry says 'active' but workflow missing"
         echo "  ${WARN} RECOMMENDATION: Update status to 'pending' to trigger deployment" >> "$recommendations_file"
         echo "      - Repository: $name" >> "$recommendations_file"
         echo "      - Current status: active" >> "$recommendations_file"
         echo "      - Action: Change to 'pending' or deploy manually" >> "$recommendations_file"
-        ((mismatched_repos++))
+        mismatched_repos=$((mismatched_repos + 1))
     elif [ "$status" = "pending" ] && [ "$workflow_exists" = true ]; then
         echo "  ${WARN} ${YELLOW}MISMATCH${NC} - Workflow exists but status is 'pending'"
         echo "  ${WARN} RECOMMENDATION: Update status to 'active'" >> "$recommendations_file"
         echo "      - Repository: $name" >> "$recommendations_file"
         echo "      - Current status: pending" >> "$recommendations_file"
         echo "      - Action: Change to 'active' (workflow already deployed)" >> "$recommendations_file"
-        ((mismatched_repos++))
+        mismatched_repos=$((mismatched_repos + 1))
     else
         echo "  ${WARN} ${YELLOW}UNKNOWN STATE${NC}"
-        ((mismatched_repos++))
+        mismatched_repos=$((mismatched_repos + 1))
     fi
 
     # Check package.json configuration
