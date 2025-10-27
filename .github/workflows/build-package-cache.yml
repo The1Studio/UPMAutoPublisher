@@ -53,7 +53,10 @@ jobs:
 
       - name: Commit updated cache
         run: |
-          if git diff --quiet config/package-cache.json; then
+          # Check if there are changes (modified or untracked)
+          if git status --porcelain config/package-cache.json | grep -q .; then
+            echo "📝 Cache file has changes, committing..."
+          else
             echo "ℹ️  No changes to cache"
             exit 0
           fi
