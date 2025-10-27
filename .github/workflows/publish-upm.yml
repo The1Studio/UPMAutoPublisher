@@ -34,7 +34,7 @@ jobs:
           fetch-depth: 2  # Need previous commit for diff
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '18'
           registry-url: 'https://upm.the1studio.org/'
