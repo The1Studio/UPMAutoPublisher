@@ -549,7 +549,7 @@ jobs:
       # FIX L-4: Make audit log retention configurable
       - name: Upload audit log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: audit-log-${{ github.run_id }}
           path: audit-log.json
