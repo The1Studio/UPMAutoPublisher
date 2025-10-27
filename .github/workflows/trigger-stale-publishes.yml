@@ -58,31 +58,35 @@ jobs:
           stale_count=0
           rm -f /tmp/stale_packages.txt
 
-          while IFS= read -r entry; do
-            pkg_name=$(echo "$entry" | jq -r '.key')
-            pkg_data=$(echo "$entry" | jq -r '.value')
+          while IFS= read -r repo_entry; do
+            repo_name=$(echo "$repo_entry" | jq -r '.key')
 
-            repo=$(echo "$pkg_data" | jq -r '.repo')
-            path=$(echo "$pkg_data" | jq -r '.path')
-            current=$(echo "$pkg_data" | jq -r '.v')
-            published=$(echo "$pkg_data" | jq -r '.pv // "not-published"')
+            # Process each package in this repository
+            while IFS= read -r pkg_entry; do
+              pkg_name=$(echo "$pkg_entry" | jq -r '.key')
+              pkg_data=$(echo "$pkg_entry" | jq -r '.value')
 
-            # Only process if versions differ and package was published before
-            if [ "$current" != "$published" ] && [ "$published" != "not-published" ]; then
-              echo "📦 $pkg_name"
-              echo "   Repository: $repo"
-              echo "   Path: $path"
-              echo "   Current: $current"
-              echo "   Published: $published"
-              echo "   Status: ⚠️ Needs publishing"
-              echo ""
+              path=$(echo "$pkg_data" | jq -r '.path')
+              current=$(echo "$pkg_data" | jq -r '.v')
+              published=$(echo "$pkg_data" | jq -r '.pv // "not-published"')
 
-              # Save to file for next step
-              echo "$pkg_name|$repo|$path|$current|$published" >> /tmp/stale_packages.txt
+              # Only process if versions differ and package was published before
+              if [ "$current" != "$published" ] && [ "$published" != "not-published" ]; then
+                echo "📦 $pkg_name"
+                echo "   Repository: $repo_name"
+                echo "   Path: $path"
+                echo "   Current: $current"
+                echo "   Published: $published"
+                echo "   Status: ⚠️ Needs publishing"
+                echo ""
 
-              ((stale_count++))
-            fi
-          done < <(jq -c '.packages | to_entries[]' config/package-cache.json)
+                # Save to file for next step
+                echo "$pkg_name|$repo_name|$path|$current|$published" >> /tmp/stale_packages.txt
+
+                stale_count=$((stale_count + 1))
+              fi
+            done < <(echo "$repo_entry" | jq -c '.value.packages | to_entries[]')
+          done < <(jq -c '.repositories | to_entries[]' config/package-cache.json)
 
           if [ "$stale_count" -eq 0 ]; then
             echo "✅ All packages are up to date!"

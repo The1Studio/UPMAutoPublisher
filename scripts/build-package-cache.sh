@@ -51,10 +51,10 @@ fi
 echo "Prerequisites: ${CHECK} All dependencies available"
 echo ""
 
-# Initialize cache with empty packages object
+# Initialize cache with empty repositories object
 jq -n '{
   updated: (now | todate),
-  packages: {}
+  repositories: {}
 }' > "$CACHE_FILE.tmp"
 
 # Counters
@@ -156,17 +156,16 @@ while IFS= read -r repo_json; do
       echo "     Status: ${YELLOW}stale${NC}"
     fi
 
-    # Add to cache using jq
-    jq --arg name "$pkg_name" \
-       --arg repo "$org/$repo" \
+    # Add to cache grouped by repository
+    jq --arg repo_key "$org/$repo" \
+       --arg pkg_name "$pkg_name" \
        --arg path "$pkg_path" \
        --arg v "$current_version" \
        --arg pv "${published_version:-null}" \
-       '.packages[$name] = {
-         repo: $repo,
+       '.repositories[$repo_key].packages[$pkg_name] = {
          path: $path,
          v: $v,
-         pv: (if $pv == "null" then null else $pv end)
+         pv: (if $pv == "null" or $pv == "" then null else $pv end)
        }' "$CACHE_FILE.tmp" > "$CACHE_FILE.tmp2"
 
     mv "$CACHE_FILE.tmp2" "$CACHE_FILE.tmp"
@@ -184,9 +183,9 @@ done < <(jq -c '.repositories[]' config/repositories.json)
 mv "$CACHE_FILE.tmp" "$CACHE_FILE"
 
 # Generate statistics
-uptodate=$(jq '[.packages | to_entries[] | select(.value.v == .value.pv)] | length' "$CACHE_FILE")
-stale=$(jq '[.packages | to_entries[] | select(.value.v != .value.pv and .value.pv != null)] | length' "$CACHE_FILE")
-new=$(jq '[.packages | to_entries[] | select(.value.pv == null)] | length' "$CACHE_FILE")
+uptodate=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.v == .value.pv)] | length' "$CACHE_FILE")
+stale=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.v != .value.pv and .value.pv != null)] | length' "$CACHE_FILE")
+new=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.pv == null)] | length' "$CACHE_FILE")
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "📊 Cache Build Summary"
@@ -208,7 +207,7 @@ echo ""
 
 if [ "$stale" -gt 0 ]; then
   echo "${WARN} Stale packages found:"
-  jq -r '.packages | to_entries[] | select(.value.v != .value.pv and .value.pv != null) | "  - \(.key): \(.value.v) (published: \(.value.pv))"' "$CACHE_FILE"
+  jq -r '.repositories | to_entries[] | .key as $repo | .value.packages | to_entries[] | select(.value.v != .value.pv and .value.pv != null) | "  - \(.key) (\($repo)): \(.value.v) (published: \(.value.pv))"' "$CACHE_FILE"
   echo ""
 fi
 
