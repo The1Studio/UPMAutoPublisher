@@ -71,10 +71,10 @@ jobs:
             echo "## 📦 Package Status" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
-            total_pkgs=$(jq '.packages | length' config/package-cache.json)
-            uptodate=$(jq '[.packages | to_entries[] | select(.value.v == .value.pv)] | length' config/package-cache.json)
-            stale=$(jq '[.packages | to_entries[] | select(.value.v != .value.pv and .value.pv != null)] | length' config/package-cache.json)
-            new=$(jq '[.packages | to_entries[] | select(.value.pv == null)] | length' config/package-cache.json)
+            total_pkgs=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[]] | length' config/package-cache.json)
+            uptodate=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.v == .value.pv)] | length' config/package-cache.json)
+            stale=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.v != .value.pv and .value.pv != null)] | length' config/package-cache.json)
+            new=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.pv == null)] | length' config/package-cache.json)
 
             echo "- **Total packages**: $total_pkgs" >> $GITHUB_STEP_SUMMARY
             echo "- ✅ **Up-to-date**: $uptodate" >> $GITHUB_STEP_SUMMARY

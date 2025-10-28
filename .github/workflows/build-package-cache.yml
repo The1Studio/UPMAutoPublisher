@@ -111,7 +111,7 @@ jobs:
           if [ "$stale" -gt 0 ]; then
             echo "## ⚠️ Packages Needing Publish" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            jq -r '.packages | to_entries[] | select(.value.v != .value.pv and .value.pv != null) | "- **\(.key)**: \(.value.v) (published: \(.value.pv))"' config/package-cache.json >> $GITHUB_STEP_SUMMARY
+            jq -r '.repositories | to_entries[] | .key as $repo | .value.packages | to_entries[] | select(.value.v != .value.pv and .value.pv != null) | "- **\(.key)** (\($repo)): \(.value.v) (published: \(.value.pv))"' config/package-cache.json >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "💡 Run the \`trigger-stale-publishes\` workflow to publish these packages." >> $GITHUB_STEP_SUMMARY
           fi
