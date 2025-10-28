@@ -14,6 +14,16 @@ jobs:
     runs-on: [self-hosted, arc, the1studio, org]
     timeout-minutes: 15
     name: Comprehensive repository health check
+    outputs:
+      total_repos: ${{ steps.stats.outputs.total_repos }}
+      active: ${{ steps.stats.outputs.active }}
+      pending: ${{ steps.stats.outputs.pending }}
+      disabled: ${{ steps.stats.outputs.disabled }}
+      total_pkgs: ${{ steps.stats.outputs.total_pkgs }}
+      uptodate: ${{ steps.stats.outputs.uptodate }}
+      stale: ${{ steps.stats.outputs.stale }}
+      new: ${{ steps.stats.outputs.new }}
+      cache_exists: ${{ steps.stats.outputs.cache_exists }}
 
     steps:
       - name: Checkout repository
@@ -88,8 +98,75 @@ jobs:
             echo "⚠️ Package cache not found" >> $GITHUB_STEP_SUMMARY
           fi
 
+      - name: Collect statistics
+        id: stats
+        if: always()
+        run: |
+          # Repository counts
+          total=$(jq '.repositories | length' config/repositories.json)
+          active=$(jq '[.repositories[] | select(.status == "active")] | length' config/repositories.json)
+          pending=$(jq '[.repositories[] | select(.status == "pending")] | length' config/repositories.json)
+          disabled=$(jq '[.repositories[] | select(.status == "disabled")] | length' config/repositories.json)
+
+          echo "total_repos=$total" >> $GITHUB_OUTPUT
+          echo "active=$active" >> $GITHUB_OUTPUT
+          echo "pending=$pending" >> $GITHUB_OUTPUT
+          echo "disabled=$disabled" >> $GITHUB_OUTPUT
+
+          # Package stats (if cache exists)
+          if [ -f config/package-cache.json ]; then
+            total_pkgs=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[]] | length' config/package-cache.json)
+            uptodate=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.version == .value.publishedVersion)] | length' config/package-cache.json)
+            stale=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.version != .value.publishedVersion and .value.publishedVersion != null)] | length' config/package-cache.json)
+            new=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.publishedVersion == null)] | length' config/package-cache.json)
+
+            echo "total_pkgs=$total_pkgs" >> $GITHUB_OUTPUT
+            echo "uptodate=$uptodate" >> $GITHUB_OUTPUT
+            echo "stale=$stale" >> $GITHUB_OUTPUT
+            echo "new=$new" >> $GITHUB_OUTPUT
+            echo "cache_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "total_pkgs=0" >> $GITHUB_OUTPUT
+            echo "uptodate=0" >> $GITHUB_OUTPUT
+            echo "stale=0" >> $GITHUB_OUTPUT
+            echo "new=0" >> $GITHUB_OUTPUT
+            echo "cache_exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Check for failures
         run: |
           # Audit script exits with 1 if mismatches found
           # This step will show failure status in workflow
           exit 0  # But don't fail the workflow
+
+  notify-discord:
+    runs-on: [self-hosted, arc, the1studio, org]
+    needs: audit
+    if: always()
+    steps:
+      - name: Send Discord notification
+        uses: sarisia/actions-status-discord@v1
+        if: always()
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: ${{ needs.audit.result }}
+          title: "🔍 Daily Repository Audit"
+          description: |
+            **Workflow:** Daily Audit
+            **Trigger:** ${{ github.event_name }}
+            **Schedule:** Daily at 9 AM UTC
+
+            **📊 Repository Status:**
+            • Total: `${{ needs.audit.outputs.total_repos || '0' }}`
+            • ✅ Active: `${{ needs.audit.outputs.active || '0' }}`
+            • ⏸️ Pending: `${{ needs.audit.outputs.pending || '0' }}`
+            • 🚫 Disabled: `${{ needs.audit.outputs.disabled || '0' }}`
+
+            **📦 Package Status:**
+            ${{ needs.audit.outputs.cache_exists == 'true' && format('• Total: `{0}`\n• ✅ Up-to-date: `{1}`\n• ⚠️ Needs Publish: `{2}`\n• 🆕 Not Published: `{3}`', needs.audit.outputs.total_pkgs, needs.audit.outputs.uptodate, needs.audit.outputs.stale, needs.audit.outputs.new) || '• ⚠️ Cache not found' }}
+
+            **🔗 Links:**
+            • [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            • [Repository Registry](${{ github.server_url }}/${{ github.repository }}/blob/master/config/repositories.json)
+          color: ${{ needs.audit.result == 'success' && '0x48C21B' || needs.audit.result == 'failure' && '0xFF0000' || '0xFFCC00' }}
+          username: "UPM Auto Publisher"

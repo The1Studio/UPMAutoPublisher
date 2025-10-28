@@ -19,6 +19,12 @@ jobs:
     runs-on: [self-hosted, arc, the1studio, org]
     timeout-minutes: 30
     name: Trigger publishing workflows for stale packages
+    outputs:
+      stale_count: ${{ steps.find_stale.outputs.stale_count }}
+      triggered: ${{ steps.trigger_stats.outputs.triggered }}
+      no_dispatch: ${{ steps.trigger_stats.outputs.no_dispatch }}
+      failed: ${{ steps.trigger_stats.outputs.failed }}
+      dry_run: ${{ inputs.dry_run }}
 
     steps:
       - name: Checkout repository
@@ -101,6 +107,7 @@ jobs:
           echo "stale_count=$stale_count" >> $GITHUB_OUTPUT
 
       - name: Trigger publishing workflows
+        id: trigger_stats
         if: steps.find_stale.outputs.stale_count > 0 && inputs.dry_run != true
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
@@ -177,10 +184,14 @@ jobs:
             echo "   Or manually add 'workflow_dispatch:' to the workflow file"
           fi
 
-          # Save stats for summary
+          # Save stats for summary and outputs
           echo "triggered=$triggered" >> $GITHUB_ENV
           echo "no_dispatch=$no_dispatch" >> $GITHUB_ENV
           echo "failed=$failed" >> $GITHUB_ENV
+
+          echo "triggered=$triggered" >> $GITHUB_OUTPUT
+          echo "no_dispatch=$no_dispatch" >> $GITHUB_OUTPUT
+          echo "failed=$failed" >> $GITHUB_OUTPUT
 
       - name: Summary
         if: always()
@@ -226,3 +237,32 @@ jobs:
             echo "- ⚠️ **Missing workflow_dispatch**: ${{ env.no_dispatch }}" >> $GITHUB_STEP_SUMMARY
             echo "- ❌ **Failed**: ${{ env.failed }}" >> $GITHUB_STEP_SUMMARY
           fi
+
+  notify-discord:
+    runs-on: [self-hosted, arc, the1studio, org]
+    needs: trigger-publishes
+    if: always()
+    steps:
+      - name: Send Discord notification
+        uses: sarisia/actions-status-discord@v1
+        if: always()
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: ${{ needs.trigger-publishes.result }}
+          title: "🚀 Trigger Stale Package Publishing"
+          description: |
+            **Workflow:** Trigger Stale Publishes
+            **Trigger:** ${{ github.event_name }}
+            **Mode:** ${{ needs.trigger-publishes.outputs.dry_run == 'true' && '⚠️ Dry Run' || '🚀 Live Run' }}
+            **Schedule:** Daily at noon UTC
+
+            **📊 Stale Packages:**
+            • Found: `${{ needs.trigger-publishes.outputs.stale_count || '0' }}`
+
+            ${{ needs.trigger-publishes.outputs.dry_run != 'true' && format('**🚀 Publish Triggers:**\n• ✅ Triggered: `{0}`\n• ⚠️ Missing workflow_dispatch: `{1}`\n• ❌ Failed: `{2}`', needs.trigger-publishes.outputs.triggered || '0', needs.trigger-publishes.outputs.no_dispatch || '0', needs.trigger-publishes.outputs.failed || '0') || '**⚠️ Dry Run Mode**\nNo workflows were triggered.\nSet `dry_run: false` to trigger workflows.' }}
+
+            **🔗 Links:**
+            • [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            • [Package Cache](${{ github.server_url }}/${{ github.repository }}/blob/master/config/package-cache.json)
+          color: ${{ needs.trigger-publishes.result == 'success' && '0x48C21B' || needs.trigger-publishes.result == 'failure' && '0xFF0000' || '0xFFCC00' }}
+          username: "UPM Auto Publisher"

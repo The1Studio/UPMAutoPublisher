@@ -21,6 +21,14 @@ jobs:
     runs-on: [self-hosted, arc, the1studio, org]
     timeout-minutes: 20
     name: Scan repositories and build package cache
+    outputs:
+      stats_total: ${{ steps.stats.outputs.total }}
+      stats_uptodate: ${{ steps.stats.outputs.uptodate }}
+      stats_stale: ${{ steps.stats.outputs.stale }}
+      stats_new: ${{ steps.stats.outputs.new }}
+      triggered: ${{ steps.trigger_result.outputs.triggered }}
+      no_dispatch: ${{ steps.trigger_result.outputs.no_dispatch }}
+      failed: ${{ steps.trigger_result.outputs.failed }}
 
     steps:
       - name: Checkout repository
@@ -92,6 +100,7 @@ jobs:
           fi
 
       - name: Trigger publishing for stale packages
+        id: trigger_result
         if: steps.check_stale.outputs.stale_count > 0
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
@@ -181,10 +190,37 @@ jobs:
             echo "   Or manually add 'workflow_dispatch:' to the workflow file"
           fi
 
-          # Save stats for summary
+          # Save stats for summary and outputs
           echo "triggered=$triggered" >> $GITHUB_ENV
           echo "no_dispatch=$no_dispatch" >> $GITHUB_ENV
           echo "failed=$failed" >> $GITHUB_ENV
+
+          echo "triggered=$triggered" >> $GITHUB_OUTPUT
+          echo "no_dispatch=$no_dispatch" >> $GITHUB_OUTPUT
+          echo "failed=$failed" >> $GITHUB_OUTPUT
+
+      - name: Collect statistics
+        id: stats
+        if: always()
+        run: |
+          if [ ! -f config/package-cache.json ]; then
+            echo "total=0" >> $GITHUB_OUTPUT
+            echo "uptodate=0" >> $GITHUB_OUTPUT
+            echo "stale=0" >> $GITHUB_OUTPUT
+            echo "new=0" >> $GITHUB_OUTPUT
+            echo "cache_exists=false" >> $GITHUB_OUTPUT
+          else
+            total=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[]] | length' config/package-cache.json)
+            uptodate=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.version == .value.publishedVersion)] | length' config/package-cache.json)
+            stale=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.version != .value.publishedVersion and .value.publishedVersion != null)] | length' config/package-cache.json)
+            new=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.publishedVersion == null)] | length' config/package-cache.json)
+
+            echo "total=$total" >> $GITHUB_OUTPUT
+            echo "uptodate=$uptodate" >> $GITHUB_OUTPUT
+            echo "stale=$stale" >> $GITHUB_OUTPUT
+            echo "new=$new" >> $GITHUB_OUTPUT
+            echo "cache_exists=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Summary
         if: always()
@@ -232,3 +268,37 @@ jobs:
               echo "- ❌ **Failed**: ${{ env.failed }}" >> $GITHUB_STEP_SUMMARY
             fi
           fi
+
+  notify-discord:
+    runs-on: [self-hosted, arc, the1studio, org]
+    needs: build-cache
+    if: always()
+    steps:
+      - name: Send Discord notification
+        uses: sarisia/actions-status-discord@v1
+        if: always()
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: ${{ needs.build-cache.result }}
+          title: "📦 UPM Package Cache Build"
+          description: |
+            **Workflow:** Build Package Cache
+            **Trigger:** ${{ github.event_name }}
+            **Branch:** `${{ github.ref_name }}`
+
+            **📊 Statistics:**
+            • Total Packages: `${{ needs.build-cache.outputs.stats_total || '0' }}`
+            • ✅ Up-to-date: `${{ needs.build-cache.outputs.stats_uptodate || '0' }}`
+            • ⚠️ Stale: `${{ needs.build-cache.outputs.stats_stale || '0' }}`
+            • 🆕 Not Published: `${{ needs.build-cache.outputs.stats_new || '0' }}`
+
+            **🚀 Auto-Publish Results:**
+            • Triggered: `${{ needs.build-cache.outputs.triggered || '0' }}`
+            • Missing workflow_dispatch: `${{ needs.build-cache.outputs.no_dispatch || '0' }}`
+            • Failed: `${{ needs.build-cache.outputs.failed || '0' }}`
+
+            **🔗 Links:**
+            • [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            • [Cache File](${{ github.server_url }}/${{ github.repository }}/blob/master/config/package-cache.json)
+          color: ${{ needs.build-cache.result == 'success' && '0x48C21B' || needs.build-cache.result == 'failure' && '0xFF0000' || '0xFFCC00' }}
+          username: "UPM Auto Publisher"
