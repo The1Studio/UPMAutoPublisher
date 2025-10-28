@@ -22,6 +22,7 @@ jobs:
     outputs:
       stale_count: ${{ steps.find_stale.outputs.stale_count }}
       triggered: ${{ steps.trigger_stats.outputs.triggered }}
+      not_ready: ${{ steps.trigger_stats.outputs.not_ready }}
       no_dispatch: ${{ steps.trigger_stats.outputs.no_dispatch }}
       failed: ${{ steps.trigger_stats.outputs.failed }}
       dry_run: ${{ inputs.dry_run }}
@@ -126,6 +127,7 @@ jobs:
           triggered=0
           failed=0
           no_dispatch=0
+          not_ready=0
 
           while IFS='|' read -r pkg_name repo path current published; do
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -136,9 +138,9 @@ jobs:
 
             # Check if workflow exists
             if ! gh api "repos/$repo/actions/workflows/publish-upm.yml" >/dev/null 2>&1; then
-              echo "   ❌ Workflow not found in $repo"
-              echo "   Skipping..."
-              ((failed++))
+              echo "   ⚠️  Workflow not deployed yet in $repo"
+              echo "   Skipping (will be deployed via register-repos workflow)..."
+              not_ready=$((not_ready + 1))
               echo ""
               continue
             fi
@@ -182,9 +184,15 @@ jobs:
           echo "📊 Summary"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "✅ Triggered: $triggered"
+          echo "🔧 Not Ready (workflow not deployed): $not_ready"
           echo "⚠️  Missing workflow_dispatch: $no_dispatch"
           echo "❌ Failed: $failed"
           echo ""
+
+          if [ "$not_ready" -gt 0 ]; then
+            echo "💡 To deploy workflows to repositories:"
+            echo "   Run the register-repos workflow to deploy publish-upm.yml"
+          fi
 
           if [ "$no_dispatch" -gt 0 ]; then
             echo "💡 To fix missing workflow_dispatch:"
@@ -194,10 +202,12 @@ jobs:
 
           # Save stats for summary and outputs
           echo "triggered=$triggered" >> $GITHUB_ENV
+          echo "not_ready=$not_ready" >> $GITHUB_ENV
           echo "no_dispatch=$no_dispatch" >> $GITHUB_ENV
           echo "failed=$failed" >> $GITHUB_ENV
 
           echo "triggered=$triggered" >> $GITHUB_OUTPUT
+          echo "not_ready=$not_ready" >> $GITHUB_OUTPUT
           echo "no_dispatch=$no_dispatch" >> $GITHUB_OUTPUT
           echo "failed=$failed" >> $GITHUB_OUTPUT
 
@@ -242,6 +252,7 @@ jobs:
             echo "## Results" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "- ✅ **Triggered**: ${{ env.triggered }}" >> $GITHUB_STEP_SUMMARY
+            echo "- 🔧 **Not Ready** (workflow not deployed): ${{ env.not_ready }}" >> $GITHUB_STEP_SUMMARY
             echo "- ⚠️ **Missing workflow_dispatch**: ${{ env.no_dispatch }}" >> $GITHUB_STEP_SUMMARY
             echo "- ❌ **Failed**: ${{ env.failed }}" >> $GITHUB_STEP_SUMMARY
           fi
@@ -269,8 +280,9 @@ jobs:
 
             ${{ needs.trigger-publishes.outputs.dry_run != 'true' && format('**🚀 Publish Triggers:**
             • ✅ Triggered: `{0}`
-            • ⚠️ Missing workflow_dispatch: `{1}`
-            • ❌ Failed: `{2}`', needs.trigger-publishes.outputs.triggered || '0', needs.trigger-publishes.outputs.no_dispatch || '0', needs.trigger-publishes.outputs.failed || '0') || '**⚠️ Dry Run Mode**
+            • 🔧 Not Ready (workflow not deployed): `{1}`
+            • ⚠️ Missing workflow_dispatch: `{2}`
+            • ❌ Failed: `{3}`', needs.trigger-publishes.outputs.triggered || '0', needs.trigger-publishes.outputs.not_ready || '0', needs.trigger-publishes.outputs.no_dispatch || '0', needs.trigger-publishes.outputs.failed || '0') || '**⚠️ Dry Run Mode**
             No workflows were triggered.
             Set `dry_run: false` to trigger workflows.' }}
 
