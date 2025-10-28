@@ -1,12 +1,12 @@
 {
-  "updated": "2025-10-28T07:47:27Z",
+  "updated": "2025-10-28T12:12:56Z",
   "repositories": {
     "The1Studio/UnityBuildScript": {
       "packages": {
         "com.theone.foundation.buildscript": {
           "path": "package.json",
           "version": "1.2.11",
-          "publishedVersion": "1.2.10"
+          "publishedVersion": "1.2.11"
         }
       }
     },
@@ -652,6 +652,30 @@
         "com.gdk.core": {
           "path": "package.json",
           "version": "0.0.3",
+          "publishedVersion": null
+        }
+      }
+    },
+    "The1Studio/LiveOps": {
+      "packages": {
+        "@liveops/api": {
+          "path": "apps/api/package.json",
+          "version": "0.1.0",
+          "publishedVersion": null
+        },
+        "@liveops/dashboard": {
+          "path": "apps/dashboard/package.json",
+          "version": "0.1.0",
+          "publishedVersion": null
+        },
+        "liveops-platform": {
+          "path": "package.json",
+          "version": "0.1.0",
+          "publishedVersion": null
+        },
+        "@liveops/shared": {
+          "path": "packages/shared/package.json",
+          "version": "0.1.0",
           "publishedVersion": null
         }
       }
