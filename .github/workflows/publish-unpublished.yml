@@ -1,0 +1,231 @@
+name: Publish Unpublished Packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (don't actually publish)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  publish-unpublished:
+    name: Batch Publish Unpublished Packages
+    runs-on: [self-hosted, arc, the1studio, org]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: ${{ vars.UPM_REGISTRY || 'https://upm.the1studio.org/' }}
+
+      - name: Configure NPM authentication
+        run: |
+          npm config set "//${{ vars.UPM_REGISTRY || 'upm.the1studio.org' }}/:_authToken" "${{ secrets.NPM_TOKEN }}"
+
+      - name: Verify package cache exists
+        run: |
+          if [ ! -f "config/package-cache.json" ]; then
+            echo "❌ package-cache.json not found!"
+            echo "Run 'build-package-cache' workflow first"
+            exit 1
+          fi
+
+      - name: Count unpublished packages
+        id: count
+        run: |
+          count=$(jq '[.packages[] | select(.status == "new")] | length' config/package-cache.json)
+          echo "count=$count" >> $GITHUB_OUTPUT
+          echo "📦 Found $count unpublished packages"
+
+          if [ "$count" -eq 0 ]; then
+            echo "✅ No unpublished packages found"
+            exit 0
+          fi
+
+      - name: Publish unpublished packages
+        if: steps.count.outputs.count > 0
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          UPM_REGISTRY: ${{ vars.UPM_REGISTRY || 'https://upm.the1studio.org/' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🚀 Starting batch publish process"
+          echo "Dry run: $DRY_RUN"
+          echo ""
+
+          success=0
+          failed=0
+          skipped=0
+          failed_packages=""
+
+          # Get unique repositories with unpublished packages
+          repos=$(jq -r '[.packages[] | select(.status == "new") | .repository] | unique | .[]' config/package-cache.json)
+
+          for repo in $repos; do
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "📦 Repository: $repo"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+            # Get all unpublished packages for this repo
+            packages=$(jq -r ".packages[] | select(.repository == \"$repo\" and .status == \"new\") | \"\(.package_path)|\(.name)@\(.source_version)\"" config/package-cache.json)
+
+            if [ -z "$packages" ]; then
+              echo "⚠️  No unpublished packages in this repo"
+              continue
+            fi
+
+            # Clone repository
+            temp_dir=$(mktemp -d)
+            cd "$temp_dir" || exit 1
+
+            echo "📥 Cloning repository..."
+            if ! gh repo clone "$repo" repo > /dev/null 2>&1; then
+              echo "❌ Failed to clone repository"
+              # Count all packages in this repo as failed
+              pkg_count=$(echo "$packages" | wc -l)
+              failed=$((failed + pkg_count))
+              cd - > /dev/null
+              rm -rf "$temp_dir"
+              continue
+            fi
+
+            cd repo || exit 1
+
+            # Process each package
+            while IFS='|' read -r path package_info; do
+              echo "   ────────────────────────────────────────"
+              echo "   📦 $package_info"
+              echo "   📁 Path: $path"
+
+              if [ ! -d "$path" ]; then
+                echo "   ❌ Path not found in repository"
+                ((failed++))
+                failed_packages="$failed_packages\n   - $package_info (path not found)"
+                continue
+              fi
+
+              if [ ! -f "$path/package.json" ]; then
+                echo "   ❌ package.json not found"
+                ((failed++))
+                failed_packages="$failed_packages\n   - $package_info (no package.json)"
+                continue
+              fi
+
+              cd "$path" || { echo "   ❌ Cannot cd to path"; ((failed++)); continue; }
+
+              # Verify package.json is valid
+              if ! jq empty package.json 2>/dev/null; then
+                echo "   ❌ Invalid package.json"
+                ((failed++))
+                failed_packages="$failed_packages\n   - $package_info (invalid JSON)"
+                cd - > /dev/null
+                continue
+              fi
+
+              # Extract package name and version
+              pkg_name=$(jq -r '.name' package.json)
+              pkg_version=$(jq -r '.version' package.json)
+
+              echo "   📝 Name: $pkg_name"
+              echo "   🏷️  Version: $pkg_version"
+
+              # Check if already published (double-check)
+              if npm view "$pkg_name@$pkg_version" --registry "$UPM_REGISTRY" > /dev/null 2>&1; then
+                echo "   ⚠️  Already published, skipping"
+                ((skipped++))
+                cd - > /dev/null
+                continue
+              fi
+
+              # Publish package
+              if [ "$DRY_RUN" = "true" ]; then
+                echo "   🔍 DRY RUN: Would publish $pkg_name@$pkg_version"
+                if npm publish --dry-run --registry "$UPM_REGISTRY" 2>&1; then
+                  echo "   ✅ Dry run successful"
+                  ((success++))
+                else
+                  echo "   ❌ Dry run failed"
+                  ((failed++))
+                  failed_packages="$failed_packages\n   - $package_info (dry run failed)"
+                fi
+              else
+                echo "   📤 Publishing to $UPM_REGISTRY..."
+                if npm publish --registry "$UPM_REGISTRY" 2>&1; then
+                  echo "   ✅ Published successfully"
+                  ((success++))
+                else
+                  echo "   ❌ Failed to publish"
+                  ((failed++))
+                  failed_packages="$failed_packages\n   - $package_info"
+                fi
+              fi
+
+              cd - > /dev/null
+              echo ""
+            done <<< "$packages"
+
+            # Cleanup repo
+            cd - > /dev/null
+            cd - > /dev/null
+            rm -rf "$temp_dir"
+
+            echo ""
+          done
+
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📊 Batch Publish Summary"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Published: $success"
+          echo "⚠️  Skipped (already published): $skipped"
+          echo "❌ Failed: $failed"
+          echo "🎯 Total processed: $((success + skipped + failed))"
+
+          if [ $failed -gt 0 ]; then
+            echo ""
+            echo "❌ Failed packages:"
+            echo -e "$failed_packages"
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ Batch publish completed successfully!"
+
+      - name: Rebuild package cache
+        if: success() && inputs.dry_run == 'false'
+        run: |
+          echo "🔄 Rebuilding package cache after publishing..."
+          if [ -x "./scripts/build-package-cache.sh" ]; then
+            ./scripts/build-package-cache.sh
+          else
+            echo "⚠️  build-package-cache.sh not found or not executable"
+          fi
+
+      - name: Commit updated cache
+        if: success() && inputs.dry_run == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet config/package-cache.json; then
+            echo "ℹ️  No changes to package cache"
+          else
+            git add config/package-cache.json
+            git commit -m "Update package cache after batch publish
+
+Published packages are now marked as up-to-date in the cache.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+            git push
+            echo "✅ Package cache updated"
+          fi
