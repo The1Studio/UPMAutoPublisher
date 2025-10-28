@@ -1,10 +1,10 @@
 {
-  "updated": "2025-10-28T03:51:02Z",
+  "updated": "2025-10-28T04:25:48Z",
   "repositories": {
     "The1Studio/UnityBuildScript": {
       "packages": {
         "com.theone.foundation.buildscript": {
-          "path": "Assets/BuildScripts/package.json",
+          "path": "package.json",
           "version": "1.2.10",
           "publishedVersion": "1.2.10"
         }
