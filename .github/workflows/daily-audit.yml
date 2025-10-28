@@ -163,7 +163,10 @@ jobs:
             • 🚫 Disabled: `${{ needs.audit.outputs.disabled || '0' }}`
 
             **📦 Package Status:**
-            ${{ needs.audit.outputs.cache_exists == 'true' && format('• Total: `{0}`\n• ✅ Up-to-date: `{1}`\n• ⚠️ Needs Publish: `{2}`\n• 🆕 Not Published: `{3}`', needs.audit.outputs.total_pkgs, needs.audit.outputs.uptodate, needs.audit.outputs.stale, needs.audit.outputs.new) || '• ⚠️ Cache not found' }}
+            ${{ needs.audit.outputs.cache_exists == 'true' && format('• Total: `{0}`
+            • ✅ Up-to-date: `{1}`
+            • ⚠️ Needs Publish: `{2}`
+            • 🆕 Not Published: `{3}`', needs.audit.outputs.total_pkgs, needs.audit.outputs.uptodate, needs.audit.outputs.stale, needs.audit.outputs.new) || '• ⚠️ Cache not found' }}
 
             **🔗 Links:**
             • [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})

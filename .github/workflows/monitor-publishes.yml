@@ -1,0 +1,211 @@
+name: Monitor Package Publishes
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'  # Every 15 minutes
+
+  workflow_dispatch:  # Manual trigger
+
+permissions:
+  contents: read
+
+jobs:
+  monitor:
+    runs-on: [self-hosted, arc, the1studio, org]
+    timeout-minutes: 10
+    name: Monitor publish workflows across repositories
+    outputs:
+      total_checked: ${{ steps.check_publishes.outputs.total_checked }}
+      successful: ${{ steps.check_publishes.outputs.successful }}
+      failed: ${{ steps.check_publishes.outputs.failed }}
+      in_progress: ${{ steps.check_publishes.outputs.in_progress }}
+      published_packages: ${{ steps.check_publishes.outputs.published_packages }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq jq
+
+      - name: Check recent publish workflows
+        id: check_publishes
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "🔍 Monitoring publish workflows across all repositories..."
+          echo ""
+
+          # Track last check time (15 minutes ago)
+          cutoff_time=$(date -u -d '15 minutes ago' --iso-8601=seconds)
+
+          total_checked=0
+          successful=0
+          failed=0
+          in_progress=0
+
+          # Store published package details
+          rm -f /tmp/published_packages.txt
+          rm -f /tmp/failed_packages.txt
+
+          # Process each active repository
+          while IFS= read -r repo_json; do
+            url=$(echo "$repo_json" | jq -r '.url')
+            status=$(echo "$repo_json" | jq -r '.status')
+
+            # Skip disabled repos
+            if [ "$status" = "disabled" ]; then
+              continue
+            fi
+
+            # Extract org/repo
+            if [[ "$url" =~ ^https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9._-]+)$ ]]; then
+              org="${BASH_REMATCH[1]}"
+              repo="${BASH_REMATCH[2]}"
+            else
+              continue
+            fi
+
+            repo_full="$org/$repo"
+            echo "Checking $repo_full..."
+
+            # Check for recent publish-upm workflow runs
+            runs=$(gh api "repos/$repo_full/actions/workflows/publish-upm.yml/runs?per_page=5" \
+              --jq '.workflow_runs[] | select(.created_at >= "'"$cutoff_time"'") | "\(.id)|\(.status)|\(.conclusion)|\(.created_at)"' \
+              2>/dev/null || echo "")
+
+            if [ -z "$runs" ]; then
+              continue
+            fi
+
+            # Process each recent run
+            while IFS='|' read -r run_id run_status run_conclusion run_created; do
+              total_checked=$((total_checked + 1))
+
+              if [ "$run_status" = "completed" ]; then
+                if [ "$run_conclusion" = "success" ]; then
+                  successful=$((successful + 1))
+
+                  # Try to extract published package info from logs
+                  echo "$repo_full|$run_id|$run_created" >> /tmp/published_packages.txt
+
+                elif [ "$run_conclusion" = "failure" ]; then
+                  failed=$((failed + 1))
+                  echo "$repo_full|$run_id|$run_created" >> /tmp/failed_packages.txt
+                fi
+              else
+                in_progress=$((in_progress + 1))
+              fi
+
+            done <<< "$runs"
+
+            sleep 0.5  # Rate limit protection
+
+          done < <(jq -c '.repositories[]' config/repositories.json)
+
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📊 Monitoring Summary"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Total workflows checked: $total_checked"
+          echo "✅ Successful: $successful"
+          echo "❌ Failed: $failed"
+          echo "🔄 In Progress: $in_progress"
+          echo ""
+
+          # Output for Discord notification
+          echo "total_checked=$total_checked" >> $GITHUB_OUTPUT
+          echo "successful=$successful" >> $GITHUB_OUTPUT
+          echo "failed=$failed" >> $GITHUB_OUTPUT
+          echo "in_progress=$in_progress" >> $GITHUB_OUTPUT
+
+          # Create summary of published packages
+          if [ -f /tmp/published_packages.txt ]; then
+            published_list=$(cat /tmp/published_packages.txt | head -10 | while IFS='|' read -r repo run_id created; do
+              echo "✅ $repo (Run: $run_id)"
+            done)
+            echo "published_packages<<EOF" >> $GITHUB_OUTPUT
+            echo "$published_list" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "published_packages=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          total="${{ steps.check_publishes.outputs.total_checked }}"
+
+          echo "# 🔍 Publish Monitor Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Time**: $(date -u +%Y-%m-%d\ %H:%M:%S) UTC" >> $GITHUB_STEP_SUMMARY
+          echo "**Monitoring Window**: Last 15 minutes" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$total" = "0" ]; then
+            echo "✅ **No publish workflows detected in monitoring window**" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          echo "## Activity Detected" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Total workflows**: $total" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **Successful**: ${{ steps.check_publishes.outputs.successful }}" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ **Failed**: ${{ steps.check_publishes.outputs.failed }}" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔄 **In Progress**: ${{ steps.check_publishes.outputs.in_progress }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Show published packages
+          if [ -f /tmp/published_packages.txt ]; then
+            echo "## ✅ Successfully Published" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            while IFS='|' read -r repo run_id created; do
+              echo "- **$repo** ([Run #$run_id](https://github.com/$repo/actions/runs/$run_id))" >> $GITHUB_STEP_SUMMARY
+            done < /tmp/published_packages.txt
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Show failed packages
+          if [ -f /tmp/failed_packages.txt ]; then
+            echo "## ❌ Failed Publishes" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            while IFS='|' read -r repo run_id created; do
+              echo "- **$repo** ([Run #$run_id](https://github.com/$repo/actions/runs/$run_id))" >> $GITHUB_STEP_SUMMARY
+            done < /tmp/failed_packages.txt
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  notify-discord:
+    runs-on: [self-hosted, arc, the1studio, org]
+    needs: monitor
+    if: always() && needs.monitor.outputs.total_checked > 0
+    steps:
+      - name: Send Discord notification
+        uses: sarisia/actions-status-discord@v1
+        if: always()
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: ${{ needs.monitor.result }}
+          title: "📊 Package Publish Activity"
+          description: |
+            **Workflow:** Publish Monitor
+            **Trigger:** ${{ github.event_name }}
+            **Monitoring Window:** Last 15 minutes
+            **Time:** $(date -u +%H:%M) UTC
+
+            **📊 Activity Summary:**
+            • Total Workflows: `${{ needs.monitor.outputs.total_checked || '0' }}`
+            • ✅ Successful: `${{ needs.monitor.outputs.successful || '0' }}`
+            • ❌ Failed: `${{ needs.monitor.outputs.failed || '0' }}`
+            • 🔄 In Progress: `${{ needs.monitor.outputs.in_progress || '0' }}`
+
+            ${{ needs.monitor.outputs.published_packages != '' && format('**📦 Recent Publishes:**
+            {0}', needs.monitor.outputs.published_packages) || '' }}
+
+            **🔗 Links:**
+            • [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            • [All Repositories](${{ github.server_url }}/${{ github.repository }}/blob/master/config/repositories.json)
+          color: ${{ needs.monitor.outputs.failed > 0 && '0xFF0000' || needs.monitor.outputs.successful > 0 && '0x48C21B' || '0xFFCC00' }}
+          username: "UPM Auto Publisher"

@@ -259,7 +259,12 @@ jobs:
             **📊 Stale Packages:**
             • Found: `${{ needs.trigger-publishes.outputs.stale_count || '0' }}`
 
-            ${{ needs.trigger-publishes.outputs.dry_run != 'true' && format('**🚀 Publish Triggers:**\n• ✅ Triggered: `{0}`\n• ⚠️ Missing workflow_dispatch: `{1}`\n• ❌ Failed: `{2}`', needs.trigger-publishes.outputs.triggered || '0', needs.trigger-publishes.outputs.no_dispatch || '0', needs.trigger-publishes.outputs.failed || '0') || '**⚠️ Dry Run Mode**\nNo workflows were triggered.\nSet `dry_run: false` to trigger workflows.' }}
+            ${{ needs.trigger-publishes.outputs.dry_run != 'true' && format('**🚀 Publish Triggers:**
+            • ✅ Triggered: `{0}`
+            • ⚠️ Missing workflow_dispatch: `{1}`
+            • ❌ Failed: `{2}`', needs.trigger-publishes.outputs.triggered || '0', needs.trigger-publishes.outputs.no_dispatch || '0', needs.trigger-publishes.outputs.failed || '0') || '**⚠️ Dry Run Mode**
+            No workflows were triggered.
+            Set `dry_run: false` to trigger workflows.' }}
 
             **🔗 Links:**
             • [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
