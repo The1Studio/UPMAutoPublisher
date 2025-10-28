@@ -133,6 +133,40 @@ jobs:
             echo "cache_exists=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Trigger publishing workflows if needed
+        if: steps.stats.outputs.cache_exists == 'true' && (steps.stats.outputs.new > 0 || steps.stats.outputs.stale > 0)
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "🚀 Auto-triggering publishing workflows based on audit findings"
+          echo ""
+
+          # Trigger batch publish for unpublished packages
+          if [ "${{ steps.stats.outputs.new }}" -gt 0 ]; then
+            echo "📦 Found ${{ steps.stats.outputs.new }} unpublished packages"
+            echo "   Triggering publish-unpublished.yml workflow..."
+            if gh workflow run publish-unpublished.yml --repo The1Studio/UPMAutoPublisher; then
+              echo "   ✅ Batch publish workflow triggered successfully"
+            else
+              echo "   ⚠️  Failed to trigger batch publish workflow"
+            fi
+            echo ""
+          fi
+
+          # Trigger stale publish for outdated packages
+          if [ "${{ steps.stats.outputs.stale }}" -gt 0 ]; then
+            echo "⚠️  Found ${{ steps.stats.outputs.stale }} stale packages"
+            echo "   Triggering trigger-stale-publishes.yml workflow..."
+            if gh workflow run trigger-stale-publishes.yml --repo The1Studio/UPMAutoPublisher; then
+              echo "   ✅ Stale publish workflow triggered successfully"
+            else
+              echo "   ⚠️  Failed to trigger stale publish workflow"
+            fi
+            echo ""
+          fi
+
+          echo "✅ Workflow triggering completed"
+
       - name: Check for failures
         run: |
           # Audit script exits with 1 if mismatches found
