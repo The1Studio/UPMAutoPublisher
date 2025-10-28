@@ -301,4 +301,5 @@ jobs:
             • [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
             • [Cache File](${{ github.server_url }}/${{ github.repository }}/blob/master/config/package-cache.json)
           color: ${{ needs.build-cache.result == 'success' && '0x48C21B' || needs.build-cache.result == 'failure' && '0xFF0000' || '0xFFCC00' }}
-          username: "UPM Auto Publisher"
+          username: "THE 1 GAME STUDIO"
+          avatar_url: "https://raw.githubusercontent.com/The1Studio/UPMAutoPublisher/master/.github/assets/the1studio-logo.png"

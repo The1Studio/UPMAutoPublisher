@@ -208,4 +208,5 @@ jobs:
             • [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
             • [All Repositories](${{ github.server_url }}/${{ github.repository }}/blob/master/config/repositories.json)
           color: ${{ needs.monitor.outputs.failed > 0 && '0xFF0000' || needs.monitor.outputs.successful > 0 && '0x48C21B' || '0xFFCC00' }}
-          username: "UPM Auto Publisher"
+          username: "THE 1 GAME STUDIO"
+          avatar_url: "https://raw.githubusercontent.com/The1Studio/UPMAutoPublisher/master/.github/assets/the1studio-logo.png"
