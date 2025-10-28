@@ -11,6 +11,9 @@ on:
         options:
           - 'true'
           - 'false'
+  schedule:
+    # Run every Sunday at 2:00 AM UTC (after weekly package cache rebuild)
+    - cron: '0 2 * * 0'
 
 jobs:
   publish-unpublished:
@@ -54,7 +57,7 @@ jobs:
       - name: Publish unpublished packages
         if: steps.count.outputs.count > 0
         env:
-          DRY_RUN: ${{ inputs.dry_run }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
           UPM_REGISTRY: ${{ vars.UPM_REGISTRY || 'https://upm.the1studio.org/' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -200,7 +203,7 @@ jobs:
           echo "✅ Batch publish completed successfully!"
 
       - name: Rebuild package cache
-        if: success() && inputs.dry_run == 'false'
+        if: success() && (inputs.dry_run == 'false' || github.event_name == 'schedule')
         run: |
           echo "🔄 Rebuilding package cache after publishing..."
           if [ -x "./scripts/build-package-cache.sh" ]; then
@@ -210,7 +213,7 @@ jobs:
           fi
 
       - name: Commit updated cache
-        if: success() && inputs.dry_run == 'false'
+        if: success() && (inputs.dry_run == 'false' || github.event_name == 'schedule')
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
