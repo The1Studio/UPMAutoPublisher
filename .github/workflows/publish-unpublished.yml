@@ -19,10 +19,34 @@ jobs:
   publish-unpublished:
     name: Batch Publish Unpublished Packages
     runs-on: [self-hosted, arc, the1studio, org]
+    outputs:
+      total_processed: ${{ steps.summary.outputs.total_processed }}
+      successful: ${{ steps.summary.outputs.successful }}
+      failed: ${{ steps.summary.outputs.failed }}
+      skipped: ${{ steps.summary.outputs.skipped }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          # Fix APT sources to use HTTPS instead of HTTP (port 80 blocked)
+          sudo sed -i 's|http://archive.ubuntu.com|https://archive.ubuntu.com|g' /etc/apt/sources.list
+          sudo sed -i 's|http://security.ubuntu.com|https://security.ubuntu.com|g' /etc/apt/sources.list
+
+          # Disable PPA repositories
+          sudo mv /etc/apt/sources.list.d /etc/apt/sources.list.d.bak 2>/dev/null || true
+          sudo mkdir -p /etc/apt/sources.list.d
+
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq jq
+
+          # Install GitHub CLI
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y gh
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -202,6 +226,22 @@ jobs:
           echo ""
           echo "✅ Batch publish completed successfully!"
 
+          # Set outputs for Discord notification
+          echo "total_processed=$((success + skipped + failed))" >> $GITHUB_OUTPUT
+          echo "successful=$success" >> $GITHUB_OUTPUT
+          echo "failed=$failed" >> $GITHUB_OUTPUT
+          echo "skipped=$skipped" >> $GITHUB_OUTPUT
+
+      - name: Set summary outputs
+        id: summary
+        if: always()
+        run: |
+          # This step ensures outputs are set even if the publish step fails early
+          echo "total_processed=0" >> $GITHUB_OUTPUT
+          echo "successful=0" >> $GITHUB_OUTPUT
+          echo "failed=0" >> $GITHUB_OUTPUT
+          echo "skipped=0" >> $GITHUB_OUTPUT
+
       - name: Rebuild package cache
         if: success() && (inputs.dry_run == 'false' || github.event_name == 'schedule')
         run: |
@@ -232,3 +272,33 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
             git push
             echo "✅ Package cache updated"
           fi
+
+  notify-discord:
+    runs-on: [self-hosted, arc, the1studio, org]
+    needs: publish-unpublished
+    if: always()
+    steps:
+      - name: Send Discord notification
+        uses: sarisia/actions-status-discord@v1
+        if: always()
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: ${{ needs.publish-unpublished.result }}
+          title: "📦 Batch Publish Unpublished Packages"
+          description: |
+            **Workflow:** Publish Unpublished
+            **Trigger:** ${{ github.event_name == 'schedule' && 'Scheduled (Weekly)' || 'Manual' }}
+            **Dry Run:** ${{ inputs.dry_run || 'false' }}
+
+            **📊 Results:**
+            • Total Processed: `${{ needs.publish-unpublished.outputs.total_processed || '0' }}`
+            • ✅ Published: `${{ needs.publish-unpublished.outputs.successful || '0' }}`
+            • ⚠️  Skipped: `${{ needs.publish-unpublished.outputs.skipped || '0' }}`
+            • ❌ Failed: `${{ needs.publish-unpublished.outputs.failed || '0' }}`
+
+            **🔗 Links:**
+            • [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            • [Package Cache](${{ github.server_url }}/${{ github.repository }}/blob/master/config/package-cache.json)
+          color: ${{ needs.publish-unpublished.result == 'success' && '0x48C21B' || needs.publish-unpublished.result == 'failure' && '0xFF0000' || '0xFFCC00' }}
+          username: "THE 1 GAME STUDIO"
+          avatar_url: "https://raw.githubusercontent.com/The1Studio/UPMAutoPublisher/master/.github/assets/the1studio-logo.png"

@@ -29,6 +29,19 @@ jobs:
 
     steps:
       - name: Checkout repository
+
+      - name: Install dependencies
+        run: |
+          # Fix APT sources to use HTTPS instead of HTTP (port 80 blocked)
+          sudo sed -i 's|http://archive.ubuntu.com|https://archive.ubuntu.com|g' /etc/apt/sources.list
+          sudo sed -i 's|http://security.ubuntu.com|https://security.ubuntu.com|g' /etc/apt/sources.list
+
+          # Disable PPA repositories
+          sudo mv /etc/apt/sources.list.d /etc/apt/sources.list.d.bak 2>/dev/null || true
+          sudo mkdir -p /etc/apt/sources.list.d
+
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq jq
         uses: actions/checkout@v5
         with:
           fetch-depth: 2  # Need previous commit for diff
