@@ -67,8 +67,8 @@ jobs:
               pkg_data=$(echo "$pkg_entry" | jq -r '.value')
 
               path=$(echo "$pkg_data" | jq -r '.path')
-              current=$(echo "$pkg_data" | jq -r '.v')
-              published=$(echo "$pkg_data" | jq -r '.pv // "not-published"')
+              current=$(echo "$pkg_data" | jq -r '.version')
+              published=$(echo "$pkg_data" | jq -r '.publishedVersion // "not-published"')
 
               # Only process if versions differ and package was published before
               if [ "$current" != "$published" ] && [ "$published" != "not-published" ]; then
