@@ -160,12 +160,12 @@ while IFS= read -r repo_json; do
     jq --arg repo_key "$org/$repo" \
        --arg pkg_name "$pkg_name" \
        --arg path "$pkg_path" \
-       --arg v "$current_version" \
-       --arg pv "${published_version:-null}" \
+       --arg version "$current_version" \
+       --arg publishedVersion "${published_version:-null}" \
        '.repositories[$repo_key].packages[$pkg_name] = {
          path: $path,
-         v: $v,
-         pv: (if $pv == "null" or $pv == "" then null else $pv end)
+         version: $version,
+         publishedVersion: (if $publishedVersion == "null" or $publishedVersion == "" then null else $publishedVersion end)
        }' "$CACHE_FILE.tmp" > "$CACHE_FILE.tmp2"
 
     mv "$CACHE_FILE.tmp2" "$CACHE_FILE.tmp"
@@ -183,9 +183,9 @@ done < <(jq -c '.repositories[]' config/repositories.json)
 mv "$CACHE_FILE.tmp" "$CACHE_FILE"
 
 # Generate statistics
-uptodate=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.v == .value.pv)] | length' "$CACHE_FILE")
-stale=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.v != .value.pv and .value.pv != null)] | length' "$CACHE_FILE")
-new=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.pv == null)] | length' "$CACHE_FILE")
+uptodate=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.version == .value.publishedVersion)] | length' "$CACHE_FILE")
+stale=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.version != .value.publishedVersion and .value.publishedVersion != null)] | length' "$CACHE_FILE")
+new=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.publishedVersion == null)] | length' "$CACHE_FILE")
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "📊 Cache Build Summary"
@@ -207,7 +207,7 @@ echo ""
 
 if [ "$stale" -gt 0 ]; then
   echo "${WARN} Stale packages found:"
-  jq -r '.repositories | to_entries[] | .key as $repo | .value.packages | to_entries[] | select(.value.v != .value.pv and .value.pv != null) | "  - \(.key) (\($repo)): \(.value.v) (published: \(.value.pv))"' "$CACHE_FILE"
+  jq -r '.repositories | to_entries[] | .key as $repo | .value.packages | to_entries[] | select(.value.version != .value.publishedVersion and .value.publishedVersion != null) | "  - \(.key) (\($repo)): \(.value.version) (published: \(.value.publishedVersion))"' "$CACHE_FILE"
   echo ""
 fi
 

@@ -92,9 +92,9 @@ jobs:
 
           total=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[]] | length' config/package-cache.json)
           updated=$(jq -r '.updated' config/package-cache.json)
-          uptodate=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.v == .value.pv)] | length' config/package-cache.json)
-          stale=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.v != .value.pv and .value.pv != null)] | length' config/package-cache.json)
-          new=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.pv == null)] | length' config/package-cache.json)
+          uptodate=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.version == .value.publishedVersion)] | length' config/package-cache.json)
+          stale=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.version != .value.publishedVersion and .value.publishedVersion != null)] | length' config/package-cache.json)
+          new=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.publishedVersion == null)] | length' config/package-cache.json)
 
           echo "## Statistics" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -111,7 +111,7 @@ jobs:
           if [ "$stale" -gt 0 ]; then
             echo "## ⚠️ Packages Needing Publish" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            jq -r '.repositories | to_entries[] | .key as $repo | .value.packages | to_entries[] | select(.value.v != .value.pv and .value.pv != null) | "- **\(.key)** (\($repo)): \(.value.v) (published: \(.value.pv))"' config/package-cache.json >> $GITHUB_STEP_SUMMARY
+            jq -r '.repositories | to_entries[] | .key as $repo | .value.packages | to_entries[] | select(.value.version != .value.publishedVersion and .value.publishedVersion != null) | "- **\(.key)** (\($repo)): \(.value.version) (published: \(.value.publishedVersion))"' config/package-cache.json >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "💡 Run the \`trigger-stale-publishes\` workflow to publish these packages." >> $GITHUB_STEP_SUMMARY
           fi
