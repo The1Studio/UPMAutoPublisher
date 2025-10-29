@@ -143,9 +143,9 @@ jobs:
             temp_dir=$(mktemp -d)
             cd "$temp_dir" || exit 1
 
-            echo "📥 Cloning repository..."
-            if ! gh repo clone "$repo" repo > /dev/null 2>&1; then
-              echo "ERROR: Failed to clone repository"
+            echo "CLONE: Cloning repository..."
+            if ! gh repo clone "$repo" repo 2>&1; then
+              echo "ERROR: Failed to clone repository (see error above)"
               # Count all packages in this repo as failed
               pkg_count=$(echo "$packages" | wc -l)
               failed=$((failed + pkg_count))
@@ -191,8 +191,8 @@ jobs:
               pkg_name=$(jq -r '.name' package.json)
               pkg_version=$(jq -r '.version' package.json)
 
-              echo "   📝 Name: $pkg_name"
-              echo "   🏷️  Version: $pkg_version"
+              echo "   INFO: Name: $pkg_name"
+              echo "   VERSION: Version: $pkg_version"
 
               # Check if already published (double-check)
               if npm view "$pkg_name@$pkg_version" --registry "$UPM_REGISTRY" > /dev/null 2>&1; then
@@ -204,7 +204,7 @@ jobs:
 
               # Publish package
               if [ "$DRY_RUN" = "true" ]; then
-                echo "   🔍 DRY RUN: Would publish $pkg_name@$pkg_version"
+                echo "   DRY-RUN: DRY RUN: Would publish $pkg_name@$pkg_version"
                 if npm publish --dry-run --registry "$UPM_REGISTRY" 2>&1; then
                   echo "   SUCCESS: Dry run successful"
                   ((success++))
@@ -214,7 +214,7 @@ jobs:
                   failed_packages="$failed_packages\n   - $package_info (dry run failed)"
                 fi
               else
-                echo "   📤 Publishing to $UPM_REGISTRY..."
+                echo "   PUBLISH: Publishing to $UPM_REGISTRY..."
                 if npm publish --registry "$UPM_REGISTRY" 2>&1; then
                   echo "   SUCCESS: Published successfully"
                   ((success++))
@@ -239,7 +239,7 @@ jobs:
           done < <(jq -c '.repositories | to_entries[]' config/package-cache.json)
 
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "📊 Batch Publish Summary"
+          echo "SUMMARY: Batch Publish Summary"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "SUCCESS: Published: $success"
           echo "WARNING: Skipped (already published): $skipped"
@@ -289,7 +289,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           if git diff --quiet config/package-cache.json; then
-            echo "ℹ️  No changes to package cache"
+            echo "INFO: No changes to package cache"
           else
             git add config/package-cache.json
             git commit -m "$(cat <<'EOF'
@@ -323,7 +323,7 @@ jobs:
             **Trigger:** ${{ github.event_name == 'schedule' && 'Scheduled (Weekly)' || 'Manual' }}
             **Dry Run:** ${{ inputs.dry_run || 'false' }}
 
-            **📊 Results:**
+            **SUMMARY: Results:**
             • Total Processed: `${{ needs.publish-unpublished.outputs.total_processed || '0' }}`
             • SUCCESS: Published: `${{ needs.publish-unpublished.outputs.successful || '0' }}`
             • WARNING: Skipped: `${{ needs.publish-unpublished.outputs.skipped || '0' }}`
