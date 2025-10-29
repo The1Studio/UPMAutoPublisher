@@ -1,5 +1,5 @@
 {
-  "updated": "2025-10-29T06:11:40Z",
+  "updated": "2025-10-29T12:12:59Z",
   "repositories": {
     "The1Studio/UnityBuildScript": {
       "packages": {
@@ -296,11 +296,6 @@
           "path": "UI/Common/FeatureEntryView/package.json",
           "version": "1.0.1",
           "publishedVersion": "1.0.1"
-        },
-        "com.theone.ui.common.highlight": {
-          "path": "UI/Common/Highlight/package.json",
-          "version": "1.0.0",
-          "publishedVersion": null
         },
         "com.theone.ui.common.informationpopup": {
           "path": "UI/Common/InformationPopup/package.json",
