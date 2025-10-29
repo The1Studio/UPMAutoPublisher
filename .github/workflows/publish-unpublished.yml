@@ -90,6 +90,8 @@ jobs:
             exit 0
           fi
 
+          echo "🎯 Proceeding to publish $count packages"
+
       - name: Publish unpublished packages
         if: steps.count.outputs.count > 0
         env:
