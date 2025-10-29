@@ -61,7 +61,7 @@ jobs:
       - name: Verify package cache exists
         run: |
           if [ ! -f "config/package-cache.json" ]; then
-            echo "❌ package-cache.json not found!"
+            echo "ERROR: package-cache.json not found!"
             echo "Run 'build-package-cache' workflow first"
             exit 1
           fi
@@ -99,7 +99,7 @@ jobs:
           UPM_REGISTRY: ${{ vars.UPM_REGISTRY || 'https://upm.the1studio.org/' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "🚀 Starting batch publish process"
+          echo "START: Starting batch publish process"
           echo "Dry run: $DRY_RUN"
           echo ""
 
@@ -113,7 +113,7 @@ jobs:
             repo=$(echo "$repo_entry" | jq -r '.key')
 
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "📦 Repository: $repo"
+            echo "PACKAGE: Repository: $repo"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
             # Get unpublished packages for this repo
@@ -136,7 +136,7 @@ jobs:
             done < <(echo "$repo_entry" | jq -c '.value.packages | to_entries[]')
 
             if [ "$unpublished_found" = false ]; then
-              echo "⚠️  No unpublished packages in this repo"
+              echo "WARNING: No unpublished packages in this repo"
               rm -f "$temp_packages_file"
               continue
             fi
@@ -149,7 +149,7 @@ jobs:
 
             echo "📥 Cloning repository..."
             if ! gh repo clone "$repo" repo > /dev/null 2>&1; then
-              echo "❌ Failed to clone repository"
+              echo "ERROR: Failed to clone repository"
               # Count all packages in this repo as failed
               pkg_count=$(echo "$packages" | wc -l)
               failed=$((failed + pkg_count))
@@ -163,28 +163,28 @@ jobs:
             # Process each package
             while IFS='|' read -r path package_info; do
               echo "   ────────────────────────────────────────"
-              echo "   📦 $package_info"
+              echo "   PACKAGE: $package_info"
               echo "   📁 Path: $path"
 
               if [ ! -d "$path" ]; then
-                echo "   ❌ Path not found in repository"
+                echo "   ERROR: Path not found in repository"
                 ((failed++))
                 failed_packages="$failed_packages\n   - $package_info (path not found)"
                 continue
               fi
 
               if [ ! -f "$path/package.json" ]; then
-                echo "   ❌ package.json not found"
+                echo "   ERROR: package.json not found"
                 ((failed++))
                 failed_packages="$failed_packages\n   - $package_info (no package.json)"
                 continue
               fi
 
-              cd "$path" || { echo "   ❌ Cannot cd to path"; ((failed++)); continue; }
+              cd "$path" || { echo "   ERROR: Cannot cd to path"; ((failed++)); continue; }
 
               # Verify package.json is valid
               if ! jq empty package.json 2>/dev/null; then
-                echo "   ❌ Invalid package.json"
+                echo "   ERROR: Invalid package.json"
                 ((failed++))
                 failed_packages="$failed_packages\n   - $package_info (invalid JSON)"
                 cd - > /dev/null
@@ -200,7 +200,7 @@ jobs:
 
               # Check if already published (double-check)
               if npm view "$pkg_name@$pkg_version" --registry "$UPM_REGISTRY" > /dev/null 2>&1; then
-                echo "   ⚠️  Already published, skipping"
+                echo "   WARNING: Already published, skipping"
                 ((skipped++))
                 cd - > /dev/null
                 continue
@@ -210,20 +210,20 @@ jobs:
               if [ "$DRY_RUN" = "true" ]; then
                 echo "   🔍 DRY RUN: Would publish $pkg_name@$pkg_version"
                 if npm publish --dry-run --registry "$UPM_REGISTRY" 2>&1; then
-                  echo "   ✅ Dry run successful"
+                  echo "   SUCCESS: Dry run successful"
                   ((success++))
                 else
-                  echo "   ❌ Dry run failed"
+                  echo "   ERROR: Dry run failed"
                   ((failed++))
                   failed_packages="$failed_packages\n   - $package_info (dry run failed)"
                 fi
               else
                 echo "   📤 Publishing to $UPM_REGISTRY..."
                 if npm publish --registry "$UPM_REGISTRY" 2>&1; then
-                  echo "   ✅ Published successfully"
+                  echo "   SUCCESS: Published successfully"
                   ((success++))
                 else
-                  echo "   ❌ Failed to publish"
+                  echo "   ERROR: Failed to publish"
                   ((failed++))
                   failed_packages="$failed_packages\n   - $package_info"
                 fi
@@ -245,20 +245,20 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "📊 Batch Publish Summary"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "✅ Published: $success"
-          echo "⚠️  Skipped (already published): $skipped"
-          echo "❌ Failed: $failed"
-          echo "🎯 Total processed: $((success + skipped + failed))"
+          echo "SUCCESS: Published: $success"
+          echo "WARNING: Skipped (already published): $skipped"
+          echo "ERROR: Failed: $failed"
+          echo "TOTAL: Total processed: $((success + skipped + failed))"
 
           if [ $failed -gt 0 ]; then
             echo ""
-            echo "❌ Failed packages:"
+            echo "ERROR: Failed packages:"
             echo -e "$failed_packages"
             exit 1
           fi
 
           echo ""
-          echo "✅ Batch publish completed successfully!"
+          echo "SUCCESS: Batch publish completed successfully!"
 
           # Set outputs for Discord notification
           echo "total_processed=$((success + skipped + failed))" >> $GITHUB_OUTPUT
@@ -279,11 +279,11 @@ jobs:
       - name: Rebuild package cache
         if: success() && (inputs.dry_run == 'false' || github.event_name == 'schedule')
         run: |
-          echo "🔄 Rebuilding package cache after publishing..."
+          echo "REBUILD: Rebuilding package cache after publishing..."
           if [ -x "./scripts/build-package-cache.sh" ]; then
             ./scripts/build-package-cache.sh
           else
-            echo "⚠️  build-package-cache.sh not found or not executable"
+            echo "WARNING: build-package-cache.sh not found or not executable"
           fi
 
       - name: Commit updated cache
@@ -307,7 +307,7 @@ jobs:
           EOF
           )"
             git push
-            echo "✅ Package cache updated"
+            echo "SUCCESS: Package cache updated"
           fi
 
   notify-discord:
@@ -321,7 +321,7 @@ jobs:
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
           status: ${{ needs.publish-unpublished.result }}
-          title: "📦 Batch Publish Unpublished Packages"
+          title: "PACKAGE: Batch Publish Unpublished Packages"
           description: |
             **Workflow:** Publish Unpublished
             **Trigger:** ${{ github.event_name == 'schedule' && 'Scheduled (Weekly)' || 'Manual' }}
@@ -329,9 +329,9 @@ jobs:
 
             **📊 Results:**
             • Total Processed: `${{ needs.publish-unpublished.outputs.total_processed || '0' }}`
-            • ✅ Published: `${{ needs.publish-unpublished.outputs.successful || '0' }}`
-            • ⚠️  Skipped: `${{ needs.publish-unpublished.outputs.skipped || '0' }}`
-            • ❌ Failed: `${{ needs.publish-unpublished.outputs.failed || '0' }}`
+            • SUCCESS: Published: `${{ needs.publish-unpublished.outputs.successful || '0' }}`
+            • WARNING: Skipped: `${{ needs.publish-unpublished.outputs.skipped || '0' }}`
+            • ERROR: Failed: `${{ needs.publish-unpublished.outputs.failed || '0' }}`
 
             **🔗 Links:**
             • [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
