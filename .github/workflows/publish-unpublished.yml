@@ -93,7 +93,7 @@ jobs:
         env:
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
           UPM_REGISTRY: ${{ vars.UPM_REGISTRY || 'https://upm.the1studio.org/' }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           echo "START: Starting batch publish process"
           echo "Dry run: $DRY_RUN"
