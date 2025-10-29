@@ -83,14 +83,14 @@ jobs:
           done < <(jq -c '.repositories | to_entries[]' config/package-cache.json)
 
           echo "count=$count" >> $GITHUB_OUTPUT
-          echo "📦 Found $count unpublished packages"
+          echo "Found $count unpublished packages"
 
           if [ "$count" -eq 0 ]; then
-            echo "✅ No unpublished packages found"
+            echo "No unpublished packages found"
             exit 0
           fi
 
-          echo "🎯 Proceeding to publish $count packages"
+          echo "Proceeding to publish $count packages"
 
       - name: Publish unpublished packages
         if: steps.count.outputs.count > 0
