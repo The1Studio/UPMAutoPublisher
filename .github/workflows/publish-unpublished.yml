@@ -69,7 +69,19 @@ jobs:
       - name: Count unpublished packages
         id: count
         run: |
-          count=$(jq '[.packages[] | select(.status == "new")] | length' config/package-cache.json)
+          # Count packages where publishedVersion is null or "not-published"
+          count=0
+          while IFS= read -r repo_entry; do
+            while IFS= read -r pkg_entry; do
+              pkg_data=$(echo "$pkg_entry" | jq -r '.value')
+              published=$(echo "$pkg_data" | jq -r '.publishedVersion // "not-published"')
+
+              if [ "$published" = "not-published" ] || [ "$published" = "null" ]; then
+                ((count++))
+              fi
+            done < <(echo "$repo_entry" | jq -c '.value.packages | to_entries[]')
+          done < <(jq -c '.repositories | to_entries[]' config/package-cache.json)
+
           echo "count=$count" >> $GITHUB_OUTPUT
           echo "📦 Found $count unpublished packages"
 
@@ -94,21 +106,40 @@ jobs:
           skipped=0
           failed_packages=""
 
-          # Get unique repositories with unpublished packages
-          repos=$(jq -r '[.packages[] | select(.status == "new") | .repository] | unique | .[]' config/package-cache.json)
+          # Process repositories and find unpublished packages
+          while IFS= read -r repo_entry; do
+            repo=$(echo "$repo_entry" | jq -r '.key')
 
-          for repo in $repos; do
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             echo "📦 Repository: $repo"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-            # Get all unpublished packages for this repo
-            packages=$(jq -r ".packages[] | select(.repository == \"$repo\" and .status == \"new\") | \"\(.package_path)|\(.name)@\(.source_version)\"" config/package-cache.json)
+            # Get unpublished packages for this repo
+            unpublished_found=false
+            temp_packages_file=$(mktemp)
 
-            if [ -z "$packages" ]; then
+            while IFS= read -r pkg_entry; do
+              pkg_name=$(echo "$pkg_entry" | jq -r '.key')
+              pkg_data=$(echo "$pkg_entry" | jq -r '.value')
+
+              path=$(echo "$pkg_data" | jq -r '.path')
+              version=$(echo "$pkg_data" | jq -r '.version')
+              published=$(echo "$pkg_data" | jq -r '.publishedVersion // "not-published"')
+
+              # Only process unpublished packages
+              if [ "$published" = "not-published" ] || [ "$published" = "null" ]; then
+                echo "$path|$pkg_name@$version" >> "$temp_packages_file"
+                unpublished_found=true
+              fi
+            done < <(echo "$repo_entry" | jq -c '.value.packages | to_entries[]')
+
+            if [ "$unpublished_found" = false ]; then
               echo "⚠️  No unpublished packages in this repo"
+              rm -f "$temp_packages_file"
               continue
             fi
+
+            packages=$(cat "$temp_packages_file")
 
             # Clone repository
             temp_dir=$(mktemp -d)
@@ -200,13 +231,14 @@ jobs:
               echo ""
             done <<< "$packages"
 
-            # Cleanup repo
+            # Cleanup repo and temp file
+            rm -f "$temp_packages_file"
             cd - > /dev/null
             cd - > /dev/null
             rm -rf "$temp_dir"
 
             echo ""
-          done
+          done < <(jq -c '.repositories | to_entries[]' config/package-cache.json)
 
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "📊 Batch Publish Summary"
