@@ -69,27 +69,23 @@ jobs:
       - name: Count unpublished packages
         id: count
         run: |
-          # Count packages where publishedVersion is null or "not-published"
+          echo "Starting count script..."
           count=0
           while IFS= read -r repo_entry; do
             while IFS= read -r pkg_entry; do
               pkg_data=$(echo "$pkg_entry" | jq -r '.value')
               published=$(echo "$pkg_data" | jq -r '.publishedVersion // "not-published"')
-
               if [ "$published" = "not-published" ] || [ "$published" = "null" ]; then
-                ((count++))
+                count=$((count + 1))
               fi
             done < <(echo "$repo_entry" | jq -c '.value.packages | to_entries[]')
           done < <(jq -c '.repositories | to_entries[]' config/package-cache.json)
-
           echo "count=$count" >> $GITHUB_OUTPUT
           echo "Found $count unpublished packages"
-
           if [ "$count" -eq 0 ]; then
             echo "No unpublished packages found"
             exit 0
           fi
-
           echo "Proceeding to publish $count packages"
 
       - name: Publish unpublished packages
