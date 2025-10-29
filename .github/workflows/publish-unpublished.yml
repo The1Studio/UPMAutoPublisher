@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Dry run (don't actually publish)'
+        description: "Dry run (don't actually publish)"
         required: false
         default: 'false'
         type: choice
@@ -262,13 +262,16 @@ jobs:
             echo "ℹ️  No changes to package cache"
           else
             git add config/package-cache.json
-            git commit -m "Update package cache after batch publish
+            git commit -m "$(cat <<'EOF'
+          Update package cache after batch publish
 
-Published packages are now marked as up-to-date in the cache.
+          Published packages are now marked as up-to-date in the cache.
 
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
+          🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
-Co-Authored-By: Claude <noreply@anthropic.com>"
+          Co-Authored-By: Claude <noreply@anthropic.com>
+          EOF
+          )"
             git push
             echo "✅ Package cache updated"
           fi
