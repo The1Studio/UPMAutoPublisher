@@ -1,5 +1,5 @@
 {
-  "updated": "2025-10-30T00:30:53Z",
+  "updated": "2025-10-30T01:50:56Z",
   "repositories": {
     "The1Studio/UnityBuildScript": {
       "packages": {
@@ -13,547 +13,547 @@
     "The1Studio/TheOneFeature": {
       "packages": {
         "com.theone.feature.adapters": {
-          "path": "Core/Adapters/package.json",
+          "path": "Core/Adapters",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.core": {
-          "path": "Core/Core/package.json",
+          "path": "Core/Core",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.data.commoncondition": {
-          "path": "Core/Data/CommonCondition/Core/package.json",
+          "path": "Core/Data/CommonCondition/Core",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.data.jsonconverter": {
-          "path": "Core/Data/JsonConverter/package.json",
+          "path": "Core/Data/JsonConverter",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.authentication.core": {
-          "path": "Core/Features/Authentication/Core/package.json",
+          "path": "Core/Features/Authentication/Core",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.battlepass.core": {
-          "path": "Core/Features/BattlePass/Core/package.json",
+          "path": "Core/Features/BattlePass/Core",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.battlepass.final-chest": {
-          "path": "Core/Features/BattlePass/FinalChest/package.json",
+          "path": "Core/Features/BattlePass/FinalChest",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.battlepass.rewardhandlers": {
-          "path": "Core/Features/BattlePass/RewardHandlers/package.json",
+          "path": "Core/Features/BattlePass/RewardHandlers",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.booster.core": {
-          "path": "Core/Features/Booster/Core/package.json",
+          "path": "Core/Features/Booster/Core",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.features.booster.default": {
-          "path": "Core/Features/Booster/Default/package.json",
+          "path": "Core/Features/Booster/Default",
           "version": "1.0.0",
           "publishedVersion": null
         },
         "com.theone.features.collectibleobject.core": {
-          "path": "Core/Features/CollectibleObject/package.json",
+          "path": "Core/Features/CollectibleObject",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.currencyprogress.core": {
-          "path": "Core/Features/CurrencyProgress/package.json",
+          "path": "Core/Features/CurrencyProgress",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.dailymission.core": {
-          "path": "Core/Features/DailyMission/package.json",
+          "path": "Core/Features/DailyMission",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.dailyreward.core": {
-          "path": "Core/Features/DailyReward/package.json",
+          "path": "Core/Features/DailyReward",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.economy.entry.core": {
-          "path": "Core/Features/EconomyEntry/package.json",
+          "path": "Core/Features/EconomyEntry",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.endlesstreasure.core": {
-          "path": "Core/Features/NoInternet/package.json",
+          "path": "Core/Features/NoInternet",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.example.core": {
-          "path": "Core/Features/Example/package.json",
+          "path": "Core/Features/Example",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.features.ftue.userexperience": {
-          "path": "Core/Features/FTUE/UserExperience/package.json",
+          "path": "Core/Features/FTUE/UserExperience",
           "version": "1.0.0",
           "publishedVersion": null
         },
         "com.theone.feature.featureconditions": {
-          "path": "Core/Features/FeatureConditions/package.json",
+          "path": "Core/Features/FeatureConditions",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.entry.core": {
-          "path": "Core/Features/FeatureEntry/Core/package.json",
+          "path": "Core/Features/FeatureEntry/Core",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.freepack.core": {
-          "path": "Core/Features/FreePack/package.json",
+          "path": "Core/Features/FreePack",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.gameplay.core": {
-          "path": "Core/Features/Gameplay/package.json",
+          "path": "Core/Features/Gameplay",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.generics": {
-          "path": "Core/Features/Generics/package.json",
+          "path": "Core/Features/Generics",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.homeanimation": {
-          "path": "Core/Features/HomeAnimation/package.json",
+          "path": "Core/Features/HomeAnimation",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.iaa.entry.core": {
-          "path": "Core/Features/IAAEntry/package.json",
+          "path": "Core/Features/IAAEntry",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.iap.core": {
-          "path": "Core/Features/IAP/package.json",
+          "path": "Core/Features/IAP",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.features.inventory.core": {
-          "path": "Core/Features/Inventory/package.json",
+          "path": "Core/Features/Inventory",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.leaderboard.core": {
-          "path": "Core/Features/Leaderboard/Core/package.json",
+          "path": "Core/Features/Leaderboard/Core",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.leaderboard.passedlevelstracker": {
-          "path": "Core/Features/Leaderboard/PassedLevelsTracker/package.json",
+          "path": "Core/Features/Leaderboard/PassedLevelsTracker",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.features.lives.core": {
-          "path": "Core/Features/Lives/Core/package.json",
+          "path": "Core/Features/Lives/Core",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.lives.initialinfinitelives": {
-          "path": "Core/Features/Lives/InitialInfiniteLives/package.json",
+          "path": "Core/Features/Lives/InitialInfiniteLives",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.milestonestreak": {
-          "path": "Core/Features/MilestoneStreak/package.json",
+          "path": "Core/Features/MilestoneStreak",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.notification": {
-          "path": "Core/Features/Notification/package.json",
+          "path": "Core/Features/Notification",
           "version": "1.0.0",
           "publishedVersion": null
         },
         "com.theone.feature.piggybank.core": {
-          "path": "Core/Features/PiggyBank/package.json",
+          "path": "Core/Features/PiggyBank",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.playfab.core": {
-          "path": "Core/Features/Playfab/package.json",
+          "path": "Core/Features/Playfab",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.potentialloss.core": {
-          "path": "Core/Features/PotentialLoss/package.json",
+          "path": "Core/Features/PotentialLoss",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.profile.core": {
-          "path": "Core/Features/Profile/package.json",
+          "path": "Core/Features/Profile",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.progression-reward.core": {
-          "path": "Core/Features/ProgressionReward/Core/package.json",
+          "path": "Core/Features/ProgressionReward/Core",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.progressionreward.levelchest": {
-          "path": "Core/Features/ProgressionReward/LevelChest/package.json",
+          "path": "Core/Features/ProgressionReward/LevelChest",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.racing.core": {
-          "path": "Core/Features/RaceEvent/package.json",
+          "path": "Core/Features/RaceEvent",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.features.time.core": {
-          "path": "Core/Features/Time/package.json",
+          "path": "Core/Features/Time",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.upcomingfeature.core": {
-          "path": "Core/Features/UpComingFeature/Core/package.json",
+          "path": "Core/Features/UpComingFeature/Core",
           "version": "1.0.0",
           "publishedVersion": null
         },
         "com.theone.feature.upcomingfeature.default": {
-          "path": "Core/Features/UpComingFeature/Default/package.json",
+          "path": "Core/Features/UpComingFeature/Default",
           "version": "1.0.0",
           "publishedVersion": null
         },
         "com.theone.feature.userexperience.core": {
-          "path": "Core/Features/UserExperience/Core/package.json",
+          "path": "Core/Features/UserExperience/Core",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.userexperience.defaultimplement": {
-          "path": "Core/Features/UserExperience/DefaultImplement/package.json",
+          "path": "Core/Features/UserExperience/DefaultImplement",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.winstreak.beforeplay.core": {
-          "path": "Core/Features/WinStreak/BeforePlay/package.json",
+          "path": "Core/Features/WinStreak/BeforePlay",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.winstreak.core": {
-          "path": "Core/Features/WinStreak/Core/package.json",
+          "path": "Core/Features/WinStreak/Core",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.winstreak.leaderboard.core": {
-          "path": "Core/Features/WinStreak/Leaderboard/Core/package.json",
+          "path": "Core/Features/WinStreak/Leaderboard/Core",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.winstreak.leaderboard.pve": {
-          "path": "Core/Features/WinStreak/Leaderboard/PvE/package.json",
+          "path": "Core/Features/WinStreak/Leaderboard/PvE",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.winstreak.suddendead.core": {
-          "path": "Core/Features/WinStreak/SuddenDead/Core/Scripts/package.json",
+          "path": "Core/Features/WinStreak/SuddenDead/Core/Scripts",
           "version": "1.0.0",
           "publishedVersion": null
         },
         "com.theone.feature.tracking": {
-          "path": "Core/Tracking/package.json",
+          "path": "Core/Tracking",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.package.trueshadow": {
-          "path": "Packages/Le Tai's Asset/TrueShadow/package.json",
+          "path": "Packages/Le Tai's Asset/TrueShadow",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.package.ui.gradient.effect": {
-          "path": "Packages/P&C UI Gradient Effect/package.json",
+          "path": "Packages/P&C UI Gradient Effect",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.ui.autosuggest.core": {
-          "path": "UI/Common/AutoSuggest/Core/package.json",
+          "path": "UI/Common/AutoSuggest/Core",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.ui.autosuggest.default": {
-          "path": "UI/Common/AutoSuggest/Default/package.json",
+          "path": "UI/Common/AutoSuggest/Default",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.ui.common.featureentry.condition": {
-          "path": "UI/Common/FeatureEntryCondition/package.json",
+          "path": "UI/Common/FeatureEntryCondition",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.entry.view": {
-          "path": "UI/Common/FeatureEntryView/package.json",
+          "path": "UI/Common/FeatureEntryView",
           "version": "1.0.1",
           "publishedVersion": "1.0.1"
         },
         "com.theone.ui.common.informationpopup": {
-          "path": "UI/Common/InformationPopup/package.json",
+          "path": "UI/Common/InformationPopup",
           "version": "1.0.0",
           "publishedVersion": null
         },
         "com.theone.ui.common.timelineanimation": {
-          "path": "UI/Common/TimelineAnimation/package.json",
+          "path": "UI/Common/TimelineAnimation",
           "version": "1.0.0",
           "publishedVersion": null
         },
         "com.theone.ui.common.transitionloading": {
-          "path": "UI/Common/TransitionLoading/package.json",
+          "path": "UI/Common/TransitionLoading",
           "version": "1.0.0",
           "publishedVersion": null
         },
         "com.theone.feature.ui.layouts.baseprefabs": {
-          "path": "UI/Layouts/BasePrefabs/package.json",
+          "path": "UI/Layouts/BasePrefabs",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.actionhandlers.core": {
-          "path": "UI/Layouts/Puzzle3D_1/ActionHandlers/Abstractions/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/ActionHandlers/Abstractions",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.actionhandlers.default": {
-          "path": "UI/Layouts/Puzzle3D_1/ActionHandlers/DefaultImplementations/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/ActionHandlers/DefaultImplementations",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.screw3doriginal.ui.bottomnavbar": {
-          "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/TopNavBar/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/TopNavBar",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.screw3doriginal.ui.gameplay": {
-          "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/Gameplay/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/Gameplay",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.screw3doriginal.ui.home": {
-          "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/Home/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/Home",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.screw3doriginal.ui.leaderboard": {
-          "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/Leaderboard/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/Leaderboard",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.screw3doriginal.ui.piggybank": {
-          "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/PiggyBank/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/PiggyBank",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.screw3doriginal.ui.screentransition": {
-          "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/ScreenTransition/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/ScreenTransition",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.screw3doriginal.ui.shop": {
-          "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/Shop/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/Shop",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.ui.layouts.puzzle3d1.baseprefabs": {
-          "path": "UI/Layouts/Puzzle3D_1/LayoutBasePrefabs/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/LayoutBasePrefabs",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.battlepass": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/BattlePass/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/BattlePass",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.beforeplay": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/BeforePlay/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/BeforePlay",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.common.bottomnavbar": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/BottomNavBar/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/BottomNavBar",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.common.claimreward": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/ClaimReward/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/ClaimReward",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.currency": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/Currency/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/Currency",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.common.dailymission": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/DailyMission/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/DailyMission",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.dailyreward": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/DailyReward/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/DailyReward",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.endlesstreasure": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/EndlessTreasure/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/EndlessTreasure",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.common.freepack": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/FreePack/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/FreePack",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.gameplay": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/Gameplay/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/Gameplay",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.common.home": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/Home/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/Home",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.iap": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/IAP/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/IAP",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.iappacks": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/IapPacks/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/IapPacks",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.common.items": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/Items/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/Items",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.leaderboard": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/Leaderboard/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/Leaderboard",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.lives": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/Lives/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/Lives",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.lose": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/Lose/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/Lose",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.ui.puzzle3d_1.milestonestreak": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/MilestoneStreak/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/MilestoneStreak",
           "version": "1.0.0",
           "publishedVersion": null
         },
         "com.theone.feature.puzzle3d_1.ui.piggybank": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/PiggyBank/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/PiggyBank",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.profile": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/Profile/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/Profile",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.ui.puzzle3d_1.progressionreward": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/ProgressionReward/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/ProgressionReward",
           "version": "1.0.0",
           "publishedVersion": null
         },
         "com.theone.feature.puzzle3d_1.ui.purchasebooster": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/PurchaseBooster/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/PurchaseBooster",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.racing": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/RaceEvent/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/RaceEvent",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.rateus": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/RateUs/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/RateUs",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.removeadsbottom": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/RemoveAdsBottom/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/RemoveAdsBottom",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.ui.puzzle3d_1.setting": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/Setting/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/Setting",
           "version": "1.0.0",
           "publishedVersion": null
         },
         "com.theone.feature.puzzle3d_1.ui.shop": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/Shop/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/Shop",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.streakleaderboard": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/StreakLeaderboard/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/StreakLeaderboard",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.streaksuddendead": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/StreakSuddenDead/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/StreakSuddenDead",
           "version": "1.0.0",
           "publishedVersion": null
         },
         "com.theone.feature.puzzle3d_1.ui.topnavbar": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/TopNavView/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/TopNavView",
           "version": "1.0.0",
           "publishedVersion": null
         },
         "com.theone.feature.puzzle3d_1.ui.ui_stuff": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/UIStuff/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/UIStuff",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.unlockitem": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/UnlockItem/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/UnlockItem",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.feature.puzzle3d_1.ui.upcomingfeature": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/UpComingFeature/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/UpComingFeature",
           "version": "1.0.0",
           "publishedVersion": null
         },
         "com.theone.feature.puzzle3d_1.ui.win": {
-          "path": "UI/Layouts/Puzzle3D_1/Scripts/Win/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/Win",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.ui.puzzle3d_1.uifx": {
-          "path": "UI/Layouts/Puzzle3D_1/UIFX/package.json",
+          "path": "UI/Layouts/Puzzle3D_1/UIFX",
           "version": "1.0.0",
           "publishedVersion": null
         },
         "com.theone.spriteprimitives": {
-          "path": "UI/SpritePrimitives/package.json",
+          "path": "UI/SpritePrimitives",
           "version": "1.0.0",
           "publishedVersion": null
         },
         "com.theone.ui.utilities": {
-          "path": "UI/Utilities/package.json",
+          "path": "UI/Utilities",
           "version": "1.0.0",
           "publishedVersion": null
         },
         "com.theone.package.ui.vfx": {
-          "path": "UI/VFX/package.json",
+          "path": "UI/VFX",
           "version": "1.0.0",
           "publishedVersion": null
         },
@@ -567,42 +567,42 @@
     "The1Studio/UITemplate": {
       "packages": {
         "com.theone.template.editor": {
-          "path": "Editor/Core/package.json",
+          "path": "Editor/Core",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.tool.localdata": {
-          "path": "Editor/LocalData/package.json",
+          "path": "Editor/LocalData",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.tool.localization": {
-          "path": "Editor/Localization/package.json",
+          "path": "Editor/Localization",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.theone.tool.optimization": {
-          "path": "Editor/Optimization/package.json",
+          "path": "Editor/Optimization",
           "version": "1.0.0",
           "publishedVersion": "1.0.1"
         },
         "com.theone.tool.migration": {
-          "path": "Editor/ProjectMigration/package.json",
+          "path": "Editor/ProjectMigration",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
         },
         "com.heurekagames.assethunterpro": {
-          "path": "Packages/com.heurekagames.assethunterpro/package.json",
+          "path": "Packages/com.heurekagames.assethunterpro",
           "version": "2.2.23",
           "publishedVersion": null
         },
         "com.heurekagames.utils": {
-          "path": "Packages/com.heurekagames.utils/package.json",
+          "path": "Packages/com.heurekagames.utils",
           "version": "1.0.3",
           "publishedVersion": null
         },
         "com.theone.utils.autogeneratechildrenfromfields": {
-          "path": "Scripts/Utils/AutoGenerateChildrenFromFields/package.json",
+          "path": "Scripts/Utils/AutoGenerateChildrenFromFields",
           "version": "1.0.0",
           "publishedVersion": null
         }
@@ -611,12 +611,12 @@
     "The1Studio/PlayableLabs": {
       "packages": {
         "@playablelabs/api": {
-          "path": "apps/api/package.json",
+          "path": "apps/api",
           "version": "0.1.0",
           "publishedVersion": null
         },
         "@playablelabs/web": {
-          "path": "apps/web/package.json",
+          "path": "apps/web",
           "version": "0.1.0",
           "publishedVersion": null
         },
@@ -626,17 +626,17 @@
           "publishedVersion": null
         },
         "@playablelabs/playable-engine": {
-          "path": "packages/playable-engine/package.json",
+          "path": "packages/playable-engine",
           "version": "0.1.0",
           "publishedVersion": null
         },
         "@playablelabs/shared": {
-          "path": "packages/shared/package.json",
+          "path": "packages/shared",
           "version": "0.1.0",
           "publishedVersion": null
         },
         "@playablelabs/preview": {
-          "path": "services/preview/package.json",
+          "path": "services/preview",
           "version": "0.1.0",
           "publishedVersion": null
         }
@@ -654,12 +654,12 @@
     "The1Studio/LiveOps": {
       "packages": {
         "@liveops/api": {
-          "path": "apps/api/package.json",
+          "path": "apps/api",
           "version": "0.1.0",
           "publishedVersion": null
         },
         "@liveops/dashboard": {
-          "path": "apps/dashboard/package.json",
+          "path": "apps/dashboard",
           "version": "0.1.0",
           "publishedVersion": null
         },
@@ -669,7 +669,7 @@
           "publishedVersion": null
         },
         "@liveops/shared": {
-          "path": "packages/shared/package.json",
+          "path": "packages/shared",
           "version": "0.1.0",
           "publishedVersion": null
         }
@@ -687,17 +687,17 @@
     "The1Studio/ThirdPartyServices": {
       "packages": {
         "3rd.remoteconfig.bytebrew": {
-          "path": "ServiceImplementation/RemoteConfig/ByteBrewRemoteConfig/package.json",
+          "path": "ServiceImplementation/RemoteConfig/ByteBrewRemoteConfig",
           "version": "1.0.0",
           "publishedVersion": null
         },
         "com.theone.3rd.remoteconfig.core": {
-          "path": "ServiceImplementation/RemoteConfig/Core/package.json",
+          "path": "ServiceImplementation/RemoteConfig/Core",
           "version": "1.0.0",
           "publishedVersion": null
         },
         "3rd.remoteconfig.firebase": {
-          "path": "ServiceImplementation/RemoteConfig/FireBaseRemoteConfig/package.json",
+          "path": "ServiceImplementation/RemoteConfig/FireBaseRemoteConfig",
           "version": "1.0.0",
           "publishedVersion": null
         },
