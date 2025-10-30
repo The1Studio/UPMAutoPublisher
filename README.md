@@ -1,5 +1,9 @@
 # UPM Auto Publisher
 
+[![Publish Unpublished Packages](https://github.com/The1Studio/UPMAutoPublisher/actions/workflows/publish-unpublished.yml/badge.svg)](https://github.com/The1Studio/UPMAutoPublisher/actions/workflows/publish-unpublished.yml)
+[![Monitor Package Publishes](https://github.com/The1Studio/UPMAutoPublisher/actions/workflows/monitor-publishes.yml/badge.svg)](https://github.com/The1Studio/UPMAutoPublisher/actions/workflows/monitor-publishes.yml)
+[![Publish to UPM Registry](https://github.com/The1Studio/UPMAutoPublisher/actions/workflows/publish-upm.yml/badge.svg)](https://github.com/The1Studio/UPMAutoPublisher/actions/workflows/publish-upm.yml)
+
 Automated Unity Package Manager (UPM) publishing system for The1Studio organization. This system automatically detects package version changes and publishes them to `upm.the1studio.org` registry.
 
 ---

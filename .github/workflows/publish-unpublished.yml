@@ -18,7 +18,8 @@ on:
 jobs:
   publish-unpublished:
     name: Batch Publish Unpublished Packages
-    runs-on: [self-hosted, arc, the1studio, org]
+    # Use self-hosted runners with GitHub-hosted fallback
+    runs-on: ${{ vars.USE_SELF_HOSTED_RUNNERS != 'false' && fromJSON('["self-hosted", "arc", "the1studio", "org"]') || 'ubuntu-latest' }}
     outputs:
       total_processed: ${{ steps.publish.outputs.total_processed }}
       successful: ${{ steps.publish.outputs.successful }}
@@ -319,7 +320,8 @@ jobs:
           fi
 
   notify-discord:
-    runs-on: [self-hosted, arc, the1studio, org]
+    # Use self-hosted runners with GitHub-hosted fallback
+    runs-on: ${{ vars.USE_SELF_HOSTED_RUNNERS != 'false' && fromJSON('["self-hosted", "arc", "the1studio", "org"]') || 'ubuntu-latest' }}
     needs: publish-unpublished
     if: always()
     steps:

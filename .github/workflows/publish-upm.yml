@@ -23,12 +23,16 @@ permissions:
 
 jobs:
   publish:
-    runs-on: [self-hosted, arc, the1studio, org]  # Use self-hosted runners (ARC on Kubernetes)
+    # Use self-hosted runners with GitHub-hosted fallback
+    runs-on: ${{ vars.USE_SELF_HOSTED_RUNNERS != 'false' && fromJSON('["self-hosted", "arc", "the1studio", "org"]') || 'ubuntu-latest' }}
     timeout-minutes: 20  # FIX: Add job-level timeout
     name: Auto-publish UPM packages
 
     steps:
       - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 2  # Need previous commit for diff
 
       - name: Install dependencies
         run: |
@@ -42,9 +46,6 @@ jobs:
 
           sudo apt-get update -qq
           sudo apt-get install -y -qq jq
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 2  # Need previous commit for diff
 
       - name: Setup Node.js
         uses: actions/setup-node@v6

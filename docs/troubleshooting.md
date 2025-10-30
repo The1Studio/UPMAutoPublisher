@@ -2,6 +2,26 @@
 
 Common issues and solutions for UPM auto-publishing system.
 
+## Recent Fixes (2025-10-31)
+
+### ✅ Fixed: Critical YAML Syntax Error
+**Issue:** Workflow file had malformed step structure causing complete failure
+**Status:** RESOLVED - Checkout action now properly structured before install dependencies
+
+### ✅ Added: Fallback Runner Support
+**Feature:** Workflows now automatically fallback to GitHub-hosted runners if self-hosted unavailable
+**Configuration:** Set organization variable `USE_SELF_HOSTED_RUNNERS=false` to use GitHub-hosted runners
+**Default:** Uses self-hosted ARC runners (The1Studio Kubernetes cluster)
+
+### ✅ Enhanced: Registry Health Checks
+**Feature:** Workflows now verify registry availability before attempting publish
+**Benefit:** Fails fast with clear error messages instead of timing out
+
+### ✅ Improved: Error Detection & Retry Logic
+**Feature:** Automatic retry with exponential backoff for transient failures
+**Max Retries:** 3 attempts for npm publish, 5 attempts for npm view
+**Benefit:** Handles rate limiting and network issues gracefully
+
 ## Workflow Issues
 
 ### Workflow Not Triggering
@@ -400,6 +420,75 @@ done
 **Meaning:** Not enough commit history
 
 **Action:** Workflow uses `fetch-depth: 2`. For first commit in repo, this is expected.
+
+## Self-Hosted Runner Issues
+
+### Runner Unavailable
+
+**Symptoms:**
+```
+Job was not acquired by Runner of type self-hosted
+Workflow run cancelled after 5 minutes
+```
+
+**Solutions:**
+
+1. **Check runner status:**
+   ```bash
+   # SSH to Kubernetes cluster
+   kubectl get pods -n actions-runner-system
+
+   # Check runner logs
+   kubectl logs -n actions-runner-system -l app=arc-runner
+   ```
+
+2. **Use GitHub-hosted runners temporarily:**
+   - Set organization variable: `USE_SELF_HOSTED_RUNNERS=false`
+   - All workflows will automatically use GitHub-hosted runners
+   - Change back to `true` or remove variable to resume using self-hosted
+
+3. **Restart ARC runners:**
+   ```bash
+   # Restart runner pods
+   kubectl rollout restart deployment/arc-runner -n actions-runner-system
+
+   # Wait for runners to be ready
+   kubectl wait --for=condition=ready pod -l app=arc-runner -n actions-runner-system
+   ```
+
+4. **Check runner labels:**
+   - Workflows require labels: `self-hosted`, `arc`, `the1studio`, `org`
+   - Verify runners are configured with correct labels
+   - Check ARC configuration: `kubectl get runnerdeployment -n actions-runner-system -o yaml`
+
+**Prevention:**
+- Monitor runner health regularly
+- Set up alerts for runner pod failures
+- Keep fallback to GitHub-hosted runners enabled
+- Document runner maintenance procedures
+
+### Port 80 HTTP Blocking Issues
+
+**Symptoms:**
+```
+Failed to fetch http://archive.ubuntu.com/ubuntu
+E: Failed to fetch packages
+```
+
+**Status:** RESOLVED - All workflows now use HTTPS sources
+
+**Background:**
+- Self-hosted runners (ARC on Kubernetes) have port 80 blocked
+- APT sources automatically converted to HTTPS in install dependencies step
+- PPA repositories disabled to prevent HTTP access
+
+**If issue persists:**
+```bash
+# Manual fix in runner environment
+sudo sed -i 's|http://|https://|g' /etc/apt/sources.list
+sudo mv /etc/apt/sources.list.d /etc/apt/sources.list.d.bak
+sudo mkdir -p /etc/apt/sources.list.d
+```
 
 ## Getting Help
 

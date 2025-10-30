@@ -11,7 +11,8 @@ permissions:
 
 jobs:
   monitor:
-    runs-on: [self-hosted, arc, the1studio, org]
+    # Use self-hosted runners with GitHub-hosted fallback
+    runs-on: ${{ vars.USE_SELF_HOSTED_RUNNERS != 'false' && fromJSON('["self-hosted", "arc", "the1studio", "org"]') || 'ubuntu-latest' }}
     timeout-minutes: 10
     name: Monitor publish workflows across repositories
     outputs:
@@ -186,7 +187,8 @@ jobs:
           fi
 
   notify-discord:
-    runs-on: [self-hosted, arc, the1studio, org]
+    # Use self-hosted runners with GitHub-hosted fallback
+    runs-on: ${{ vars.USE_SELF_HOSTED_RUNNERS != 'false' && fromJSON('["self-hosted", "arc", "the1studio", "org"]') || 'ubuntu-latest' }}
     needs: monitor
     if: always() && needs.monitor.outputs.total_checked > 0
     steps:
