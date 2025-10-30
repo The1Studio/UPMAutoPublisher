@@ -1,5 +1,5 @@
 {
-  "updated": "2025-10-30T01:50:56Z",
+  "updated": "2025-10-30T03:00:12Z",
   "repositories": {
     "The1Studio/UnityBuildScript": {
       "packages": {
@@ -60,7 +60,7 @@
         "com.theone.features.booster.default": {
           "path": "Core/Features/Booster/Default",
           "version": "1.0.0",
-          "publishedVersion": null
+          "publishedVersion": "1.0.0"
         },
         "com.theone.features.collectibleobject.core": {
           "path": "Core/Features/CollectibleObject",
