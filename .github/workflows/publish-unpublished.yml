@@ -165,24 +165,24 @@ jobs:
 
               if [ ! -d "$path" ]; then
                 echo "   ERROR: Path not found in repository"
-                ((failed++))
+                failed=$((failed + 1))
                 failed_packages="$failed_packages\n   - $package_info (path not found)"
                 continue
               fi
 
               if [ ! -f "$path/package.json" ]; then
                 echo "   ERROR: package.json not found"
-                ((failed++))
+                failed=$((failed + 1))
                 failed_packages="$failed_packages\n   - $package_info (no package.json)"
                 continue
               fi
 
-              cd "$path" || { echo "   ERROR: Cannot cd to path"; ((failed++)); continue; }
+              cd "$path" || { echo "   ERROR: Cannot cd to path"; failed=$((failed + 1)); continue; }
 
               # Verify package.json is valid
               if ! jq empty package.json 2>/dev/null; then
                 echo "   ERROR: Invalid package.json"
-                ((failed++))
+                failed=$((failed + 1))
                 failed_packages="$failed_packages\n   - $package_info (invalid JSON)"
                 cd - > /dev/null
                 continue
@@ -198,7 +198,7 @@ jobs:
               # Check if already published (double-check)
               if npm view "$pkg_name@$pkg_version" --registry "$UPM_REGISTRY" > /dev/null 2>&1; then
                 echo "   WARNING: Already published, skipping"
-                ((skipped++))
+                skipped=$((skipped + 1))
                 cd - > /dev/null
                 continue
               fi
@@ -208,20 +208,20 @@ jobs:
                 echo "   DRY-RUN: DRY RUN: Would publish $pkg_name@$pkg_version"
                 if npm publish --dry-run --registry "$UPM_REGISTRY" 2>&1; then
                   echo "   SUCCESS: Dry run successful"
-                  ((success++))
+                  success=$((success + 1))
                 else
                   echo "   ERROR: Dry run failed"
-                  ((failed++))
+                  failed=$((failed + 1))
                   failed_packages="$failed_packages\n   - $package_info (dry run failed)"
                 fi
               else
                 echo "   PUBLISH: Publishing to $UPM_REGISTRY..."
                 if npm publish --registry "$UPM_REGISTRY" 2>&1; then
                   echo "   SUCCESS: Published successfully"
-                  ((success++))
+                  success=$((success + 1))
                 else
                   echo "   ERROR: Failed to publish"
-                  ((failed++))
+                  failed=$((failed + 1))
                   failed_packages="$failed_packages\n   - $package_info"
                 fi
               fi
