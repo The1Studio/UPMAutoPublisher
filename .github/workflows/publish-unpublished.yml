@@ -20,10 +20,10 @@ jobs:
     name: Batch Publish Unpublished Packages
     runs-on: [self-hosted, arc, the1studio, org]
     outputs:
-      total_processed: ${{ steps.summary.outputs.total_processed }}
-      successful: ${{ steps.summary.outputs.successful }}
-      failed: ${{ steps.summary.outputs.failed }}
-      skipped: ${{ steps.summary.outputs.skipped }}
+      total_processed: ${{ steps.publish.outputs.total_processed }}
+      successful: ${{ steps.publish.outputs.successful }}
+      failed: ${{ steps.publish.outputs.failed }}
+      skipped: ${{ steps.publish.outputs.skipped }}
 
     steps:
       - name: Checkout repository
@@ -89,6 +89,7 @@ jobs:
           echo "Proceeding to publish $count packages"
 
       - name: Publish unpublished packages
+        id: publish
         if: steps.count.outputs.count > 0
         env:
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
@@ -261,16 +262,6 @@ jobs:
           echo "successful=$success" >> $GITHUB_OUTPUT
           echo "failed=$failed" >> $GITHUB_OUTPUT
           echo "skipped=$skipped" >> $GITHUB_OUTPUT
-
-      - name: Set summary outputs
-        id: summary
-        if: always()
-        run: |
-          # This step ensures outputs are set even if the publish step fails early
-          echo "total_processed=0" >> $GITHUB_OUTPUT
-          echo "successful=0" >> $GITHUB_OUTPUT
-          echo "failed=0" >> $GITHUB_OUTPUT
-          echo "skipped=0" >> $GITHUB_OUTPUT
 
       - name: Rebuild package cache
         if: success() && (inputs.dry_run == 'false' || github.event_name == 'schedule')
