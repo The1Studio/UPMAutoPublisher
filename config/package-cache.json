@@ -1,5 +1,5 @@
 {
-  "updated": "2025-10-30T06:13:56Z",
+  "updated": "2025-10-30T07:31:10Z",
   "repositories": {
     "The1Studio/TheOneFeature": {
       "packages": {
@@ -580,17 +580,17 @@
         "com.heurekagames.assethunterpro": {
           "path": "Packages/com.heurekagames.assethunterpro",
           "version": "2.2.23",
-          "publishedVersion": null
+          "publishedVersion": "2.2.23"
         },
         "com.heurekagames.utils": {
           "path": "Packages/com.heurekagames.utils",
           "version": "1.0.3",
-          "publishedVersion": null
+          "publishedVersion": "1.0.3"
         },
         "com.theone.utils.autogeneratechildrenfromfields": {
           "path": "Scripts/Utils/AutoGenerateChildrenFromFields",
           "version": "1.0.0",
-          "publishedVersion": null
+          "publishedVersion": "1.0.0"
         }
       }
     },
@@ -609,12 +609,12 @@
         "@playablelabs/playable-engine": {
           "path": "packages/playable-engine",
           "version": "0.1.0",
-          "publishedVersion": null
+          "publishedVersion": "0.1.0"
         },
         "@playablelabs/shared": {
           "path": "packages/shared",
           "version": "0.1.0",
-          "publishedVersion": null
+          "publishedVersion": "0.1.0"
         },
         "@playablelabs/preview": {
           "path": "services/preview",
@@ -638,7 +638,7 @@
         "@liveops/shared": {
           "path": "packages/shared",
           "version": "0.1.0",
-          "publishedVersion": null
+          "publishedVersion": "0.1.0"
         }
       }
     },
@@ -647,17 +647,17 @@
         "3rd.remoteconfig.bytebrew": {
           "path": "ServiceImplementation/RemoteConfig/ByteBrewRemoteConfig",
           "version": "1.0.0",
-          "publishedVersion": null
+          "publishedVersion": "1.0.0"
         },
         "com.theone.3rd.remoteconfig.core": {
           "path": "ServiceImplementation/RemoteConfig/Core",
           "version": "1.0.0",
-          "publishedVersion": null
+          "publishedVersion": "1.0.0"
         },
         "3rd.remoteconfig.firebase": {
           "path": "ServiceImplementation/RemoteConfig/FireBaseRemoteConfig",
           "version": "1.0.0",
-          "publishedVersion": null
+          "publishedVersion": "1.0.0"
         }
       }
     }
