@@ -159,7 +159,7 @@ while IFS= read -r repo_json; do
     # Add to cache grouped by repository
     jq --arg repo_key "$org/$repo" \
        --arg pkg_name "$pkg_name" \
-       --arg path "$pkg_path" \
+       --arg path "${pkg_path%/package.json}" \
        --arg version "$current_version" \
        --arg publishedVersion "${published_version:-null}" \
        '.repositories[$repo_key].packages[$pkg_name] = {
