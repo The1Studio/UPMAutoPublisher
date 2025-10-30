@@ -117,8 +117,8 @@ while IFS= read -r repo_json; do
 
   # Process each package.json
   while IFS='|' read -r pkg_path pkg_sha; do
-    # Skip node_modules and hidden directories
-    if [[ "$pkg_path" =~ node_modules|/\. ]]; then
+    # Skip node_modules, hidden directories, and root package.json
+    if [[ "$pkg_path" =~ node_modules|/\. ]] || [[ "$pkg_path" == "package.json" ]]; then
       continue
     fi
 

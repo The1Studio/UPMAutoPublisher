@@ -140,13 +140,32 @@ jobs:
 
             packages=$(cat "$temp_packages_file")
 
-            # Clone repository
+            # Clone repository with retry logic
             temp_dir=$(mktemp -d)
             cd "$temp_dir" || exit 1
 
             echo "CLONE: Cloning repository..."
-            if ! gh repo clone "$repo" repo 2>&1; then
-              echo "ERROR: Failed to clone repository (see error above)"
+            clone_success=false
+            max_retries=3
+            for attempt in $(seq 1 $max_retries); do
+              if [ $attempt -gt 1 ]; then
+                wait_time=$((2 ** (attempt - 1)))  # Exponential backoff: 2, 4, 8 seconds
+                echo "   RETRY: Attempt $attempt/$max_retries (waiting ${wait_time}s)..."
+                sleep $wait_time
+              fi
+
+              if gh repo clone "$repo" repo 2>&1; then
+                clone_success=true
+                break
+              fi
+
+              if [ $attempt -lt $max_retries ]; then
+                echo "   WARNING: Clone failed, will retry..."
+              fi
+            done
+
+            if [ "$clone_success" = false ]; then
+              echo "ERROR: Failed to clone repository after $max_retries attempts"
               # Count all packages in this repo as failed
               pkg_count=$(echo "$packages" | wc -l)
               failed=$((failed + pkg_count))
