@@ -284,6 +284,8 @@ jobs:
 
       - name: Rebuild package cache
         if: success() && (inputs.dry_run == 'false' || github.event_name == 'schedule')
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           echo "REBUILD: Rebuilding package cache after publishing..."
           if [ -x "./scripts/build-package-cache.sh" ]; then
