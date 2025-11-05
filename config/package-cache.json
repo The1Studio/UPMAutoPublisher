@@ -1,5 +1,5 @@
 {
-  "updated": "2025-11-05T06:11:21Z",
+  "updated": "2025-11-05T09:07:34Z",
   "repositories": {
     "The1Studio/TheOneFeature": {
       "packages": {
@@ -628,7 +628,7 @@
         "chrome-devtools-scripts": {
           "path": ".claude/skills/chrome-devtools/scripts",
           "version": "1.0.0",
-          "publishedVersion": null
+          "publishedVersion": "1.0.0"
         },
         "@liveops/api": {
           "path": "apps/api",
