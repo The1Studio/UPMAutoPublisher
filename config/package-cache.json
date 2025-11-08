@@ -1,5 +1,5 @@
 {
-  "updated": "2025-11-08T09:05:42Z",
+  "updated": "2025-11-08T12:11:18Z",
   "repositories": {
     "The1Studio/TheOneFeature": {
       "packages": {
@@ -66,7 +66,7 @@
         "com.theone.feature.dailymission.core": {
           "path": "Core/Features/DailyMission",
           "version": "1.0.0",
-          "publishedVersion": "1.0.0"
+          "publishedVersion": null
         },
         "com.theone.feature.dailyreward.core": {
           "path": "Core/Features/DailyReward",
@@ -126,22 +126,22 @@
         "com.theone.feature.iaa.entry.core": {
           "path": "Core/Features/IAAEntry",
           "version": "1.0.0",
-          "publishedVersion": "1.0.0"
+          "publishedVersion": null
         },
         "com.theone.feature.iap.core": {
           "path": "Core/Features/IAP",
           "version": "1.0.0",
-          "publishedVersion": "1.0.0"
+          "publishedVersion": null
         },
         "com.theone.features.inventory.core": {
           "path": "Core/Features/Inventory",
           "version": "1.0.0",
-          "publishedVersion": "1.0.0"
+          "publishedVersion": null
         },
         "com.theone.feature.leaderboard.core": {
           "path": "Core/Features/Leaderboard/Core",
           "version": "1.0.0",
-          "publishedVersion": "1.0.0"
+          "publishedVersion": null
         },
         "com.theone.feature.leaderboard.passedlevelstracker": {
           "path": "Core/Features/Leaderboard/PassedLevelsTracker",
