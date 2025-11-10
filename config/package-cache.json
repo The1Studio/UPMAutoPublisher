@@ -1,5 +1,5 @@
 {
-  "updated": "2025-11-10T00:32:29Z",
+  "updated": "2025-11-10T06:11:50Z",
   "repositories": {
     "The1Studio/TheOneFeature": {
       "packages": {
@@ -586,6 +586,11 @@
           "path": "Packages/com.heurekagames.utils",
           "version": "1.0.3",
           "publishedVersion": "1.0.3"
+        },
+        "com.theone.vibration": {
+          "path": "Scripts/Modules/Platform/Vibration",
+          "version": "1.0.0",
+          "publishedVersion": "1.0.0"
         },
         "com.theone.utils.autogeneratechildrenfromfields": {
           "path": "Scripts/Utils/AutoGenerateChildrenFromFields",
