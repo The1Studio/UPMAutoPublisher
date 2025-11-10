@@ -1,5 +1,5 @@
 {
-  "updated": "2025-11-10T09:06:14Z",
+  "updated": "2025-11-10T12:13:17Z",
   "repositories": {
     "The1Studio/TheOneFeature": {
       "packages": {
@@ -10,8 +10,8 @@
         },
         "com.theone.feature.core": {
           "path": "Core/Core",
-          "version": "1.0.0",
-          "publishedVersion": "1.0.0"
+          "version": "1.0.1",
+          "publishedVersion": "1.0.1"
         },
         "com.theone.feature.data.commoncondition": {
           "path": "Core/Data/CommonCondition/Core",
