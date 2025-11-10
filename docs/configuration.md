@@ -5,6 +5,7 @@ This guide explains all configurable options for the UPM Auto Publisher system.
 ## Table of Contents
 
 - [Registry Configuration](#registry-configuration)
+- [Discord Notifications](#discord-notifications)
 - [Audit Logging](#audit-logging)
 - [GitHub Organization Variables](#github-organization-variables)
 - [GitHub Organization Secrets](#github-organization-secrets)
@@ -61,6 +62,233 @@ gh variable set UPM_REGISTRY \
 gh variable set UPM_REGISTRY \
   --body "https://upm.the1studio.org/" \
   --org The1Studio
+```
+
+---
+
+## Discord Notifications
+
+### Overview
+
+The UPM Auto Publisher sends Discord webhook notifications for package publishing events, providing real-time updates on successes and failures.
+
+### Notification Types
+
+#### Success Notifications ✅
+
+Sent when packages are successfully published to the registry.
+
+**Includes:**
+- 📦 Number of packages published
+- ⏭️ Number of packages skipped
+- 📁 Repository name with clickable link
+- 💬 Commit SHA and message
+- 👤 Commit author
+- 🎯 Target registry URL
+- 🔗 Direct link to workflow run
+- ⏰ Timestamp
+
+**Color**: Green (#2ECC71)
+
+#### Failure Notifications ❌
+
+Sent when one or more packages fail to publish.
+
+**Includes:**
+- ❌ Number of packages failed
+- ✅ Number of packages published (if any)
+- ⏭️ Number of packages skipped
+- 🚨 List of failed package names
+- 📁 Repository name with clickable link
+- 💬 Commit SHA and message
+- 👤 Commit author
+- 🔗 Direct link to workflow logs
+- ⏰ Timestamp
+
+**Color**: Red (#E74C3C)
+
+### Setup
+
+#### Prerequisites
+
+You need a Discord webhook URL. To create one:
+
+1. Open Discord and navigate to your server
+2. Go to Server Settings → Integrations → Webhooks
+3. Click "New Webhook"
+4. Configure the webhook:
+   - **Name**: `UPM Auto Publisher` (or your choice)
+   - **Channel**: Select the channel for notifications (e.g., `#upm-publishes`)
+   - **Avatar**: Optional - upload a custom icon
+5. Click "Copy Webhook URL"
+
+#### Configuration
+
+**Option 1: Via GitHub CLI**
+
+```bash
+gh secret set DISCORD_WEBHOOK_UPM \
+  --body "https://discord.com/api/webhooks/your-webhook-url-here" \
+  --org The1Studio
+```
+
+**Option 2: Via GitHub Web UI**
+
+1. Go to https://github.com/organizations/The1Studio/settings/secrets/actions
+2. Click "New organization secret"
+3. Name: `DISCORD_WEBHOOK_UPM`
+4. Value: Your Discord webhook URL
+5. Click "Add secret"
+
+### Behavior
+
+- **Graceful Degradation**: If `DISCORD_WEBHOOK_UPM` is not set, workflows continue normally without sending notifications
+- **Non-Blocking**: Notification failures don't stop the workflow
+- **Conditional**: Only sends notifications when appropriate:
+  - Success: When `published > 0`
+  - Failure: When workflow fails OR when `failed > 0`
+
+### Testing
+
+To test Discord notifications:
+
+1. Set up the webhook secret (see [Setup](#setup))
+2. Trigger a package publish by bumping a version in any registered repository
+3. Check your Discord channel for the notification
+4. Verify all information is accurate
+
+**Test command:**
+
+```bash
+# In a test repository with UPM package
+cd /tmp
+gh repo clone The1Studio/UnityBuildScript
+cd UnityBuildScript
+
+# Bump version
+jq '.version = "1.2.3"' package.json > /tmp/pkg.tmp
+mv /tmp/pkg.tmp package.json
+
+# Commit and push (triggers workflow)
+git add package.json
+git commit -m "test: bump version for Discord notification test"
+git push origin master
+
+# Watch workflow run
+gh run watch
+```
+
+### Troubleshooting
+
+**Issue**: No notifications received
+**Solution**:
+1. Verify `DISCORD_WEBHOOK_UPM` secret is set correctly
+2. Check workflow logs for "⚠️ DISCORD_WEBHOOK_UPM secret not set" message
+3. Verify webhook URL is valid in Discord settings
+4. Test webhook manually:
+   ```bash
+   curl -X POST "YOUR_WEBHOOK_URL" \
+     -H "Content-Type: application/json" \
+     -d '{"content": "Test notification from UPM Auto Publisher"}'
+   ```
+
+**Issue**: Notifications sent but formatting is wrong
+**Solution**: The workflow uses Discord embeds. Ensure your webhook allows embeds (enabled by default)
+
+**Issue**: Too many notifications
+**Solution**: Notifications only send when packages are published or fail. If this is too frequent, consider:
+- Batching version bumps
+- Using a separate test channel for development repositories
+- Creating multiple webhooks for different repository groups
+
+### Security Considerations
+
+⚠️ **Important**: Discord webhook URLs should be treated as secrets:
+- ✅ Store in GitHub Secrets (not variables)
+- ✅ Never commit webhook URLs to repositories
+- ✅ Limit webhook permissions in Discord
+- ✅ Use dedicated webhooks per environment (dev/staging/prod)
+- ❌ Don't share webhook URLs publicly
+- ❌ Don't log webhook URLs in workflow output
+
+### Customization
+
+To customize notification format, edit `.github/workflows/publish-upm.yml`:
+
+**Success notification section** (lines 600-686):
+```yaml
+- name: Send Discord notification (Success)
+  if: success() && env.published > 0
+  env:
+    DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_UPM }}
+  run: |
+    # Modify the jq command to customize embed fields
+```
+
+**Failure notification section** (lines 688-778):
+```yaml
+- name: Send Discord notification (Failure)
+  if: failure() || (success() && env.failed > 0)
+  env:
+    DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_UPM }}
+  run: |
+    # Modify the jq command to customize embed fields
+```
+
+### Best Practices
+
+✅ **DO:**
+- Create a dedicated Discord channel for UPM notifications
+- Test webhook integration before deploying to production
+- Use meaningful channel names (e.g., `#upm-publishes`, `#package-releases`)
+- Set up Discord role mentions for critical failures (optional)
+- Keep webhook URLs secure
+
+❌ **DON'T:**
+- Use the same webhook for all environments (use separate webhooks for dev/staging/prod)
+- Share webhook URLs in chat or documentation
+- Disable notifications entirely (keep for monitoring)
+- Ignore failure notifications
+
+### Example Notifications
+
+**Success Example:**
+
+```
+✅ UPM Package Published Successfully
+
+📦 Packages Published: 1
+⏭️ Packages Skipped: 0
+
+📁 Repository: The1Studio/UnityBuildScript
+
+💬 Commit: a1f0749 chore: bump to 1.0.4
+
+👤 Author: github-actions[bot]
+
+🎯 Registry: https://upm.the1studio.org/
+
+🔗 Workflow Run: View Details
+```
+
+**Failure Example:**
+
+```
+❌ UPM Package Publish Failed
+
+❌ Packages Failed: 1
+✅ Packages Published: 0
+⏭️ Packages Skipped: 0
+
+🚨 Failed Packages: com.theone.package@1.0.5
+
+📁 Repository: The1Studio/UnityBuildScript
+
+💬 Commit: abc1234 fix: update dependency
+
+👤 Author: developer-name
+
+🔗 Workflow Run: View Logs
 ```
 
 ---
@@ -181,6 +409,14 @@ gh variable delete VARIABLE_NAME --org The1Studio
 | `GH_PAT` | Workflow triggering and PR creation | Organization | See [GH_PAT Setup](#gh_pat-setup) below |
 
 **Note**: `GITHUB_TOKEN` is automatically provided by GitHub Actions but has limitations (cannot trigger other workflows). That's why we need `GH_PAT`.
+
+### Optional Secrets
+
+| Secret | Purpose | Scope | How to Obtain |
+|--------|---------|-------|---------------|
+| `DISCORD_WEBHOOK_UPM` | Discord webhook URL for publish notifications | Organization | See [Discord Notifications](#discord-notifications) |
+
+**Note**: If `DISCORD_WEBHOOK_UPM` is not set, workflows will continue normally without sending Discord notifications.
 
 ### NPM_TOKEN Setup
 
