@@ -362,26 +362,60 @@ jobs:
             exit 0
           fi
 
-          # Build package details from tracking file (SUBSHELL FIX - use file redirection)
+          # Build detailed package information from tracking file
           package_details=""
+          package_count=0
+
           if [ -f published_packages.txt ] && [ -s published_packages.txt ]; then
             while IFS='|' read -r name old_ver new_ver; do
               [ -z "$name" ] && continue
+              package_count=$((package_count + 1))
 
+              # Determine version change type
               if [ "$old_ver" = "0.0.0" ]; then
-                line="• **$name**: \`$new_ver\` (new package)"
+                # New package
+                line="### 🆕 **$name**"$'\n'
+                line="${line}┗━ **Version:** \`$new_ver\` _(new package)_"$'\n'
+                line="${line}┗━ **Registry:** https://upm.the1studio.org/-/web/detail/$name"
               else
-                line="• **$name**: \`$old_ver\` → \`$new_ver\`"
+                # Version upgrade - determine type
+                IFS='.' read -r old_major old_minor old_patch <<< "$old_ver"
+                IFS='.' read -r new_major new_minor new_patch <<< "$new_ver"
+
+                if [ "$new_major" != "$old_major" ]; then
+                  change_type="🔴 **MAJOR**"
+                  emoji="🚀"
+                elif [ "$new_minor" != "$old_minor" ]; then
+                  change_type="🟡 **MINOR**"
+                  emoji="✨"
+                else
+                  change_type="🟢 **PATCH**"
+                  emoji="🔧"
+                fi
+
+                line="### $emoji **$name**"$'\n'
+                line="${line}┣━ **Version:** \`$old_ver\` ➜ \`$new_ver\`"$'\n'
+                line="${line}┣━ **Change Type:** $change_type"$'\n'
+                line="${line}┗━ **Registry:** https://upm.the1studio.org/-/web/detail/$name"
               fi
 
               if [ -z "$package_details" ]; then
                 package_details="$line"
               else
-                package_details="$package_details\n$line"
+                package_details="$package_details\n\n$line"
               fi
             done < published_packages.txt
           else
             package_details="No packages published"
+          fi
+
+          # Build skipped packages summary if any
+          skipped_summary=""
+          if [ -f skipped_packages.txt ] && [ -s skipped_packages.txt ]; then
+            skipped_count=$(wc -l < skipped_packages.txt | tr -d ' ')
+            if [ "$skipped_count" -gt 0 ]; then
+              skipped_summary="⏭️  **$skipped_count packages skipped** (already published)"
+            fi
           fi
 
           workflow_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
@@ -391,9 +425,10 @@ jobs:
           commit_url="https://github.com/$repository/commit/$commit_sha"
           timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-          # Construct Discord embed with jq
+          # Construct beautiful Discord embed with jq
           jq -n \
             --arg package_details "$package_details" \
+            --arg skipped_summary "$skipped_summary" \
             --arg published "${{ env.published }}" \
             --arg skipped "${{ env.skipped }}" \
             --arg repository "$repository" \
@@ -405,39 +440,47 @@ jobs:
             --arg timestamp "$timestamp" \
             '{
               "embeds": [{
-                "title": "✅ UPM Package Published Successfully",
-                "description": ("Repository: **" + $repository + "**"),
-                "color": 3066993,
+                "author": {
+                  "name": "UPM Auto Publisher",
+                  "icon_url": "https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/npm/npm.png"
+                },
+                "title": "📦 Package Published Successfully",
+                "description": ("🏢 **Repository:** [`" + $repository + "`](https://github.com/" + $repository + ")\n━━━━━━━━━━━━━━━━━━━━━━━"),
+                "color": 5763719,
                 "fields": [
                   {
-                    "name": "📦 Package Details",
+                    "name": "📋 Published Packages",
                     "value": $package_details,
                     "inline": false
                   },
                   {
-                    "name": "📊 Summary",
-                    "value": ("Published: **" + $published + "** | Skipped: **" + $skipped + "**"),
+                    "name": "📊 Publishing Summary",
+                    "value": ("✅ **Published:** " + $published + " package(s)\n" + if $skipped_summary != "" then $skipped_summary else "" end),
                     "inline": false
                   },
                   {
-                    "name": "💬 Commit",
-                    "value": ("[`" + $commit_short + "`](" + $commit_url + ") " + $commit_message),
+                    "name": "━━━━━━━━━━━━━━━━━━━━━━━",
+                    "value": "",
                     "inline": false
                   },
                   {
-                    "name": "👤 Author",
-                    "value": $commit_author,
-                    "inline": true
+                    "name": "💬 Commit Details",
+                    "value": ("[`" + $commit_short + "`](" + $commit_url + ") " + $commit_message + "\n👤 **Author:** " + $commit_author),
+                    "inline": false
                   },
                   {
-                    "name": "🔗 Workflow Run",
-                    "value": ("[View Details](" + $workflow_url + ")"),
-                    "inline": true
+                    "name": "🔗 Links",
+                    "value": ("📋 [Workflow Run](" + $workflow_url + ")\n📦 [Registry](https://upm.the1studio.org)"),
+                    "inline": false
                   }
                 ],
+                "thumbnail": {
+                  "url": "https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/unity/unity.png"
+                },
                 "timestamp": $timestamp,
                 "footer": {
-                  "text": "UPM Auto Publisher"
+                  "text": "UPM Auto Publisher • The1Studio",
+                  "icon_url": "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
                 }
               }]
             }' > discord_payload.json
@@ -471,24 +514,32 @@ jobs:
             --arg timestamp "$timestamp" \
             '{
               "embeds": [{
-                "title": "❌ UPM Package Publish Failed",
-                "description": ("Repository: **" + $repository + "**"),
+                "author": {
+                  "name": "UPM Auto Publisher",
+                  "icon_url": "https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/npm/npm.png"
+                },
+                "title": "❌ Package Publishing Failed",
+                "description": ("🏢 **Repository:** [`" + $repository + "`](https://github.com/" + $repository + ")\n━━━━━━━━━━━━━━━━━━━━━━━"),
                 "color": 15158332,
                 "fields": [
                   {
-                    "name": "⚠️ Status",
-                    "value": "Workflow execution failed. Check logs for details.",
+                    "name": "⚠️ Failure Details",
+                    "value": "The workflow execution failed during package publishing.\n\n**Action Required:**\n• Check the workflow logs for error details\n• Review package.json configurations\n• Verify registry connectivity\n• Check npm authentication",
                     "inline": false
                   },
                   {
-                    "name": "🔗 Workflow Run",
-                    "value": ("[View Logs](" + $workflow_url + ")"),
+                    "name": "🔗 Links",
+                    "value": ("📋 [View Workflow Logs](" + $workflow_url + ")\n📦 [Registry](https://upm.the1studio.org)"),
                     "inline": false
                   }
                 ],
+                "thumbnail": {
+                  "url": "https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/unity/unity.png"
+                },
                 "timestamp": $timestamp,
                 "footer": {
-                  "text": "UPM Auto Publisher"
+                  "text": "UPM Auto Publisher • The1Studio",
+                  "icon_url": "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
                 }
               }]
             }' > discord_payload_error.json
