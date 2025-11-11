@@ -1,0 +1,510 @@
+name: Handle UPM Publish Request
+
+on:
+  repository_dispatch:
+    types: [package_publish]
+
+env:
+  UPM_REGISTRY: ${{ vars.UPM_REGISTRY || 'https://upm.the1studio.org/' }}
+  AUDIT_RETENTION_DAYS: 90
+
+jobs:
+  publish-packages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Validate dispatch payload
+        run: |
+          echo "📦 Received publish request from: ${{ github.event.client_payload.repository }}"
+          echo "📝 Commit: ${{ github.event.client_payload.commit_sha }}"
+          echo "👤 Author: ${{ github.event.client_payload.commit_author }}"
+          echo "🌿 Branch: ${{ github.event.client_payload.branch }}"
+
+          # Validate required payload fields
+          if [ -z "${{ github.event.client_payload.repository }}" ]; then
+            echo "❌ Missing repository in payload"
+            exit 1
+          fi
+
+          if [ -z "${{ github.event.client_payload.commit_sha }}" ]; then
+            echo "❌ Missing commit_sha in payload"
+            exit 1
+          fi
+
+      - name: Clone target repository
+        run: |
+          echo "🔄 Cloning ${{ github.event.client_payload.repository }}..."
+          git clone "https://github.com/${{ github.event.client_payload.repository }}.git" target-repo
+          cd target-repo
+          git checkout "${{ github.event.client_payload.commit_sha }}"
+          echo "✅ Repository cloned at commit ${{ github.event.client_payload.commit_sha }}"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: ${{ vars.UPM_REGISTRY || 'https://upm.the1studio.org/' }}
+
+      - name: Configure npm authentication
+        run: |
+          npm config set "//${{ vars.UPM_REGISTRY_HOST || 'upm.the1studio.org/' }}:_authToken" "${{ secrets.NPM_TOKEN }}"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Validate registry configuration
+        run: |
+          echo "🔍 Validating registry configuration..."
+
+          # Validate registry URL format
+          if [[ ! "$UPM_REGISTRY" =~ ^https://[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/?$ ]]; then
+            echo "❌ Invalid registry URL format: $UPM_REGISTRY"
+            exit 1
+          fi
+
+          echo "✅ Registry URL validated: $UPM_REGISTRY"
+
+      - name: Registry health check
+        run: |
+          echo "🏥 Checking registry health..."
+
+          max_attempts=3
+          attempt=1
+
+          while [ $attempt -le $max_attempts ]; do
+            if curl -sSf "$UPM_REGISTRY" > /dev/null 2>&1; then
+              echo "✅ Registry is healthy"
+              exit 0
+            fi
+
+            echo "⚠️  Health check attempt $attempt failed"
+            if [ $attempt -lt $max_attempts ]; then
+              echo "Retrying in 5 seconds..."
+              sleep 5
+            fi
+            ((attempt++))
+          done
+
+          echo "❌ Registry health check failed after $max_attempts attempts"
+          exit 1
+
+      - name: Define helper functions
+        id: helpers
+        run: |
+          cd target-repo
+
+          # Create helper script for npm operations with retry logic
+          cat > npm-helpers.sh << 'HELPER_EOF'
+          #!/bin/bash
+
+          npm_view_with_retry() {
+            local max_attempts=5
+            local attempt=1
+
+            while [ $attempt -le $max_attempts ]; do
+              if output=$(npm view "$@" --registry "$UPM_REGISTRY" 2>&1); then
+                echo "$output"
+                return 0
+              fi
+
+              if echo "$output" | grep -qi "rate limit\|429\|too many requests"; then
+                local wait_time=$((2 ** attempt))
+                echo "⚠️  Rate limited, waiting ${wait_time}s..." >&2
+                sleep "$wait_time"
+                ((attempt++))
+              else
+                return 1
+              fi
+            done
+
+            echo "❌ Failed after $max_attempts attempts" >&2
+            return 1
+          }
+
+          npm_publish_with_retry() {
+            local max_attempts=3
+            local attempt=1
+
+            while [ $attempt -le $max_attempts ]; do
+              if npm publish "$@" --registry "$UPM_REGISTRY" 2>&1; then
+                return 0
+              fi
+
+              echo "⚠️  Publish attempt $attempt failed" >&2
+              if [ $attempt -lt $max_attempts ]; then
+                local wait_time=$((2 ** attempt))
+                echo "Retrying in ${wait_time}s..." >&2
+                sleep "$wait_time"
+              fi
+              ((attempt++))
+            done
+
+            return 1
+          }
+
+          export -f npm_view_with_retry
+          export -f npm_publish_with_retry
+          HELPER_EOF
+
+          chmod +x npm-helpers.sh
+          source npm-helpers.sh
+
+          echo "✅ Helper functions defined"
+
+      - name: Detect and validate packages
+        id: detect
+        run: |
+          cd target-repo
+          source npm-helpers.sh
+
+          echo "🔍 Detecting changed packages..."
+
+          # Initialize tracking files
+          echo "" > changed_packages.txt
+          echo "" > published_packages.txt
+          echo "" > skipped_packages.txt
+
+          # Find all package.json files (excluding node_modules)
+          package_files=$(find . -name "package.json" -not -path "*/node_modules/*" -not -path "*/.git/*")
+
+          if [ -z "$package_files" ]; then
+            echo "⚠️  No package.json files found"
+            echo "published=0" >> $GITHUB_ENV
+            echo "skipped=0" >> $GITHUB_ENV
+            exit 0
+          fi
+
+          # Check if specific package path provided in payload
+          specific_package="${{ github.event.client_payload.package_path }}"
+
+          if [ -n "$specific_package" ]; then
+            echo "📦 Specific package requested: $specific_package"
+            if [ ! -f "$specific_package" ]; then
+              echo "❌ Specified package not found: $specific_package"
+              exit 1
+            fi
+            package_files="$specific_package"
+          fi
+
+          published_count=0
+          skipped_count=0
+
+          # Process each package
+          while IFS= read -r package_json; do
+            [ -z "$package_json" ] && continue
+            [ ! -f "$package_json" ] && continue
+
+            echo ""
+            echo "=================================================="
+            echo "📦 Processing: $package_json"
+            echo "=================================================="
+
+            package_name=$(jq -r '.name // "unknown"' "$package_json")
+            new_version=$(jq -r '.version // "0.0.0"' "$package_json")
+            package_dir=$(dirname "$package_json")
+
+            # Security validations
+            if [[ "$package_name" =~ [^a-zA-Z0-9@/._-] ]]; then
+              echo "❌ Package name contains dangerous characters: $package_name"
+              echo "$package_name|SKIPPED|Invalid package name" >> skipped_packages.txt
+              ((skipped_count++))
+              continue
+            fi
+
+            if [[ ! "$new_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$ ]]; then
+              echo "❌ Invalid semver format: $new_version"
+              echo "$package_name|SKIPPED|Invalid version format" >> skipped_packages.txt
+              ((skipped_count++))
+              continue
+            fi
+
+            echo "📋 Package: $package_name"
+            echo "📌 Version: $new_version"
+
+            # Check if version already exists
+            if npm_view_with_retry "$package_name@$new_version" version 2>/dev/null; then
+              echo "⏭️  Version already published, skipping..."
+              echo "$package_name|SKIPPED|Version already exists" >> skipped_packages.txt
+              ((skipped_count++))
+              continue
+            fi
+
+            # Get latest version for rollback check
+            latest_version=$(npm_view_with_retry "$package_name" version 2>/dev/null || echo "0.0.0")
+            echo "📊 Latest published: $latest_version"
+
+            # Version rollback prevention (using npx for semver comparison)
+            if [ "$latest_version" != "0.0.0" ]; then
+              if npx --yes semver "$new_version" -r "<$latest_version" 2>/dev/null; then
+                echo "❌ Version rollback detected: $new_version < $latest_version"
+                echo "$package_name|SKIPPED|Version rollback prevented" >> skipped_packages.txt
+                ((skipped_count++))
+                continue
+              fi
+            fi
+
+            # Package size check
+            cd "$package_dir"
+            package_size=$(du -sb . | cut -f1)
+            package_size_mb=$((package_size / 1024 / 1024))
+
+            if [ "$package_size_mb" -gt 50 ]; then
+              echo "⚠️  Large package detected: ${package_size_mb}MB"
+              echo "Consider reducing package size or using .npmignore"
+            fi
+
+            # Publish package
+            echo "🚀 Publishing $package_name@$new_version..."
+
+            if npm_publish_with_retry --access public; then
+              echo "✅ Successfully published $package_name@$new_version"
+              echo "$package_name|$latest_version|$new_version" >> ../../published_packages.txt
+              ((published_count++))
+            else
+              echo "❌ Failed to publish $package_name@$new_version"
+              echo "$package_name|FAILED|Publish error" >> ../../skipped_packages.txt
+              ((skipped_count++))
+            fi
+
+            cd - > /dev/null
+          done <<< "$package_files"
+
+          # Save counts to environment
+          echo "published=$published_count" >> $GITHUB_ENV
+          echo "skipped=$skipped_count" >> $GITHUB_ENV
+
+          echo ""
+          echo "=================================================="
+          echo "📊 Summary"
+          echo "=================================================="
+          echo "✅ Published: $published_count"
+          echo "⏭️  Skipped: $skipped_count"
+
+      - name: Create audit log
+        if: always()
+        run: |
+          cd target-repo
+
+          echo "📝 Creating audit log..."
+
+          # Read package details
+          published_list=""
+          if [ -f published_packages.txt ] && [ -s published_packages.txt ]; then
+            published_list=$(cat published_packages.txt | jq -R -s -c 'split("\n") | map(select(length > 0) | split("|") | {name: .[0], old_version: .[1], new_version: .[2]})')
+          else
+            published_list="[]"
+          fi
+
+          skipped_list=""
+          if [ -f skipped_packages.txt ] && [ -s skipped_packages.txt ]; then
+            skipped_list=$(cat skipped_packages.txt | jq -R -s -c 'split("\n") | map(select(length > 0) | split("|") | {name: .[0], status: .[1], reason: .[2]})')
+          else
+            skipped_list="[]"
+          fi
+
+          # Create audit log with jq (safe from injection)
+          jq -n \
+            --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg workflow_run_id "${{ github.run_id }}" \
+            --arg repository "${{ github.event.client_payload.repository }}" \
+            --arg commit_sha "${{ github.event.client_payload.commit_sha }}" \
+            --arg commit_message "${{ github.event.client_payload.commit_message }}" \
+            --arg commit_author "${{ github.event.client_payload.commit_author }}" \
+            --arg branch "${{ github.event.client_payload.branch }}" \
+            --argjson published "${{ env.published || 0 }}" \
+            --argjson skipped "${{ env.skipped || 0 }}" \
+            --arg registry "$UPM_REGISTRY" \
+            --argjson published_packages "$published_list" \
+            --argjson skipped_packages "$skipped_list" \
+            '{
+              timestamp: $timestamp,
+              workflow_run_id: $workflow_run_id,
+              source_repository: $repository,
+              commit: {
+                sha: $commit_sha,
+                message: $commit_message,
+                author: $commit_author,
+                branch: $branch
+              },
+              results: {
+                published: $published,
+                skipped: $skipped
+              },
+              registry: $registry,
+              published_packages: $published_packages,
+              skipped_packages: $skipped_packages
+            }' > audit-log.json
+
+          echo "✅ Audit log created"
+          cat audit-log.json
+
+      - name: Upload audit log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-log-${{ github.run_id }}
+          path: target-repo/audit-log.json
+          retention-days: ${{ env.AUDIT_RETENTION_DAYS }}
+
+      - name: Send Discord notification - Success
+        if: env.published > 0
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_UPM }}
+          DISCORD_THREAD_ID: "1437635998509957181"
+        run: |
+          cd target-repo
+
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "⚠️  DISCORD_WEBHOOK_UPM secret not set, skipping notification"
+            exit 0
+          fi
+
+          # Build package details from tracking file (SUBSHELL FIX - use file redirection)
+          package_details=""
+          if [ -f published_packages.txt ] && [ -s published_packages.txt ]; then
+            while IFS='|' read -r name old_ver new_ver; do
+              [ -z "$name" ] && continue
+
+              if [ "$old_ver" = "0.0.0" ]; then
+                line="• **$name**: \`$new_ver\` (new package)"
+              else
+                line="• **$name**: \`$old_ver\` → \`$new_ver\`"
+              fi
+
+              if [ -z "$package_details" ]; then
+                package_details="$line"
+              else
+                package_details="$package_details\n$line"
+              fi
+            done < published_packages.txt
+          else
+            package_details="No packages published"
+          fi
+
+          workflow_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          repository="${{ github.event.client_payload.repository }}"
+          commit_sha="${{ github.event.client_payload.commit_sha }}"
+          commit_short="${commit_sha:0:7}"
+          commit_url="https://github.com/$repository/commit/$commit_sha"
+          timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          # Construct Discord embed with jq
+          jq -n \
+            --arg thread_id "$DISCORD_THREAD_ID" \
+            --arg package_details "$package_details" \
+            --arg published "${{ env.published }}" \
+            --arg skipped "${{ env.skipped }}" \
+            --arg repository "$repository" \
+            --arg commit_message "${{ github.event.client_payload.commit_message }}" \
+            --arg commit_author "${{ github.event.client_payload.commit_author }}" \
+            --arg commit_url "$commit_url" \
+            --arg commit_short "$commit_short" \
+            --arg workflow_url "$workflow_url" \
+            --arg timestamp "$timestamp" \
+            '{
+              "thread_id": $thread_id,
+              "embeds": [{
+                "title": "✅ UPM Package Published Successfully",
+                "description": ("Repository: **" + $repository + "**"),
+                "color": 3066993,
+                "fields": [
+                  {
+                    "name": "📦 Package Details",
+                    "value": $package_details,
+                    "inline": false
+                  },
+                  {
+                    "name": "📊 Summary",
+                    "value": ("Published: **" + $published + "** | Skipped: **" + $skipped + "**"),
+                    "inline": false
+                  },
+                  {
+                    "name": "💬 Commit",
+                    "value": ("[`" + $commit_short + "`](" + $commit_url + ") " + $commit_message),
+                    "inline": false
+                  },
+                  {
+                    "name": "👤 Author",
+                    "value": $commit_author,
+                    "inline": true
+                  },
+                  {
+                    "name": "🔗 Workflow Run",
+                    "value": ("[View Details](" + $workflow_url + ")"),
+                    "inline": true
+                  }
+                ],
+                "timestamp": $timestamp,
+                "footer": {
+                  "text": "UPM Auto Publisher"
+                }
+              }]
+            }' > discord_payload.json
+
+          # Send to Discord
+          curl -X POST "$DISCORD_WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d @discord_payload.json \
+            --fail --silent --show-error || echo "⚠️  Failed to send Discord notification"
+
+          rm -f discord_payload.json
+
+      - name: Send Discord notification - Failure
+        if: failure()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_UPM }}
+          DISCORD_THREAD_ID: "1437635998509957181"
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "⚠️  DISCORD_WEBHOOK_UPM secret not set, skipping notification"
+            exit 0
+          fi
+
+          workflow_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          repository="${{ github.event.client_payload.repository }}"
+          timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          jq -n \
+            --arg thread_id "$DISCORD_THREAD_ID" \
+            --arg repository "$repository" \
+            --arg workflow_url "$workflow_url" \
+            --arg timestamp "$timestamp" \
+            '{
+              "thread_id": $thread_id,
+              "embeds": [{
+                "title": "❌ UPM Package Publish Failed",
+                "description": ("Repository: **" + $repository + "**"),
+                "color": 15158332,
+                "fields": [
+                  {
+                    "name": "⚠️ Status",
+                    "value": "Workflow execution failed. Check logs for details.",
+                    "inline": false
+                  },
+                  {
+                    "name": "🔗 Workflow Run",
+                    "value": ("[View Logs](" + $workflow_url + ")"),
+                    "inline": false
+                  }
+                ],
+                "timestamp": $timestamp,
+                "footer": {
+                  "text": "UPM Auto Publisher"
+                }
+              }]
+            }' > discord_payload_error.json
+
+          curl -X POST "$DISCORD_WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d @discord_payload_error.json \
+            --fail --silent --show-error || echo "⚠️  Failed to send Discord notification"
+
+          rm -f discord_payload_error.json
+
+      - name: Cleanup
+        if: always()
+        run: |
+          echo "🧹 Cleaning up..."
+          cd ..
+          rm -rf target-repo
+          echo "✅ Cleanup complete"
