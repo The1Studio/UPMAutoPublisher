@@ -1,5 +1,5 @@
 {
-  "updated": "2025-11-11T03:40:16Z",
+  "updated": "2025-11-11T06:11:34Z",
   "repositories": {
     "The1Studio/TheOneFeature": {
       "packages": {
@@ -256,7 +256,7 @@
         "com.theone.feature.tracking": {
           "path": "Core/Tracking",
           "version": "1.0.9",
-          "publishedVersion": "1.0.8"
+          "publishedVersion": "1.0.9"
         },
         "com.theone.feature.package.trueshadow": {
           "path": "Packages/Le Tai's Asset/TrueShadow",
