@@ -1,5 +1,5 @@
 {
-  "updated": "2025-11-11T06:11:34Z",
+  "updated": "2025-11-11T18:10:22Z",
   "repositories": {
     "The1Studio/TheOneFeature": {
       "packages": {
@@ -594,8 +594,8 @@
         },
         "com.theone.utils.autogeneratechildrenfromfields": {
           "path": "Scripts/Utils/AutoGenerateChildrenFromFields",
-          "version": "1.0.0",
-          "publishedVersion": "1.0.0"
+          "version": "1.0.8",
+          "publishedVersion": "1.0.8"
         }
       }
     },
