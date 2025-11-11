@@ -1,0 +1,210 @@
+name: Daily Package Version Check
+
+on:
+  schedule:
+    # Run daily at 9:00 AM UTC (4:00 PM UTC+7)
+    - cron: '0 9 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  check-all-repositories:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout UPMAutoPublisher
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Read repository registry
+        id: read-repos
+        run: |
+          # Extract active repositories from config
+          repos=$(jq -r '.repositories[] | select(.status == "active") | .url | sub("https://github.com/"; "")' config/repositories.json)
+          echo "repos<<EOF" >> $GITHUB_OUTPUT
+          echo "$repos" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Check all repositories
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Initialize tracking files
+          echo "" > changed_packages.txt
+          echo "" > unchanged_packages.txt
+          echo "" > errors.txt
+
+          total_repos=0
+          repos_with_changes=0
+          repos_unchanged=0
+          repos_errors=0
+
+          # Read repositories from previous step
+          repos="${{ steps.read-repos.outputs.repos }}"
+
+          while IFS= read -r repo; do
+            [ -z "$repo" ] && continue
+
+            total_repos=$((total_repos + 1))
+            echo "=== Checking: $repo ==="
+
+            # Clone repository to temp directory
+            tmpdir=$(mktemp -d)
+            if ! git clone "https://github.com/$repo.git" "$tmpdir" 2>/dev/null; then
+              echo "❌ Failed to clone $repo" | tee -a errors.txt
+              repos_errors=$((repos_errors + 1))
+              rm -rf "$tmpdir"
+              continue
+            fi
+
+            cd "$tmpdir"
+
+            # Find all package.json files
+            package_files=$(find . -name "package.json" -not -path "*/node_modules/*" -not -path "*/.git/*")
+
+            if [ -z "$package_files" ]; then
+              echo "⚠️  No package.json found in $repo" | tee -a unchanged_packages.txt
+              repos_unchanged=$((repos_unchanged + 1))
+              cd /
+              rm -rf "$tmpdir"
+              continue
+            fi
+
+            repo_has_changes=false
+
+            # Check each package.json
+            while IFS= read -r package_json; do
+              [ -z "$package_json" ] && continue
+
+              if [ ! -f "$package_json" ]; then
+                continue
+              fi
+
+              package_name=$(jq -r '.name // "unknown"' "$package_json")
+              package_version=$(jq -r '.version // "0.0.0"' "$package_json")
+
+              # Get version from 24 hours ago
+              git_date=$(date -u -d "24 hours ago" +"%Y-%m-%d %H:%M:%S")
+              old_version=$(git log --since="$git_date" --format="" --name-only -- "$package_json" 2>/dev/null | head -1)
+
+              if [ -n "$old_version" ]; then
+                # Package changed in last 24 hours
+                prev_version=$(git show "HEAD~1:$package_json" 2>/dev/null | jq -r '.version // "unknown"')
+
+                if [ "$prev_version" != "$package_version" ]; then
+                  echo "📦 **$repo** - $package_name: \`$prev_version\` → \`$package_version\`" >> ../changed_packages.txt
+                  repo_has_changes=true
+                fi
+              fi
+            done <<< "$package_files"
+
+            if [ "$repo_has_changes" = true ]; then
+              repos_with_changes=$((repos_with_changes + 1))
+            else
+              echo "✓ $repo - No changes" >> ../unchanged_packages.txt
+              repos_unchanged=$((repos_unchanged + 1))
+            fi
+
+            cd /
+            rm -rf "$tmpdir"
+          done <<< "$repos"
+
+          # Save summary
+          echo "total_repos=$total_repos" >> $GITHUB_ENV
+          echo "repos_with_changes=$repos_with_changes" >> $GITHUB_ENV
+          echo "repos_unchanged=$repos_unchanged" >> $GITHUB_ENV
+          echo "repos_errors=$repos_errors" >> $GITHUB_ENV
+
+      - name: Send Discord notification
+        if: always()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_UPM }}
+          DISCORD_THREAD_ID: "1437635908781342783"
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "⚠️  DISCORD_WEBHOOK_UPM secret not set, skipping notification"
+            exit 0
+          fi
+
+          # Read changes, unchanged, and errors
+          changed_content=$(cat changed_packages.txt 2>/dev/null || echo "")
+          unchanged_content=$(cat unchanged_packages.txt 2>/dev/null || echo "")
+          errors_content=$(cat errors.txt 2>/dev/null || echo "")
+
+          # Prepare package changes section
+          if [ -n "$changed_content" ] && [ "$changed_content" != "" ]; then
+            package_changes="$changed_content"
+          else
+            package_changes="No package version changes in the last 24 hours"
+          fi
+
+          # Prepare errors section
+          if [ -n "$errors_content" ] && [ "$errors_content" != "" ]; then
+            errors_field=",{\"name\": \"⚠️ Errors\", \"value\": \"$errors_content\", \"inline\": false}"
+          else
+            errors_field=""
+          fi
+
+          # Determine color based on results
+          if [ "${{ env.repos_errors }}" -gt 0 ]; then
+            color=15158332  # Red
+          elif [ "${{ env.repos_with_changes }}" -gt 0 ]; then
+            color=3066993   # Green
+          else
+            color=10070709  # Gray
+          fi
+
+          workflow_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          # Construct Discord embed
+          jq -n \
+            --arg total "${{ env.total_repos }}" \
+            --arg changed "${{ env.repos_with_changes }}" \
+            --arg unchanged "${{ env.repos_unchanged }}" \
+            --arg errors "${{ env.repos_errors }}" \
+            --arg package_changes "$package_changes" \
+            --arg workflow_url "$workflow_url" \
+            --arg timestamp "$timestamp" \
+            --arg color "$color" \
+            --arg errors_field "$errors_field" \
+            '{
+              "thread_id": "1437635908781342783",
+              "embeds": [{
+                "title": "📊 Daily Package Version Check",
+                "description": "Monitoring all registered UPM repositories",
+                "color": ($color | tonumber),
+                "fields": [
+                  {
+                    "name": "📦 Version Changes (Last 24h)",
+                    "value": $package_changes,
+                    "inline": false
+                  },
+                  {
+                    "name": "📊 Summary",
+                    "value": ("Total: **" + $total + "** | Changed: **" + $changed + "** | Unchanged: **" + $unchanged + "** | Errors: **" + $errors + "**"),
+                    "inline": false
+                  },
+                  {
+                    "name": "🔗 Workflow Run",
+                    "value": ("[View Details](" + $workflow_url + ")"),
+                    "inline": false
+                  }
+                ] + (if $errors_field != "" then [$errors_field | fromjson] else [] end),
+                "timestamp": $timestamp,
+                "footer": {
+                  "text": "UPM Auto Publisher - Daily Check"
+                }
+              }]
+            }' > discord_payload.json
+
+          # Send to Discord
+          curl -X POST "$DISCORD_WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d @discord_payload.json \
+            --fail --silent --show-error || echo "⚠️  Failed to send Discord notification"
+
+          rm -f discord_payload.json

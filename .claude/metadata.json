@@ -1,0 +1,15 @@
+{
+  "version": "1.13.0",
+  "name": "claudekit-engineer",
+  "description": "A comprehensive boilerplate template for building professional software projects with CLI Coding Agents (Claude Code and Open Code).",
+  "buildDate": "2025-11-09T16:28:41.532Z",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/claudekit/claudekit-engineer.git"
+  },
+  "download": {
+    "lastDownloadedAt": null,
+    "downloadedBy": null,
+    "installCount": 0
+  }
+}
