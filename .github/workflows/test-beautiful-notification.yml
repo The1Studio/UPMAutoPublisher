@@ -1,0 +1,91 @@
+name: Test Beautiful Discord Notification
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-notification:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Beautiful Test Notification
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_UPM }}
+          DISCORD_THREAD_ID: "1437635998509957181"
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "❌ DISCORD_WEBHOOK_UPM secret not set"
+            exit 1
+          fi
+
+          echo "📤 Sending beautiful test notification with sample package data..."
+
+          # Create sample notification payload with all features
+          jq -n \
+            --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{
+              "embeds": [{
+                "author": {
+                  "name": "UPM Auto Publisher",
+                  "icon_url": "https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/npm/npm.png"
+                },
+                "title": "📦 Package Published Successfully",
+                "description": "🏢 **Repository:** [`The1Studio/UITemplate`](https://github.com/The1Studio/UITemplate)\n━━━━━━━━━━━━━━━━━━━━━━━",
+                "color": 5763719,
+                "fields": [
+                  {
+                    "name": "📋 Published Packages",
+                    "value": "### 🚀 com.theone.core\n┣━ **Version:** `2.0.5` ➜ `3.0.0`\n┣━ **Change Type:** 🔴 **MAJOR**\n┗━ **Registry:** https://upm.the1studio.org/-/web/detail/com.theone.core\n\n### ✨ com.theone.ui\n┣━ **Version:** `1.2.3` ➜ `1.3.0`\n┣━ **Change Type:** 🟡 **MINOR**\n┗━ **Registry:** https://upm.the1studio.org/-/web/detail/com.theone.ui\n\n### 🔧 com.theone.utils\n┣━ **Version:** `1.0.7` ➜ `1.0.8`\n┣━ **Change Type:** 🟢 **PATCH**\n┗━ **Registry:** https://upm.the1studio.org/-/web/detail/com.theone.utils\n\n### 🆕 com.theone.analytics\n┗━ **Version:** `1.0.0` _(new package)_\n┗━ **Registry:** https://upm.the1studio.org/-/web/detail/com.theone.analytics",
+                    "inline": false
+                  },
+                  {
+                    "name": "📊 Publishing Summary",
+                    "value": "✅ **Published:** 4 package(s)\n⏭️  **5 packages skipped** (already published)",
+                    "inline": false
+                  },
+                  {
+                    "name": "━━━━━━━━━━━━━━━━━━━━━━━",
+                    "value": "",
+                    "inline": false
+                  },
+                  {
+                    "name": "💬 Commit Details",
+                    "value": "[`a1b2c3d`](https://github.com/The1Studio/UITemplate/commit/a1b2c3d) feat: upgrade packages with breaking changes 🚀\n👤 **Author:** tuha263",
+                    "inline": false
+                  },
+                  {
+                    "name": "🔗 Links",
+                    "value": "📋 [Workflow Run](https://github.com/The1Studio/UPMAutoPublisher/actions/runs/${{ github.run_id }})\n📦 [Registry](https://upm.the1studio.org)",
+                    "inline": false
+                  }
+                ],
+                "thumbnail": {
+                  "url": "https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/unity/unity.png"
+                },
+                "timestamp": $timestamp,
+                "footer": {
+                  "text": "UPM Auto Publisher • The1Studio • TEST DEMO",
+                  "icon_url": "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
+                }
+              }]
+            }' > discord_payload.json
+
+          # Send to Discord thread
+          curl -X POST "$DISCORD_WEBHOOK?thread_id=$DISCORD_THREAD_ID" \
+            -H "Content-Type: application/json" \
+            -d @discord_payload.json \
+            --fail --silent --show-error
+
+          if [ $? -eq 0 ]; then
+            echo "✅ Beautiful test notification sent successfully!"
+            echo ""
+            echo "📋 Sample includes:"
+            echo "  🔴 MAJOR upgrade (3.0.0) - Breaking changes"
+            echo "  🟡 MINOR upgrade (1.3.0) - New features"
+            echo "  🟢 PATCH upgrade (1.0.8) - Bug fixes"
+            echo "  🆕 NEW package (1.0.0) - First release"
+          else
+            echo "❌ Failed to send notification"
+            exit 1
+          fi
+
+          rm -f discord_payload.json
