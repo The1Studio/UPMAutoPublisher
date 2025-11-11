@@ -129,80 +129,120 @@ jobs:
             exit 0
           fi
 
-          # Read changes, unchanged, and errors
+          # Read and format changes, unchanged, and errors
           changed_content=$(cat changed_packages.txt 2>/dev/null || echo "")
           unchanged_content=$(cat unchanged_packages.txt 2>/dev/null || echo "")
           errors_content=$(cat errors.txt 2>/dev/null || echo "")
 
-          # Prepare package changes section
+          # Format package changes with beautiful structure
           if [ -n "$changed_content" ] && [ "$changed_content" != "" ]; then
-            package_changes="$changed_content"
+            # Count changes
+            change_count=$(echo "$changed_content" | grep -c "📦" || echo "0")
+
+            # Format each change with emojis and structure
+            package_changes="🔄 **Found $change_count package update(s) in the last 24 hours:**\n\n"
+            package_changes="${package_changes}$changed_content"
           else
-            package_changes="No package version changes in the last 24 hours"
+            package_changes="✅ **No package version changes detected**\n\nAll packages remain stable across all repositories."
           fi
 
-          # Prepare errors section
+          # Format unchanged repositories
+          if [ -n "$unchanged_content" ] && [ "$unchanged_content" != "" ]; then
+            unchanged_summary="📋 **Stable Repositories:**\n\`\`\`\n$unchanged_content\n\`\`\`"
+          else
+            unchanged_summary="No data"
+          fi
+
+          # Format errors with detailed structure
           if [ -n "$errors_content" ] && [ "$errors_content" != "" ]; then
-            errors_field=",{\"name\": \"⚠️ Errors\", \"value\": \"$errors_content\", \"inline\": false}"
+            error_count=$(echo "$errors_content" | grep -c "❌" || echo "0")
+            errors_formatted="⚠️ **$error_count error(s) encountered:**\n\`\`\`\n$errors_content\n\`\`\`"
           else
-            errors_field=""
+            errors_formatted=""
           fi
 
-          # Determine color based on results
+          # Determine color and status based on results
           if [ "${{ env.repos_errors }}" -gt 0 ]; then
             color=15158332  # Red
+            status_icon="⚠️"
+            status_text="Issues Detected"
           elif [ "${{ env.repos_with_changes }}" -gt 0 ]; then
-            color=3066993   # Green
+            color=5763719   # Blue (matching publish notifications)
+            status_icon="📦"
+            status_text="Updates Detected"
           else
-            color=10070709  # Gray
+            color=5763719   # Blue
+            status_icon="✅"
+            status_text="All Stable"
           fi
 
           workflow_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-          # Construct Discord embed
+          # Construct beautiful Discord embed
           jq -n \
             --arg total "${{ env.total_repos }}" \
             --arg changed "${{ env.repos_with_changes }}" \
             --arg unchanged "${{ env.repos_unchanged }}" \
             --arg errors "${{ env.repos_errors }}" \
             --arg package_changes "$package_changes" \
+            --arg unchanged_summary "$unchanged_summary" \
+            --arg errors_formatted "$errors_formatted" \
             --arg workflow_url "$workflow_url" \
             --arg timestamp "$timestamp" \
             --arg color "$color" \
-            --arg errors_field "$errors_field" \
+            --arg status_icon "$status_icon" \
+            --arg status_text "$status_text" \
             '{
-              "thread_id": "1437635908781342783",
               "embeds": [{
-                "title": "📊 Daily Package Version Check",
-                "description": "Monitoring all registered UPM repositories",
+                "author": {
+                  "name": "UPM Auto Publisher - Daily Report",
+                  "icon_url": "https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/npm/npm.png"
+                },
+                "title": ($status_icon + " Daily Package Version Check"),
+                "description": ("📅 **Monitoring Period:** Last 24 hours\n🔍 **Status:** " + $status_text + "\n━━━━━━━━━━━━━━━━━━━━━━━"),
                 "color": ($color | tonumber),
                 "fields": [
                   {
-                    "name": "📦 Version Changes (Last 24h)",
+                    "name": "📦 Version Changes Detected",
                     "value": $package_changes,
                     "inline": false
                   },
                   {
-                    "name": "📊 Summary",
-                    "value": ("Total: **" + $total + "** | Changed: **" + $changed + "** | Unchanged: **" + $unchanged + "** | Errors: **" + $errors + "**"),
-                    "inline": false
-                  },
-                  {
-                    "name": "🔗 Workflow Run",
-                    "value": ("[View Details](" + $workflow_url + ")"),
+                    "name": "📊 Repository Statistics",
+                    "value": ("🏢 **Total Repositories:** " + $total + "\n📦 **With Changes:** " + $changed + "\n✅ **Stable:** " + $unchanged + (if ($errors | tonumber) > 0 then ("\n⚠️ **Errors:** " + $errors) else "" end)),
                     "inline": false
                   }
-                ] + (if $errors_field != "" then [$errors_field | fromjson] else [] end),
+                ] + (if $errors_formatted != "" then [{
+                  "name": "⚠️ Errors Encountered",
+                  "value": $errors_formatted,
+                  "inline": false
+                }] else [] end) + (if ($unchanged | tonumber) > 0 and $unchanged_summary != "No data" then [{
+                  "name": "✅ Stable Repositories",
+                  "value": $unchanged_summary,
+                  "inline": false
+                }] else [] end) + [{
+                  "name": "━━━━━━━━━━━━━━━━━━━━━━━",
+                  "value": "",
+                  "inline": false
+                }, {
+                  "name": "🔗 Links",
+                  "value": ("📋 [View Workflow Run](" + $workflow_url + ")\n📦 [Registry](https://upm.the1studio.org)\n📚 [Documentation](https://github.com/The1Studio/UPMAutoPublisher)"),
+                  "inline": false
+                }],
+                "thumbnail": {
+                  "url": "https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/unity/unity.png"
+                },
                 "timestamp": $timestamp,
                 "footer": {
-                  "text": "UPM Auto Publisher - Daily Check"
+                  "text": "UPM Auto Publisher • The1Studio • Daily Check",
+                  "icon_url": "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
                 }
               }]
             }' > discord_payload.json
 
-          # Send to Discord
-          curl -X POST "$DISCORD_WEBHOOK" \
+          # Send to Discord (with thread_id as query parameter)
+          curl -X POST "$DISCORD_WEBHOOK?thread_id=$DISCORD_THREAD_ID" \
             -H "Content-Type: application/json" \
             -d @discord_payload.json \
             --fail --silent --show-error || echo "⚠️  Failed to send Discord notification"
