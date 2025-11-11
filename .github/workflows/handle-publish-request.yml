@@ -350,7 +350,7 @@ jobs:
           retention-days: ${{ env.AUDIT_RETENTION_DAYS }}
 
       - name: Send Discord notification - Success
-        if: env.published > 0
+        if: always()  # TEST: Demo new beautiful format
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_UPM }}
           DISCORD_THREAD_ID: "1437635998509957181"
