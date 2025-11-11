@@ -393,7 +393,6 @@ jobs:
 
           # Construct Discord embed with jq
           jq -n \
-            --arg thread_id "$DISCORD_THREAD_ID" \
             --arg package_details "$package_details" \
             --arg published "${{ env.published }}" \
             --arg skipped "${{ env.skipped }}" \
@@ -405,7 +404,6 @@ jobs:
             --arg workflow_url "$workflow_url" \
             --arg timestamp "$timestamp" \
             '{
-              "thread_id": $thread_id,
               "embeds": [{
                 "title": "✅ UPM Package Published Successfully",
                 "description": ("Repository: **" + $repository + "**"),
@@ -444,8 +442,8 @@ jobs:
               }]
             }' > discord_payload.json
 
-          # Send to Discord
-          curl -X POST "$DISCORD_WEBHOOK" \
+          # Send to Discord (with thread_id as query parameter)
+          curl -X POST "$DISCORD_WEBHOOK?thread_id=$DISCORD_THREAD_ID" \
             -H "Content-Type: application/json" \
             -d @discord_payload.json \
             --fail --silent --show-error || echo "⚠️  Failed to send Discord notification"
@@ -468,12 +466,10 @@ jobs:
           timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
           jq -n \
-            --arg thread_id "$DISCORD_THREAD_ID" \
             --arg repository "$repository" \
             --arg workflow_url "$workflow_url" \
             --arg timestamp "$timestamp" \
             '{
-              "thread_id": $thread_id,
               "embeds": [{
                 "title": "❌ UPM Package Publish Failed",
                 "description": ("Repository: **" + $repository + "**"),
@@ -497,7 +493,7 @@ jobs:
               }]
             }' > discord_payload_error.json
 
-          curl -X POST "$DISCORD_WEBHOOK" \
+          curl -X POST "$DISCORD_WEBHOOK?thread_id=$DISCORD_THREAD_ID" \
             -H "Content-Type: application/json" \
             -d @discord_payload_error.json \
             --fail --silent --show-error || echo "⚠️  Failed to send Discord notification"
