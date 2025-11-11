@@ -207,14 +207,14 @@ jobs:
             if [[ "$package_name" =~ [^a-zA-Z0-9@/._-] ]]; then
               echo "❌ Package name contains dangerous characters: $package_name"
               echo "$package_name|SKIPPED|Invalid package name" >> skipped_packages.txt
-              ((skipped_count++))
+              skipped_count=$((skipped_count + 1))
               continue
             fi
 
             if [[ ! "$new_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$ ]]; then
               echo "❌ Invalid semver format: $new_version"
               echo "$package_name|SKIPPED|Invalid version format" >> skipped_packages.txt
-              ((skipped_count++))
+              skipped_count=$((skipped_count + 1))
               continue
             fi
 
@@ -225,7 +225,7 @@ jobs:
             if npm_view_with_retry "$package_name@$new_version" version 2>/dev/null; then
               echo "⏭️  Version already published, skipping..."
               echo "$package_name|SKIPPED|Version already exists" >> skipped_packages.txt
-              ((skipped_count++))
+              skipped_count=$((skipped_count + 1))
               continue
             fi
 
@@ -238,7 +238,7 @@ jobs:
               if npx --yes semver "$new_version" -r "<$latest_version" 2>/dev/null; then
                 echo "❌ Version rollback detected: $new_version < $latest_version"
                 echo "$package_name|SKIPPED|Version rollback prevented" >> skipped_packages.txt
-                ((skipped_count++))
+                skipped_count=$((skipped_count + 1))
                 continue
               fi
             fi
@@ -259,11 +259,11 @@ jobs:
             if npm_publish_with_retry --access public; then
               echo "✅ Successfully published $package_name@$new_version"
               echo "$package_name|$latest_version|$new_version" >> ../../published_packages.txt
-              ((published_count++))
+              published_count=$((published_count + 1))
             else
               echo "❌ Failed to publish $package_name@$new_version"
               echo "$package_name|FAILED|Publish error" >> ../../skipped_packages.txt
-              ((skipped_count++))
+              skipped_count=$((skipped_count + 1))
             fi
 
             cd - > /dev/null
