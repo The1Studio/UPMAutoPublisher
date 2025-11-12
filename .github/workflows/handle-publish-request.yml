@@ -505,10 +505,10 @@ jobs:
                 # Determine version change type
                 if [ "$old_ver" = "0.0.0" ]; then
                   # New package
-                  line="### 🆕 **$name**"$'\n'
-                  line="${line}┣━ **Version:** \`$new_ver\` _(new package)_"$'\n'
-                  line="${line}┣━ [Registry]($registry_url)"$'\n'
-                  line="${line}┗━ [Changelog]($changelog_url)"
+                  line="### 🆕 **$name**"
+                  line="${line}\n┣━ **Version:** \`$new_ver\` _(new package)_"
+                  line="${line}\n┣━ [Registry]($registry_url)"
+                  line="${line}\n┗━ [Changelog]($changelog_url)"
                 else
                   # Version upgrade - determine type
                   IFS='.' read -r old_major old_minor old_patch <<< "$old_ver"
@@ -525,11 +525,11 @@ jobs:
                     emoji="🔧"
                   fi
 
-                  line="### $emoji **$name**"$'\n'
-                  line="${line}┣━ **Version:** \`$old_ver\` ➜ \`$new_ver\`"$'\n'
-                  line="${line}┣━ **Change Type:** $change_type"$'\n'
-                  line="${line}┣━ [Registry]($registry_url)"$'\n'
-                  line="${line}┗━ [Changelog]($changelog_url)"
+                  line="### $emoji **$name**"
+                  line="${line}\n┣━ **Version:** \`$old_ver\` ➜ \`$new_ver\`"
+                  line="${line}\n┣━ **Change Type:** $change_type"
+                  line="${line}\n┣━ [Registry]($registry_url)"
+                  line="${line}\n┗━ [Changelog]($changelog_url)"
                 fi
 
                 if [ -z "$package_details" ]; then
