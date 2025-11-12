@@ -1,0 +1,5010 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.claude/
+  .env.example
+.docker/
+  .env.example
+  .gitignore
+  docker-compose.runners.yml
+  README.md
+  setup-secrets.sh
+config/
+  package-cache.json
+  repositories.json
+  schema.json
+scripts/
+  apply-fixes.sh
+  audit-repos.sh
+  build-package-cache.sh
+  check-single-repo.sh
+  generate-changelog.sh
+  pre-deployment-check.sh
+  quick-check.sh
+  README.md
+  validate-changelog.sh
+  validate-config.sh
+.editorconfig
+.gitignore
+.repomixignore
+CLAUDE.md
+LICENSE
+README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path=".docker/.env.example">
+# GitHub Personal Access Token (PAT)
+# Required scope: 'repo' (for private repos) or 'public_repo' (for public repos)
+# Organization runners also need 'admin:org' scope
+# Create at: https://github.com/settings/tokens
+GITHUB_PAT=ghp_your_token_here
+
+# Optional: Runner configuration
+# RUNNER_GROUP=upm-publishers
+# LABELS=upm,nodejs,npm,docker
+</file>
+
+<file path=".docker/.gitignore">
+# Environment file with secrets
+.env
+
+# FIX: Add secrets directory to prevent credential exposure
+.secrets/
+.secrets
+
+# Docker volumes and data
+volumes/
+data/
+
+# Logs
+*.log
+logs/
+</file>
+
+<file path=".docker/docker-compose.runners.yml">
+version: '3.8'
+
+# GitHub Actions Self-Hosted Runners for The1Studio
+# This creates a group of runners for UPM package publishing
+#
+# SECURITY NOTE: This setup uses Docker secrets for credential management
+# instead of environment variables to prevent token exposure.
+
+services:
+  # Runner 1 - Primary UPM Publisher
+  upm-runner-1:
+    # FIX MEDIUM-3: Pin to specific version instead of latest
+    # To update: test new version, update here, run: docker compose pull && docker compose up -d
+    image: myoung34/github-runner:2.311.0
+    container_name: theone-upm-runner-1
+    environment:
+      # Organization-level runner (recommended for multiple repos)
+      - ORG_NAME=The1Studio
+      # FIX: Use Docker secret file instead of environment variable
+      - ACCESS_TOKEN_FILE=/run/secrets/github_pat
+
+      # Runner configuration
+      - RUNNER_NAME=upm-runner-1
+      - RUNNER_WORKDIR=/tmp/runner/work
+      - RUNNER_GROUP=upm-publishers
+      # FIX: Removed 'docker' label since Docker socket will be removed
+      - LABELS=upm,nodejs,npm
+
+      # Disable auto-update for stability
+      - DISABLE_AUTO_UPDATE=true
+
+      # Resource limits
+      - RUNNER_SCOPE=org
+    # FIX: Use Docker secrets instead of .env file
+    secrets:
+      - github_pat
+    volumes:
+      # Persistent work directory
+      - upm-runner-1-work:/tmp/runner/work
+
+      # FIX: Docker socket removed - not needed for UPM publishing
+      # UPM publishing only needs Node.js and npm, not Docker
+      # If you need Docker, consider Docker-in-Docker (DinD) instead
+      # - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    networks:
+      - github-runners
+    # FIX ME-3: Use deploy.resources for better production resource management
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+    labels:
+      - "com.the1studio.service=github-runner"
+      - "com.the1studio.project=upm-auto-publisher"
+
+  # Runner 2 - Secondary UPM Publisher
+  upm-runner-2:
+    image: myoung34/github-runner:2.311.0
+    container_name: theone-upm-runner-2
+    environment:
+      - ORG_NAME=The1Studio
+      # FIX: Use Docker secret file instead of environment variable
+      - ACCESS_TOKEN_FILE=/run/secrets/github_pat
+      - RUNNER_NAME=upm-runner-2
+      - RUNNER_WORKDIR=/tmp/runner/work
+      - RUNNER_GROUP=upm-publishers
+      # FIX: Removed 'docker' label
+      - LABELS=upm,nodejs,npm
+      - DISABLE_AUTO_UPDATE=true
+      - RUNNER_SCOPE=org
+    # FIX: Use Docker secrets
+    secrets:
+      - github_pat
+    volumes:
+      - upm-runner-2-work:/tmp/runner/work
+      # FIX: Docker socket removed
+      # - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    networks:
+      - github-runners
+    # FIX ME-3: Use deploy.resources for better production resource management
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+    labels:
+      - "com.the1studio.service=github-runner"
+      - "com.the1studio.project=upm-auto-publisher"
+
+  # Runner 3 - Tertiary UPM Publisher
+  upm-runner-3:
+    image: myoung34/github-runner:2.311.0
+    container_name: theone-upm-runner-3
+    environment:
+      - ORG_NAME=The1Studio
+      # FIX: Use Docker secret file instead of environment variable
+      - ACCESS_TOKEN_FILE=/run/secrets/github_pat
+      - RUNNER_NAME=upm-runner-3
+      - RUNNER_WORKDIR=/tmp/runner/work
+      - RUNNER_GROUP=upm-publishers
+      # FIX: Removed 'docker' label
+      - LABELS=upm,nodejs,npm
+      - DISABLE_AUTO_UPDATE=true
+      - RUNNER_SCOPE=org
+    # FIX: Use Docker secrets
+    secrets:
+      - github_pat
+    volumes:
+      - upm-runner-3-work:/tmp/runner/work
+      # FIX: Docker socket removed
+      # - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    networks:
+      - github-runners
+    # FIX ME-3: Use deploy.resources for better production resource management
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+    labels:
+      - "com.the1studio.service=github-runner"
+      - "com.the1studio.project=upm-auto-publisher"
+
+# FIX: Add Docker secrets configuration
+secrets:
+  github_pat:
+    file: ./.secrets/github_pat
+
+networks:
+  github-runners:
+    name: github-runners-network
+    driver: bridge
+
+volumes:
+  upm-runner-1-work:
+    name: upm-runner-1-work
+  upm-runner-2-work:
+    name: upm-runner-2-work
+  upm-runner-3-work:
+    name: upm-runner-3-work
+</file>
+
+<file path=".docker/README.md">
+# GitHub Actions Self-Hosted Runners (Docker)
+
+This directory contains Docker configuration for running self-hosted GitHub Actions runners for The1Studio organization.
+
+## Overview
+
+Creates **3 self-hosted runners** in Docker containers for processing UPM package publishing jobs.
+
+### Why Docker Runners?
+
+✅ **Isolation**: Each runner runs in its own container
+✅ **Resource Control**: Memory and CPU limits per runner
+✅ **Easy Management**: Start/stop/restart without affecting other services
+✅ **Scalability**: Can easily add more runners by duplicating service blocks
+✅ **Consistency**: Same environment for all builds
+✅ **No Minute Limits**: Unlimited build time on your own hardware
+
+## Quick Start
+
+### 1. Create GitHub Personal Access Token (PAT)
+
+1. Go to https://github.com/settings/tokens
+2. Click "Generate new token" → "Generate new token (classic)"
+3. **Required scopes**:
+   - For **organization runners**: `admin:org`, `repo`
+   - For **repository runners**: `repo` only
+4. Copy the generated token
+
+### 2. Configure Environment
+
+```bash
+cd /mnt/Work/1M/UPM/The1Studio/UPMAutoPublisher/.docker
+cp .env.example .env
+nano .env  # Add your GitHub PAT
+```
+
+Edit `.env`:
+```bash
+GITHUB_PAT=ghp_your_actual_token_here
+```
+
+### 3. Start Runners
+
+```bash
+# Start all 3 runners
+docker compose -f docker-compose.runners.yml up -d
+
+# Check status
+docker compose -f docker-compose.runners.yml ps
+
+# View logs
+docker compose -f docker-compose.runners.yml logs -f
+```
+
+### 4. Verify Runners in GitHub
+
+**Organization runners**:
+- Go to https://github.com/organizations/The1Studio/settings/actions/runners
+- You should see: `upm-runner-1`, `upm-runner-2`, `upm-runner-3`
+
+**Repository runners**:
+- Go to https://github.com/The1Studio/YourRepo/settings/actions/runners
+
+## Configuration
+
+### Runner Groups
+
+Runners are tagged with:
+- **Group**: `upm-publishers`
+- **Labels**: `upm`, `nodejs`, `npm`, `docker`
+
+### Resource Limits
+
+Each runner has:
+- **Memory**: 4GB
+- **CPU**: 2 cores
+
+Adjust in `docker-compose.runners.yml`:
+```yaml
+mem_limit: 4g  # Change as needed
+cpus: 2        # Change as needed
+```
+
+### Resource Sizing Recommendations
+
+Choose resource limits based on your workload:
+
+| Workload Type | Memory | CPUs | Use Case |
+|---------------|--------|------|----------|
+| **Minimal** | 2GB | 1 | Small packages, quick builds |
+| **Standard** (default) | 4GB | 2 | Most UPM packages, typical npm builds |
+| **Heavy** | 8GB | 4 | Large monorepos, complex builds |
+| **Maximum** | 16GB | 8 | Parallel builds, Docker-in-Docker |
+
+**Guidelines**:
+- **UPM publishing only**: 2-4GB is sufficient
+- **With Docker builds**: Add 2-4GB per runner
+- **With test suites**: Add 1-2GB per runner
+- **Parallel jobs**: Multiply resources by concurrent jobs
+
+**Total System Calculation**:
+```
+Total Memory = (mem_limit × number_of_runners) + 2GB overhead
+Total CPUs = (cpus × number_of_runners)
+```
+
+**Example** (3 runners with 4GB/2CPU each):
+- Memory: (4GB × 3) + 2GB = 14GB required
+- CPUs: 2 × 3 = 6 cores required
+
+**Monitoring Tips**:
+```bash
+# Check actual usage
+docker stats --no-stream
+
+# If consistently hitting limits, increase:
+# 1. Memory: Increase by 2GB increments
+# 2. CPU: Increase by 1 core increment
+```
+
+### Scaling
+
+To add more runners, duplicate a service block:
+
+```yaml
+upm-runner-4:
+  image: myoung34/github-runner:latest
+  container_name: theone-upm-runner-4
+  environment:
+    - ORG_NAME=The1Studio
+    - ACCESS_TOKEN=${GITHUB_PAT}
+    - RUNNER_NAME=upm-runner-4
+    - RUNNER_GROUP=upm-publishers
+    - LABELS=upm,nodejs,npm,docker
+  volumes:
+    - upm-runner-4-work:/tmp/runner/work
+    - /var/run/docker.sock:/var/run/docker.sock
+  restart: unless-stopped
+  networks:
+    - github-runners
+  mem_limit: 4g
+  cpus: 2
+
+volumes:
+  upm-runner-4-work:
+    name: upm-runner-4-work
+```
+
+## Using Custom Runners in Workflows
+
+### Update Workflow to Use Self-Hosted Runners
+
+Edit `.github/workflows/publish-upm.yml`:
+
+```yaml
+jobs:
+  publish:
+    # Change from:
+    # runs-on: ubuntu-latest
+
+    # To one of these:
+    runs-on: self-hosted                    # Any self-hosted runner
+    # runs-on: [self-hosted, upm]           # Runner with 'upm' label
+    # runs-on: [self-hosted, nodejs, npm]   # Runner with specific labels
+```
+
+### Label Matching
+
+Our runners have these labels:
+- `self-hosted` (automatic)
+- `linux` (automatic)
+- `x64` (automatic)
+- `upm` (custom)
+- `nodejs` (custom)
+- `npm` (custom)
+- `docker` (custom)
+
+You can target specific runners:
+```yaml
+runs-on: [self-hosted, upm, nodejs]
+```
+
+## Management Commands
+
+### Start/Stop Runners
+
+```bash
+# Start all runners
+docker compose -f docker-compose.runners.yml up -d
+
+# Stop all runners
+docker compose -f docker-compose.runners.yml down
+
+# Restart all runners
+docker compose -f docker-compose.runners.yml restart
+
+# Start specific runner
+docker compose -f docker-compose.runners.yml up -d upm-runner-1
+```
+
+### View Logs
+
+```bash
+# All runners
+docker compose -f docker-compose.runners.yml logs -f
+
+# Specific runner
+docker compose -f docker-compose.runners.yml logs -f upm-runner-1
+
+# Last 50 lines
+docker compose -f docker-compose.runners.yml logs --tail=50
+```
+
+### Check Status
+
+```bash
+# Container status
+docker compose -f docker-compose.runners.yml ps
+
+# Resource usage
+docker stats theone-upm-runner-1 theone-upm-runner-2 theone-upm-runner-3
+
+# Detailed info
+docker inspect theone-upm-runner-1
+```
+
+### Update Runners
+
+```bash
+# Pull latest image
+docker compose -f docker-compose.runners.yml pull
+
+# Restart with new image
+docker compose -f docker-compose.runners.yml up -d
+```
+
+## Monitoring
+
+### Health Checks
+
+```bash
+# Check if runners are connected
+docker compose -f docker-compose.runners.yml logs | grep "Connected to GitHub"
+
+# Check for errors
+docker compose -f docker-compose.runners.yml logs | grep -i error
+```
+
+### GitHub Web UI
+
+Check runner status:
+- **Organization**: https://github.com/organizations/The1Studio/settings/actions/runners
+- **Repository**: https://github.com/The1Studio/REPO/settings/actions/runners
+
+Green dot = Active and ready
+Gray dot = Offline or idle
+
+## Troubleshooting
+
+### Runners Not Appearing in GitHub
+
+**Check logs**:
+```bash
+docker compose -f docker-compose.runners.yml logs -f upm-runner-1
+```
+
+**Common issues**:
+1. Invalid GitHub PAT
+   - Regenerate token with correct scopes
+   - Update `.env` file
+2. Wrong organization name
+   - Check `ORG_NAME` in docker-compose.yml
+3. Runner name conflict
+   - Each runner needs unique name
+
+### Authentication Errors
+
+```bash
+# Verify token in container
+docker exec -it theone-upm-runner-1 env | grep ACCESS_TOKEN
+```
+
+If empty, check `.env` file and restart containers.
+
+### Resource Issues
+
+```bash
+# Check resource usage
+docker stats
+
+# Increase limits in docker-compose.runners.yml
+mem_limit: 8g  # Increase from 4g
+cpus: 4        # Increase from 2
+```
+
+### Runner Stuck or Unresponsive
+
+```bash
+# Restart specific runner
+docker compose -f docker-compose.runners.yml restart upm-runner-1
+
+# Or recreate it
+docker compose -f docker-compose.runners.yml up -d --force-recreate upm-runner-1
+```
+
+## Security Considerations
+
+### ⚠️ Important Security Notes
+
+1. **Never use self-hosted runners for public repositories**
+   - Anyone can submit malicious PRs
+   - Could compromise your machine
+   - Only use for private repos or trusted contributors
+
+2. **Protect your GitHub PAT**
+   - Store in `.env` file (gitignored)
+   - Never commit to repository
+   - Rotate token periodically
+
+3. **Docker socket access**
+   - Runners have Docker access via `/var/run/docker.sock`
+   - Be cautious with workflows that use Docker
+   - Consider removing if not needed
+
+4. **Network isolation**
+   - Runners are on isolated Docker network
+   - Can access host network via Docker socket
+
+### Best Practices
+
+- ✅ Use organization-level runners for multiple repos
+- ✅ Set resource limits per runner
+- ✅ Monitor runner logs regularly
+- ✅ Keep runner image updated
+- ✅ Use labels to target specific runners
+- ✅ Rotate GitHub PAT annually
+- ❌ Don't expose runners to public repos
+- ❌ Don't commit `.env` file
+- ❌ Don't run as root (container handles this)
+
+## Port Allocation
+
+These runners **do not expose any ports** to the host. They only make outbound connections to GitHub.
+
+No port conflicts with existing services.
+
+## Integration with Port Registry
+
+Add to `/home/tuha/.claude/docker-services.md`:
+
+```markdown
+### GitHub Actions Runners (No External Ports)
+| Service | Host Port | Container Port | Description |
+|---------|-----------|----------------|-------------|
+| theone-upm-runner-1 | - | - | GitHub Actions Runner (Outbound only) |
+| theone-upm-runner-2 | - | - | GitHub Actions Runner (Outbound only) |
+| theone-upm-runner-3 | - | - | GitHub Actions Runner (Outbound only) |
+```
+
+## Maintenance
+
+### Regular Tasks
+
+**Weekly**:
+- Check runner status in GitHub
+- Review logs for errors
+
+**Monthly**:
+- Update runner image: `docker compose pull && docker compose up -d`
+- Check resource usage patterns
+
+**Annually**:
+- Rotate GitHub PAT
+- Review runner configuration
+
+### Backup
+
+Runner work directories are in Docker volumes:
+- `upm-runner-1-work`
+- `upm-runner-2-work`
+- `upm-runner-3-work`
+
+These are ephemeral and don't need backup (recreated on each job).
+
+## Removal
+
+To completely remove runners:
+
+```bash
+# Stop and remove containers
+docker compose -f docker-compose.runners.yml down
+
+# Remove volumes
+docker volume rm upm-runner-1-work upm-runner-2-work upm-runner-3-work
+
+# Remove network
+docker network rm github-runners-network
+
+# Unregister from GitHub (if needed)
+# Go to GitHub organization settings → Actions → Runners → Remove
+```
+
+## References
+
+- [myoung34/docker-github-actions-runner](https://github.com/myoung34/docker-github-actions-runner)
+- [GitHub Self-Hosted Runners Docs](https://docs.github.com/en/actions/hosting-your-own-runners)
+- [Docker Compose Documentation](https://docs.docker.com/compose/)
+
+## Support
+
+For issues:
+1. Check logs: `docker compose logs -f`
+2. Review GitHub runner status
+3. Consult troubleshooting section above
+4. Check Docker container health: `docker ps`
+</file>
+
+<file path=".docker/setup-secrets.sh">
+#!/usr/bin/env bash
+# setup-secrets.sh
+# Script to set up Docker secrets for GitHub Actions runners
+#
+# This script creates the secrets directory and helps you securely
+# configure your GitHub PAT without exposing it in environment variables.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SECRETS_DIR="${SCRIPT_DIR}/.secrets"
+
+echo "🔐 GitHub Actions Runner - Secrets Setup"
+echo "========================================"
+echo ""
+
+# Create secrets directory
+if [ ! -d "$SECRETS_DIR" ]; then
+    echo "📁 Creating secrets directory..."
+    mkdir -p "$SECRETS_DIR"
+    chmod 700 "$SECRETS_DIR"
+    echo "✅ Created: $SECRETS_DIR"
+else
+    echo "ℹ️  Secrets directory already exists: $SECRETS_DIR"
+fi
+
+# Check if secret file already exists
+SECRET_FILE="${SECRETS_DIR}/github_pat"
+if [ -f "$SECRET_FILE" ]; then
+    echo ""
+    echo "⚠️  Secret file already exists: $SECRET_FILE"
+    read -rp "Do you want to overwrite it? (y/N): " response
+    if [[ ! "$response" =~ ^[Yy]$ ]]; then
+        echo "❌ Aborted. Keeping existing secret file."
+        exit 0
+    fi
+fi
+
+# Prompt for GitHub PAT
+echo ""
+echo "📝 Please enter your GitHub Personal Access Token (PAT)"
+echo ""
+echo "Required scopes:"
+echo "  - For organization runners: admin:org, repo"
+echo "  - For repository runners: repo"
+echo ""
+echo "Create token at: https://github.com/settings/tokens"
+echo ""
+read -rsp "GitHub PAT: " github_pat
+echo ""
+
+# Validate input
+if [ -z "$github_pat" ]; then
+    echo "❌ Error: GitHub PAT cannot be empty"
+    exit 1
+fi
+
+# Check if token looks valid (starts with ghp_ or github_pat_)
+if [[ ! "$github_pat" =~ ^(ghp_|github_pat_) ]]; then
+    echo "⚠️  Warning: Token format doesn't look valid"
+    echo "   Valid tokens start with 'ghp_' or 'github_pat_'"
+    read -rp "Continue anyway? (y/N): " response
+    if [[ ! "$response" =~ ^[Yy]$ ]]; then
+        echo "❌ Aborted"
+        exit 1
+    fi
+fi
+
+# Write secret to file
+echo "$github_pat" > "$SECRET_FILE"
+chmod 600 "$SECRET_FILE"
+
+echo ""
+echo "✅ Secret file created: $SECRET_FILE"
+echo "✅ File permissions set to 600 (owner read/write only)"
+echo ""
+
+# FIX MAJOR-4: Validate token securely without exposing in process list
+echo "🧪 Testing token with GitHub API..."
+
+# Create temporary header file to avoid token in process list
+header_file=$(mktemp)
+chmod 600 "$header_file"
+trap 'rm -f "$header_file"' EXIT
+
+echo "Authorization: token $github_pat" > "$header_file"
+
+if curl -f -s -H @"$header_file" https://api.github.com/user > /dev/null 2>&1; then
+    echo "✅ Token validated successfully with GitHub API"
+else
+    echo "❌ Token validation failed - token may be invalid or expired"
+    echo "   The token was saved but may not work with GitHub"
+    echo "   Please verify:"
+    echo "   - Token has correct scopes (admin:org, repo)"
+    echo "   - Token is not expired"
+    echo "   - You have network connectivity to GitHub"
+    read -rp "Continue anyway? (y/N): " response
+    if [[ ! "$response" =~ ^[Yy]$ ]]; then
+        rm -f "$SECRET_FILE"
+        echo "❌ Aborted and removed invalid token file"
+        exit 1
+    fi
+fi
+
+# Cleanup header file
+rm -f "$header_file"
+echo ""
+
+# Verify file
+echo "🔍 Verifying secret file..."
+if [ -f "$SECRET_FILE" ] && [ -r "$SECRET_FILE" ]; then
+    file_size=$(wc -c < "$SECRET_FILE")
+    echo "✅ File exists and is readable"
+    echo "📏 File size: ${file_size} bytes"
+else
+    echo "❌ Error: Failed to create or read secret file"
+    exit 1
+fi
+
+echo ""
+echo "========================================="
+echo "✅ Setup Complete!"
+echo "========================================="
+echo ""
+echo "Next steps:"
+echo "1. Start runners: docker compose -f docker-compose.runners.yml up -d"
+echo "2. Check logs: docker compose -f docker-compose.runners.yml logs -f"
+echo "3. Verify runners appear in GitHub:"
+echo "   https://github.com/organizations/The1Studio/settings/actions/runners"
+echo ""
+echo "⚠️  Security reminders:"
+echo "- Never commit the .secrets/ directory"
+echo "- Rotate this token annually"
+echo "- Keep file permissions at 600"
+echo ""
+</file>
+
+<file path="config/schema.json">
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "UPM Repository Registry Schema",
+  "description": "Schema for tracking repositories using UPM auto-publishing",
+  "type": "object",
+  "properties": {
+    "repositories": {
+      "type": "array",
+      "description": "List of repositories with auto-publishing enabled",
+      "items": {
+        "$ref": "#/definitions/repository"
+      }
+    }
+  },
+  "required": ["repositories"],
+  "definitions": {
+    "repository": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://github\\.com/[a-zA-Z0-9_-]+/[a-zA-Z0-9._-]+$",
+          "description": "Full GitHub repository URL (e.g., https://github.com/The1Studio/UnityBuildScript)"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "pending", "disabled"],
+          "description": "Repository status: 'pending' triggers automatic workflow deployment, 'active' means workflow is deployed, 'disabled' skips processing"
+        }
+      },
+      "required": ["url", "status"]
+    }
+  }
+}
+</file>
+
+<file path="scripts/apply-fixes.sh">
+#!/usr/bin/env bash
+# apply-fixes.sh
+# Applies all critical and major security fixes to bash scripts
+
+set -euo pipefail
+
+echo "🔧 Applying security fixes to bash scripts..."
+echo ""
+
+# Fix 1: Update shebangs to use env
+echo "1. Updating shebangs to use /usr/bin/env bash..."
+for script in scripts/*.sh; do
+  if [ "$script" = "scripts/apply-fixes.sh" ]; then
+    continue
+  fi
+
+  if head -n 1 "$script" | grep -q "^#!/bin/bash"; then
+    sed -i '1s|#!/bin/bash|#!/usr/bin/env bash|' "$script"
+    echo "   ✅ Fixed: $script"
+  fi
+done
+echo ""
+
+# Fix 2: Update set -e to set -euo pipefail
+echo "2. Updating error handling (set -e → set -euo pipefail)..."
+for script in scripts/*.sh; do
+  if [ "$script" = "scripts/apply-fixes.sh" ]; then
+    continue
+  fi
+
+  if grep -q "^set -e$" "$script"; then
+    sed -i 's/^set -e$/set -euo pipefail/' "$script"
+    echo "   ✅ Fixed: $script"
+  fi
+done
+echo ""
+
+echo "✅ All fixes applied!"
+echo ""
+echo "Next steps:"
+echo "1. Review the changes: git diff scripts/"
+echo "2. Test the scripts"
+echo "3. Commit the changes"
+</file>
+
+<file path="scripts/audit-repos.sh">
+#!/usr/bin/env bash
+# audit-repos.sh
+# Comprehensive UPM workflow audit script
+# Checks all registered repositories and verifies their actual state
+
+set -euo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Emojis
+CHECK="✅"
+CROSS="❌"
+WARN="⚠️"
+INFO="ℹ️"
+PENDING="⏳"
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🔍 UPM Auto Publisher - Repository Audit"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Check if we're in the right directory
+if [ ! -f "config/repositories.json" ]; then
+    echo "${CROSS} Error: config/repositories.json not found"
+    echo "Please run this script from the UPMAutoPublisher root directory"
+    exit 1
+fi
+
+# Check if gh CLI is installed
+if ! command -v gh &> /dev/null; then
+    echo "${CROSS} Error: GitHub CLI (gh) is not installed"
+    echo "Install it: https://cli.github.com/"
+    exit 1
+fi
+
+# Check if jq is installed
+if ! command -v jq &> /dev/null; then
+    echo "${CROSS} Error: jq is not installed"
+    echo "Install it: sudo apt-get install jq"
+    exit 1
+fi
+
+# Check GitHub authentication
+if ! gh auth status &> /dev/null; then
+    echo "${CROSS} Error: Not authenticated with GitHub"
+    echo "Run: gh auth login"
+    exit 1
+fi
+
+echo "Prerequisites check: ${CHECK} All dependencies available"
+echo ""
+
+# Statistics counters
+total_repos=0
+active_repos=0
+pending_repos=0
+disabled_repos=0
+matched_repos=0
+mismatched_repos=0
+
+# FIX MAJOR-3: Create temporary file with explicit secure permissions
+recommendations_file=$(mktemp)
+chmod 600 "$recommendations_file"
+
+# Ensure cleanup on exit
+trap 'rm -f "$recommendations_file"' EXIT ERR INT TERM
+
+echo "Scanning repositories..."
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# FIX: Function to check GitHub API rate limit
+check_rate_limit() {
+    local remaining=$(gh api rate_limit --jq '.rate.remaining' 2>/dev/null || echo "5000")
+    local reset=$(gh api rate_limit --jq '.rate.reset' 2>/dev/null || echo "0")
+    local current_time=$(date +%s)
+
+    if [ "$remaining" -lt 100 ]; then
+        local wait_time=$((reset - current_time))
+        if [ "$wait_time" -gt 0 ]; then
+            echo "⚠️  Approaching GitHub API rate limit ($remaining requests remaining)"
+            echo "   Waiting ${wait_time}s until reset..."
+            sleep "$wait_time"
+        fi
+    fi
+}
+
+# Process each repository
+# FIX: Use process substitution instead of pipe to avoid subshell issue with counters
+while IFS= read -r repo_json; do
+    total_repos=$((total_repos + 1))
+
+    # FIX: Check rate limit before expensive operations
+    check_rate_limit
+
+    # Extract repository info
+    name=$(echo "$repo_json" | jq -r '.name')
+    status=$(echo "$repo_json" | jq -r '.status // "unknown"')
+    url=$(echo "$repo_json" | jq -r '.url')
+    package_count=$(echo "$repo_json" | jq '.packages | length')
+
+    # FIX: Validate and extract org/repo using regex (safer than sed)
+    if [[ "$url" =~ ^https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)$ ]]; then
+        org="${BASH_REMATCH[1]}"
+        repo="${BASH_REMATCH[2]}"
+    else
+        echo "  ${CROSS} ${RED}Invalid URL format: $url${NC}"
+        echo ""
+        continue
+    fi
+
+    echo "${BLUE}Repository:${NC} $name"
+    echo "  URL: $url"
+    echo "  Registry Status: $status"
+    echo "  Packages: $package_count"
+
+    # Count by status
+    case $status in
+        "active") active_repos=$((active_repos + 1)) ;;
+        "pending") pending_repos=$((pending_repos + 1)) ;;
+        "disabled") disabled_repos=$((disabled_repos + 1)) ;;
+    esac
+
+    # Check if repository exists and is accessible
+    if ! gh repo view "$url" &> /dev/null; then
+        echo "  ${CROSS} ${RED}Repository not accessible${NC}"
+        echo "  ${WARN} RECOMMENDATION: Check repository URL and permissions" >> "$recommendations_file"
+        echo "      - Repository: $name" >> "$recommendations_file"
+        echo "      - URL: $url" >> "$recommendations_file"
+        echo ""
+        continue
+    fi
+
+    echo "  ${CHECK} Repository accessible"
+
+    # Check if workflow file exists
+    if gh api "repos/${org}/${repo}/contents/.github/workflows/publish-upm.yml" >/dev/null 2>&1; then
+        workflow_exists=true
+        echo "  ${CHECK} ${GREEN}Workflow file exists${NC}"
+
+        # Get workflow details
+        workflow_state=$(gh api "repos/${org}/${repo}/actions/workflows/publish-upm.yml" 2>/dev/null | jq -r '.state // "unknown"')
+        echo "      State: $workflow_state"
+
+        # Get workflow run count
+        run_count=$(gh api "repos/${org}/${repo}/actions/workflows/publish-upm.yml/runs?per_page=1" 2>/dev/null | jq '.total_count // 0')
+        echo "      Total runs: $run_count"
+
+        # Get last run status if exists
+        if [ "$run_count" -gt 0 ]; then
+            last_run=$(gh api "repos/${org}/${repo}/actions/workflows/publish-upm.yml/runs?per_page=1" 2>/dev/null | jq -r '.workflow_runs[0]')
+            last_status=$(echo "$last_run" | jq -r '.conclusion // "running"')
+            last_date=$(echo "$last_run" | jq -r '.created_at' | cut -d'T' -f1)
+
+            case $last_status in
+                "success") echo "      Last run: ${CHECK} success ($last_date)" ;;
+                "failure") echo "      Last run: ${CROSS} failure ($last_date)" ;;
+                "cancelled") echo "      Last run: ${WARN} cancelled ($last_date)" ;;
+                *) echo "      Last run: ${INFO} $last_status ($last_date)" ;;
+            esac
+        else
+            echo "      ${INFO} No runs yet"
+        fi
+    else
+        workflow_exists=false
+        echo "  ${CROSS} ${RED}Workflow file missing${NC}"
+    fi
+
+    # Compare registry status vs actual state
+    echo ""
+    echo "  ${BLUE}Status Analysis:${NC}"
+
+    if [ "$status" = "active" ] && [ "$workflow_exists" = true ]; then
+        echo "  ${CHECK} ${GREEN}MATCHED${NC} - Registry 'active' and workflow exists"
+        matched_repos=$((matched_repos + 1))
+    elif [ "$status" = "pending" ] && [ "$workflow_exists" = false ]; then
+        echo "  ${PENDING} ${YELLOW}EXPECTED${NC} - Registry 'pending' and workflow not deployed yet"
+        echo "  ${INFO} Next push to config/repositories.json will trigger deployment"
+        matched_repos=$((matched_repos + 1))
+    elif [ "$status" = "disabled" ]; then
+        echo "  ${INFO} ${YELLOW}DISABLED${NC} - Repository intentionally disabled"
+        if [ "$workflow_exists" = true ]; then
+            echo "      (Note: Workflow file still exists but status is 'disabled')"
+        fi
+        matched_repos=$((matched_repos + 1))
+    elif [ "$status" = "active" ] && [ "$workflow_exists" = false ]; then
+        echo "  ${CROSS} ${RED}MISMATCH!${NC} - Registry says 'active' but workflow missing"
+        echo "  ${WARN} RECOMMENDATION: Update status to 'pending' to trigger deployment" >> "$recommendations_file"
+        echo "      - Repository: $name" >> "$recommendations_file"
+        echo "      - Current status: active" >> "$recommendations_file"
+        echo "      - Action: Change to 'pending' or deploy manually" >> "$recommendations_file"
+        mismatched_repos=$((mismatched_repos + 1))
+    elif [ "$status" = "pending" ] && [ "$workflow_exists" = true ]; then
+        echo "  ${WARN} ${YELLOW}MISMATCH${NC} - Workflow exists but status is 'pending'"
+        echo "  ${WARN} RECOMMENDATION: Update status to 'active'" >> "$recommendations_file"
+        echo "      - Repository: $name" >> "$recommendations_file"
+        echo "      - Current status: pending" >> "$recommendations_file"
+        echo "      - Action: Change to 'active' (workflow already deployed)" >> "$recommendations_file"
+        mismatched_repos=$((mismatched_repos + 1))
+    else
+        echo "  ${WARN} ${YELLOW}UNKNOWN STATE${NC}"
+        mismatched_repos=$((mismatched_repos + 1))
+    fi
+
+    # Check package.json configuration
+    echo ""
+    echo "  ${BLUE}Package Configuration:${NC}"
+    # Handle null or empty packages array
+    packages=$(echo "$repo_json" | jq -r '.packages // [] | .[] | "    - \(.name) at \(.path)"')
+    if [ -z "$packages" ]; then
+      echo "    (none configured)"
+    else
+      echo "$packages"
+    fi
+
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+
+    # FIX: Small delay between repos to be nice to GitHub API
+    sleep 0.5
+done < <(jq -c '.repositories[]' config/repositories.json)
+
+# Print summary
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "📊 Audit Summary"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "Total Repositories: $total_repos"
+echo ""
+echo "By Status:"
+echo "  Active:   $active_repos"
+echo "  Pending:  $pending_repos"
+echo "  Disabled: $disabled_repos"
+echo ""
+echo "Verification:"
+echo "  ${CHECK} Matched:    $matched_repos"
+echo "  ${CROSS} Mismatched: $mismatched_repos"
+echo ""
+
+# Show recommendations if any
+if [ -s "$recommendations_file" ]; then
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "${WARN} Recommendations"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    cat "$recommendations_file"
+    echo ""
+fi
+
+# Cleanup
+rm -f "$recommendations_file"
+
+# Exit status
+if [ "$mismatched_repos" -gt 0 ]; then
+    echo "${WARN} Audit completed with issues - review recommendations above"
+    exit 1
+else
+    echo "${CHECK} Audit completed successfully - all repositories in sync"
+    exit 0
+fi
+</file>
+
+<file path="scripts/build-package-cache.sh">
+#!/usr/bin/env bash
+# build-package-cache.sh
+# Builds minimal package cache with version tracking
+# Scans all registered repositories and caches package locations and versions
+
+set -euo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Emojis
+CHECK="✅"
+CROSS="❌"
+WARN="⚠️"
+
+CACHE_FILE="config/package-cache.json"
+REGISTRY="https://upm.the1studio.org/"
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🔨 Building Package Cache"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Check prerequisites
+if [ ! -f "config/repositories.json" ]; then
+  echo "${CROSS} Error: config/repositories.json not found"
+  echo "Please run this script from the UPMAutoPublisher root directory"
+  exit 1
+fi
+
+if ! command -v gh &>/dev/null; then
+  echo "${CROSS} Error: GitHub CLI (gh) is not installed"
+  exit 1
+fi
+
+if ! command -v jq &>/dev/null; then
+  echo "${CROSS} Error: jq is not installed"
+  exit 1
+fi
+
+if ! gh auth status &>/dev/null; then
+  echo "${CROSS} Error: Not authenticated with GitHub"
+  echo "Run: gh auth login"
+  exit 1
+fi
+
+echo "Prerequisites: ${CHECK} All dependencies available"
+echo ""
+
+# Initialize cache with empty repositories object
+jq -n '{
+  updated: (now | todate),
+  repositories: {}
+}' > "$CACHE_FILE.tmp"
+
+# Counters
+total_packages=0
+total_repos=0
+skipped_repos=0
+
+echo "Scanning repositories..."
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Process each repository
+while IFS= read -r repo_json; do
+  # Skip empty lines
+  [ -z "$repo_json" ] && continue
+
+  total_repos=$((total_repos + 1))
+
+  url=$(echo "$repo_json" | jq -r '.url')
+  status=$(echo "$repo_json" | jq -r '.status')
+
+  # Skip disabled repos
+  if [ "$status" = "disabled" ]; then
+    echo "⏭️  Skipping disabled: $url"
+    skipped_repos=$((skipped_repos + 1))
+    continue
+  fi
+
+  # Extract org/repo using regex
+  if [[ "$url" =~ ^https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9._-]+)$ ]]; then
+    org="${BASH_REMATCH[1]}"
+    repo="${BASH_REMATCH[2]}"
+  else
+    echo "${CROSS} Invalid URL: $url"
+    skipped_repos=$((skipped_repos + 1))
+    continue
+  fi
+
+  echo "${BLUE}Repository:${NC} $org/$repo"
+
+  # Check if repository is accessible
+  if ! gh repo view "$org/$repo" &>/dev/null; then
+    echo "  ${CROSS} Repository not accessible"
+    skipped_repos=$((skipped_repos + 1))
+    echo ""
+    continue
+  fi
+
+  # Find all package.json files
+  echo "  🔍 Finding package.json files..."
+  package_files=$(gh api "repos/$org/$repo/git/trees/master?recursive=1" \
+    --jq '.tree[] | select(.path | endswith("package.json")) | "\(.path)|\(.sha)"' \
+    2>/dev/null || echo "")
+
+  if [ -z "$package_files" ]; then
+    echo "  ${WARN} No package.json files found"
+    echo ""
+    continue
+  fi
+
+  # Process each package.json
+  while IFS='|' read -r pkg_path pkg_sha; do
+    # Skip node_modules, hidden directories, and root package.json
+    if [[ "$pkg_path" =~ node_modules|/\. ]] || [[ "$pkg_path" == "package.json" ]]; then
+      continue
+    fi
+
+    echo "  📦 Processing: $pkg_path"
+
+    # Read package.json content
+    pkg_content=$(gh api "repos/$org/$repo/contents/$pkg_path" \
+      --jq '.content' 2>/dev/null | base64 -d 2>/dev/null || echo "")
+
+    if [ -z "$pkg_content" ]; then
+      echo "     ${CROSS} Failed to read package.json"
+      continue
+    fi
+
+    # Extract package name and version
+    pkg_name=$(echo "$pkg_content" | jq -r '.name // empty')
+    current_version=$(echo "$pkg_content" | jq -r '.version // empty')
+
+    if [ -z "$pkg_name" ] || [ -z "$current_version" ]; then
+      echo "     ${WARN} Invalid package.json (missing name or version)"
+      continue
+    fi
+
+    # Check published version on registry
+    published_version=$(npm view "$pkg_name" version --registry "$REGISTRY" 2>/dev/null || echo "")
+
+    if [ -z "$published_version" ]; then
+      echo "     Current: $current_version"
+      echo "     Published: ${YELLOW}not-published${NC}"
+    elif [ "$current_version" = "$published_version" ]; then
+      echo "     ${CHECK} $current_version (up-to-date)"
+    else
+      echo "     Current: $current_version"
+      echo "     Published: $published_version"
+      echo "     Status: ${YELLOW}stale${NC}"
+    fi
+
+    # Add to cache grouped by repository
+    jq --arg repo_key "$org/$repo" \
+       --arg pkg_name "$pkg_name" \
+       --arg path "${pkg_path%/package.json}" \
+       --arg version "$current_version" \
+       --arg publishedVersion "${published_version:-null}" \
+       '.repositories[$repo_key].packages[$pkg_name] = {
+         path: $path,
+         version: $version,
+         publishedVersion: (if $publishedVersion == "null" or $publishedVersion == "" then null else $publishedVersion end)
+       }' "$CACHE_FILE.tmp" > "$CACHE_FILE.tmp2"
+
+    mv "$CACHE_FILE.tmp2" "$CACHE_FILE.tmp"
+
+    total_packages=$((total_packages + 1))
+
+  done <<< "$package_files"
+
+  echo ""
+  sleep 0.5  # Rate limit protection
+
+done < <(jq -c '.repositories[]' config/repositories.json)
+
+# Move temp file to final location
+mv "$CACHE_FILE.tmp" "$CACHE_FILE"
+
+# Generate statistics
+uptodate=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.version == .value.publishedVersion)] | length' "$CACHE_FILE")
+stale=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.version != .value.publishedVersion and .value.publishedVersion != null)] | length' "$CACHE_FILE")
+new=$(jq '[.repositories | to_entries[] | .value.packages | to_entries[] | select(.value.publishedVersion == null)] | length' "$CACHE_FILE")
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "📊 Cache Build Summary"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "Repositories:"
+echo "  Total scanned: $total_repos"
+echo "  Skipped: $skipped_repos"
+echo ""
+echo "Packages:"
+echo "  Total cached: $total_packages"
+echo "  ${CHECK} Up-to-date: $uptodate"
+echo "  ${WARN} Stale (needs publish): $stale"
+echo "  📦 New (not published): $new"
+echo ""
+echo "Cache file: $CACHE_FILE"
+echo "Last updated: $(jq -r '.updated' "$CACHE_FILE")"
+echo ""
+
+if [ "$stale" -gt 0 ]; then
+  echo "${WARN} Stale packages found:"
+  jq -r '.repositories | to_entries[] | .key as $repo | .value.packages | to_entries[] | select(.value.version != .value.publishedVersion and .value.publishedVersion != null) | "  - \(.key) (\($repo)): \(.value.version) (published: \(.value.publishedVersion))"' "$CACHE_FILE"
+  echo ""
+fi
+
+echo "✅ Cache built successfully!"
+</file>
+
+<file path="scripts/check-single-repo.sh">
+#!/usr/bin/env bash
+# check-single-repo.sh
+# Check if a specific repository has UPM workflow set up
+
+set -euo pipefail
+
+# Emojis
+CHECK="✅"
+CROSS="❌"
+
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 <repository-url-or-org/name>"
+    echo "Example: $0 The1Studio/UnityBuildScript"
+    echo "Example: $0 https://github.com/The1Studio/UnityBuildScript"
+    exit 1
+fi
+
+INPUT="$1"
+
+# FIX: Parse input with proper validation (use regex instead of sed)
+if [[ "$INPUT" =~ ^https?://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)$ ]]; then
+    # Full URL provided - extract using BASH_REMATCH
+    ORG="${BASH_REMATCH[1]}"
+    REPO_NAME="${BASH_REMATCH[2]}"
+elif [[ "$INPUT" =~ ^([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)$ ]]; then
+    # org/repo format - extract using BASH_REMATCH
+    ORG="${BASH_REMATCH[1]}"
+    REPO_NAME="${BASH_REMATCH[2]}"
+elif [[ "$INPUT" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    # Just repo name - validate alphanumeric only
+    REPO_NAME="$INPUT"
+    if [ -f "config/repositories.json" ]; then
+        # Use jq with proper escaping
+        repo_url=$(jq -r --arg name "$REPO_NAME" '.repositories[] | select(.name == $name) | .url' config/repositories.json)
+        if [ -n "$repo_url" ] && [ "$repo_url" != "null" ]; then
+            # Extract using regex
+            if [[ "$repo_url" =~ ^https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)$ ]]; then
+                ORG="${BASH_REMATCH[1]}"
+            else
+                echo "${CROSS} Invalid URL in config: $repo_url"
+                exit 1
+            fi
+        else
+            echo "${CROSS} Repository '$REPO_NAME' not found in config/repositories.json"
+            exit 1
+        fi
+    else
+        echo "${CROSS} config/repositories.json not found"
+        exit 1
+    fi
+else
+    echo "${CROSS} Invalid input format: $INPUT"
+    echo "   Valid formats:"
+    echo "   - https://github.com/The1Studio/UnityBuildScript"
+    echo "   - The1Studio/UnityBuildScript"
+    echo "   - UnityBuildScript"
+    exit 1
+fi
+
+echo "🔍 Checking: ${ORG}/${REPO_NAME}"
+echo "===================="
+echo ""
+
+# Check if workflow exists
+if gh api "repos/${ORG}/${REPO_NAME}/contents/.github/workflows/publish-upm.yml" >/dev/null 2>&1; then
+    echo "${CHECK} Workflow file exists"
+    echo ""
+
+    # Get workflow details
+    workflow_info=$(gh api "repos/${ORG}/${REPO_NAME}/actions/workflows/publish-upm.yml" 2>/dev/null)
+
+    if [ -n "$workflow_info" ]; then
+        echo "Workflow Details:"
+        echo "  Name: $(echo "$workflow_info" | jq -r '.name')"
+        echo "  State: $(echo "$workflow_info" | jq -r '.state')"
+        echo "  Path: $(echo "$workflow_info" | jq -r '.path')"
+        echo ""
+
+        # Get run statistics
+        runs_info=$(gh api "repos/${ORG}/${REPO_NAME}/actions/workflows/publish-upm.yml/runs?per_page=1" 2>/dev/null)
+        total_runs=$(echo "$runs_info" | jq '.total_count')
+
+        echo "Usage:"
+        echo "  Total runs: $total_runs"
+
+        if [ "$total_runs" -gt 0 ]; then
+            last_run=$(echo "$runs_info" | jq '.workflow_runs[0]')
+            last_status=$(echo "$last_run" | jq -r '.conclusion // "running"')
+            last_date=$(echo "$last_run" | jq -r '.created_at' | cut -d'T' -f1)
+
+            echo "  Last run: $last_status ($last_date)"
+        fi
+    fi
+
+    echo ""
+    echo "🔗 View in GitHub:"
+    echo "  https://github.com/${ORG}/${REPO_NAME}/actions/workflows/publish-upm.yml"
+
+else
+    echo "${CROSS} Workflow file does NOT exist"
+    echo ""
+    echo "To add workflow:"
+    echo "  1. Add to config/repositories.json with status: 'pending'"
+    echo "  2. Commit and push"
+    echo "  3. Automation will create PR"
+    echo ""
+    echo "📖 See: docs/quick-registration.md"
+fi
+</file>
+
+<file path="scripts/pre-deployment-check.sh">
+#!/usr/bin/env bash
+# pre-deployment-check.sh
+# Comprehensive pre-deployment validation for UPM Auto Publisher
+# Run this before deploying to production or setting up self-hosted runners
+
+set -euo pipefail
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Emojis
+CHECK="✅"
+CROSS="❌"
+WARN="⚠️"
+INFO="ℹ️"
+
+# Counters
+passed=0
+failed=0
+warnings=0
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🔍 UPM Auto Publisher - Pre-Deployment Validation"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+cd "$PROJECT_ROOT"
+
+# =============================================================================
+# Section 1: File Structure Validation
+# =============================================================================
+echo "${BLUE}[1/7] Checking File Structure${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+required_files=(
+  ".github/workflows/publish-upm.yml"
+  ".github/workflows/register-repos.yml"
+  "config/repositories.json"
+  "config/schema.json"
+  "scripts/audit-repos.sh"
+  "scripts/check-single-repo.sh"
+  "scripts/quick-check.sh"
+  "scripts/validate-config.sh"
+  "docs/setup-instructions.md"
+  "docs/configuration.md"
+  "docs/security-improvements.md"
+  "README.md"
+)
+
+for file in "${required_files[@]}"; do
+  if [ -f "$file" ]; then
+    echo "  ${CHECK} $file"
+    passed=$((passed + 1))
+  else
+    echo "  ${CROSS} Missing: $file"
+    failed=$((failed + 1))
+  fi
+done
+
+echo ""
+
+# =============================================================================
+# Section 2: Configuration Validation
+# =============================================================================
+echo "${BLUE}[2/7] Validating Configuration Files${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check JSON syntax
+if jq empty config/repositories.json 2>/dev/null; then
+  echo "  ${CHECK} repositories.json has valid JSON syntax"
+  passed=$((passed + 1))
+else
+  echo "  ${CROSS} repositories.json has invalid JSON syntax"
+  failed=$((failed + 1))
+fi
+
+if jq empty config/schema.json 2>/dev/null; then
+  echo "  ${CHECK} schema.json has valid JSON syntax"
+  passed=$((passed + 1))
+else
+  echo "  ${CROSS} schema.json has invalid JSON syntax"
+  failed=$((failed + 1))
+fi
+
+# Run schema validation if ajv is available
+if command -v ajv &>/dev/null; then
+  if ajv validate -s config/schema.json -d config/repositories.json --strict=false 2>&1 >/dev/null; then
+    echo "  ${CHECK} repositories.json passes schema validation"
+    passed=$((passed + 1))
+  else
+    echo "  ${CROSS} repositories.json fails schema validation"
+    failed=$((failed + 1))
+  fi
+else
+  echo "  ${WARN} ajv-cli not installed, skipping schema validation"
+  echo "      Install: npm install -g ajv-cli ajv-formats"
+  warnings=$((warnings + 1))
+fi
+
+echo ""
+
+# =============================================================================
+# Section 3: Bash Script Validation
+# =============================================================================
+echo "${BLUE}[3/7] Validating Bash Scripts${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+for script in scripts/*.sh .docker/setup-secrets.sh; do
+  if [ ! -f "$script" ]; then
+    continue
+  fi
+
+  # Check syntax
+  if bash -n "$script" 2>/dev/null; then
+    echo "  ${CHECK} $script (syntax valid)"
+    passed=$((passed + 1))
+  else
+    echo "  ${CROSS} $script (syntax errors)"
+    bash -n "$script" 2>&1 | head -5
+    failed=$((failed + 1))
+  fi
+
+  # Check shebang
+  if head -n 1 "$script" | grep -q "^#!/usr/bin/env bash"; then
+    : # Correct shebang, no output
+  elif head -n 1 "$script" | grep -q "^#!/bin/bash"; then
+    echo "      ${WARN} Uses #!/bin/bash instead of #!/usr/bin/env bash"
+    warnings=$((warnings + 1))
+  fi
+
+  # Check for set -euo pipefail
+  if grep -q "^set -euo pipefail" "$script"; then
+    : # Correct, no output
+  else
+    echo "      ${WARN} Missing 'set -euo pipefail'"
+    warnings=$((warnings + 1))
+  fi
+done
+
+echo ""
+
+# =============================================================================
+# Section 4: Workflow File Validation
+# =============================================================================
+echo "${BLUE}[4/7] Validating GitHub Actions Workflows${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check YAML syntax if yamllint is available
+if command -v yamllint &>/dev/null; then
+  for workflow in .github/workflows/*.yml; do
+    if yamllint -d relaxed "$workflow" &>/dev/null; then
+      echo "  ${CHECK} $(basename "$workflow") (YAML valid)"
+      passed=$((passed + 1))
+    else
+      echo "  ${CROSS} $(basename "$workflow") (YAML errors)"
+      yamllint -d relaxed "$workflow" 2>&1 | head -5
+      failed=$((failed + 1))
+    fi
+  done
+else
+  echo "  ${WARN} yamllint not installed, skipping YAML validation"
+  echo "      Install: pip install yamllint"
+  warnings=$((warnings + 1))
+fi
+
+# Check for critical security fixes in publish-upm.yml
+echo ""
+echo "  Checking for security fixes in publish-upm.yml:"
+
+if grep -q "UPM_REGISTRY.*vars.UPM_REGISTRY" .github/workflows/publish-upm.yml; then
+  echo "    ${CHECK} Configurable registry URL"
+  passed=$((passed + 1))
+else
+  echo "    ${CROSS} Missing configurable registry URL"
+  failed=$((failed + 1))
+fi
+
+if grep -q 'if \[\[ "\$package_name" =~ \[\^a-zA-Z0-9._-\] \]\]' .github/workflows/publish-upm.yml; then
+  echo "    ${CHECK} Package name validation (dangerous characters)"
+  passed=$((passed + 1))
+else
+  echo "    ${CROSS} Missing package name validation (dangerous characters)"
+  failed=$((failed + 1))
+fi
+
+if grep -q "trap.*EXIT ERR INT TERM" .github/workflows/publish-upm.yml; then
+  echo "    ${CHECK} Trap-based cleanup"
+  passed=$((passed + 1))
+else
+  echo "    ${CROSS} Missing trap-based cleanup"
+  failed=$((failed + 1))
+fi
+
+if grep -q "audit-log.json" .github/workflows/publish-upm.yml; then
+  echo "    ${CHECK} Audit logging"
+  passed=$((passed + 1))
+else
+  echo "    ${CROSS} Missing audit logging"
+  failed=$((failed + 1))
+fi
+
+echo ""
+
+# =============================================================================
+# Section 5: Docker Configuration Validation
+# =============================================================================
+echo "${BLUE}[5/7] Validating Docker Configuration${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+if [ -f ".docker/docker-compose.runners.yml" ]; then
+  # Check for Docker secrets instead of env vars
+  if grep -q "secrets:" .docker/docker-compose.runners.yml && \
+     grep -q "github_pat:" .docker/docker-compose.runners.yml; then
+    echo "  ${CHECK} Using Docker secrets for credentials"
+    passed=$((passed + 1))
+  else
+    echo "  ${CROSS} Not using Docker secrets for credentials"
+    failed=$((failed + 1))
+  fi
+
+  # Check Docker socket is NOT mounted (uncommented)
+  if grep "^[^#]*- /var/run/docker.sock:/var/run/docker.sock" .docker/docker-compose.runners.yml >/dev/null 2>&1; then
+    echo "  ${CROSS} Docker socket is mounted (security risk)"
+    failed=$((failed + 1))
+  else
+    echo "  ${CHECK} Docker socket not mounted (commented or removed)"
+    passed=$((passed + 1))
+  fi
+
+  # Check secrets file exists
+  if [ -f ".docker/.secrets/github_pat" ]; then
+    echo "  ${CHECK} Secrets file exists"
+
+    # Check permissions
+    perms=$(stat -c "%a" .docker/.secrets/github_pat 2>/dev/null || stat -f "%A" .docker/.secrets/github_pat 2>/dev/null)
+    if [ "$perms" = "600" ]; then
+      echo "      ${CHECK} Correct permissions (600)"
+      passed=$((passed + 1))
+    else
+      echo "      ${WARN} Permissions are $perms (should be 600)"
+      warnings=$((warnings + 1))
+    fi
+  else
+    echo "  ${WARN} Secrets file not found (.docker/.secrets/github_pat)"
+    echo "      Run: .docker/setup-secrets.sh"
+    warnings=$((warnings + 1))
+  fi
+
+  # Test docker compose config
+  if command -v docker &>/dev/null; then
+    if docker compose -f .docker/docker-compose.runners.yml config &>/dev/null; then
+      echo "  ${CHECK} Docker Compose configuration valid"
+      passed=$((passed + 1))
+    else
+      echo "  ${CROSS} Docker Compose configuration invalid"
+      failed=$((failed + 1))
+    fi
+  else
+    echo "  ${WARN} Docker not installed, skipping compose validation"
+    warnings=$((warnings + 1))
+  fi
+else
+  echo "  ${INFO} Docker configuration not found (optional)"
+fi
+
+echo ""
+
+# =============================================================================
+# Section 6: Security Checks
+# =============================================================================
+echo "${BLUE}[6/7] Security Checks${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check for hardcoded credentials
+echo "  Scanning for potential hardcoded credentials..."
+if grep -r -i "password\s*=\|token\s*=\|secret\s*=\|key\s*=" \
+  --include="*.yml" --include="*.yaml" --include="*.sh" --include="*.json" \
+  --exclude-dir=".git" --exclude-dir="node_modules" . 2>/dev/null | grep -v "ACCESS_TOKEN_FILE"; then
+  echo "    ${WARN} Found potential hardcoded credentials (review above)"
+  warnings=$((warnings + 1))
+else
+  echo "    ${CHECK} No hardcoded credentials found"
+  passed=$((passed + 1))
+fi
+
+# Check for sed usage (should use regex instead)
+echo "  Checking for unsafe sed usage..."
+if grep -r "sed.*github.com" scripts/ .github/ 2>/dev/null | grep -v "Binary\|\.backup"; then
+  echo "    ${WARN} Found sed usage for URL parsing (should use regex)"
+  warnings=$((warnings + 1))
+else
+  echo "    ${CHECK} No unsafe sed usage found"
+  passed=$((passed + 1))
+fi
+
+# Check for unquoted variables in scripts
+echo "  Checking for unquoted variables in critical paths..."
+if grep -r 'cd \$[a-zA-Z_]' scripts/ .github/ 2>/dev/null | grep -v '"' | grep -v "Binary"; then
+  echo "    ${WARN} Found unquoted variables in cd commands"
+  warnings=$((warnings + 1))
+else
+  echo "    ${CHECK} Variables properly quoted"
+  passed=$((passed + 1))
+fi
+
+echo ""
+
+# =============================================================================
+# Section 7: GitHub CLI & Dependencies
+# =============================================================================
+echo "${BLUE}[7/7] Checking Dependencies${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+dependencies=(
+  "gh:GitHub CLI"
+  "jq:JSON processor"
+  "git:Version control"
+  "curl:HTTP client"
+  "npm:Node package manager"
+)
+
+for dep in "${dependencies[@]}"; do
+  cmd="${dep%%:*}"
+  name="${dep##*:}"
+
+  if command -v "$cmd" &>/dev/null; then
+    version=$("$cmd" --version 2>&1 | head -1)
+    echo "  ${CHECK} $name ($version)"
+    passed=$((passed + 1))
+  else
+    echo "  ${CROSS} $name not installed"
+    failed=$((failed + 1))
+  fi
+done
+
+# Check GitHub authentication
+if command -v gh &>/dev/null; then
+  if gh auth status &>/dev/null; then
+    echo "  ${CHECK} GitHub CLI authenticated"
+    passed=$((passed + 1))
+  else
+    echo "  ${WARN} GitHub CLI not authenticated (run: gh auth login)"
+    warnings=$((warnings + 1))
+  fi
+fi
+
+# Optional dependencies
+echo ""
+echo "  Optional dependencies:"
+optional_deps=(
+  "ajv:JSON schema validator"
+  "yamllint:YAML linter"
+  "shellcheck:Shell script analyzer"
+)
+
+for dep in "${optional_deps[@]}"; do
+  cmd="${dep%%:*}"
+  name="${dep##*:}"
+
+  if command -v "$cmd" &>/dev/null; then
+    echo "    ${CHECK} $name"
+  else
+    echo "    ${INFO} $name not installed (optional)"
+  fi
+done
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "📊 Validation Summary"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "  ${CHECK} Passed:   $passed"
+echo "  ${CROSS} Failed:   $failed"
+echo "  ${WARN} Warnings: $warnings"
+echo ""
+
+if [ "$failed" -eq 0 ]; then
+  if [ "$warnings" -eq 0 ]; then
+    echo "${GREEN}✅ All checks passed! System is ready for production deployment.${NC}"
+    echo ""
+    exit 0
+  else
+    echo "${YELLOW}⚠️  All critical checks passed, but there are $warnings warning(s).${NC}"
+    echo "    Review warnings above before deploying."
+    echo ""
+    exit 0
+  fi
+else
+  echo "${RED}❌ Validation failed with $failed error(s).${NC}"
+  echo "   Fix the errors above before deploying to production."
+  echo ""
+  exit 1
+fi
+</file>
+
+<file path="scripts/quick-check.sh">
+#!/usr/bin/env bash
+# quick-check.sh
+# Quick status check for all registered repositories
+
+set -euo pipefail
+
+# Colors
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+# Emojis
+CHECK="✅"
+CROSS="❌"
+
+echo "🔍 Quick Status Check"
+echo "===================="
+echo ""
+
+# Check prerequisites quietly
+if [ ! -f "config/repositories.json" ]; then
+    echo "${CROSS} Error: config/repositories.json not found"
+    exit 1
+fi
+
+if ! command -v gh &> /dev/null; then
+    echo "${CROSS} Error: GitHub CLI not installed"
+    exit 1
+fi
+
+if ! command -v jq &> /dev/null; then
+    echo "${CROSS} Error: jq not installed"
+    exit 1
+fi
+
+# Simple table header
+printf "%-30s %-15s %-15s\n" "REPOSITORY" "REGISTRY STATUS" "WORKFLOW"
+printf "%-30s %-15s %-15s\n" "$(printf '%.0s─' {1..30})" "$(printf '%.0s─' {1..15})" "$(printf '%.0s─' {1..15})"
+
+# Check each repo
+jq -r '.repositories[] | @json' config/repositories.json | while IFS= read -r repo_json; do
+    name=$(echo "$repo_json" | jq -r '.name')
+    status=$(echo "$repo_json" | jq -r '.status // "unknown"')
+    url=$(echo "$repo_json" | jq -r '.url')
+
+    # FIX: Validate and extract org/repo using regex (safer than sed)
+    if [[ "$url" =~ ^https://github\.com/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)$ ]]; then
+        org="${BASH_REMATCH[1]}"
+        repo="${BASH_REMATCH[2]}"
+    else
+        # Skip invalid URLs silently in quick check
+        printf "%-30s %-25s %-25s\n" "$name" "$(echo -e "${RED}INVALID URL${NC}")" ""
+        continue
+    fi
+
+    # Check if workflow exists
+    if gh api "repos/${org}/${repo}/contents/.github/workflows/publish-upm.yml" >/dev/null 2>&1; then
+        workflow_status="${GREEN}✅ EXISTS${NC}"
+    else
+        workflow_status="${RED}❌ MISSING${NC}"
+    fi
+
+    # Color status
+    case $status in
+        "active") status_color="${GREEN}$status${NC}" ;;
+        "pending") status_color="${YELLOW}$status${NC}" ;;
+        "disabled") status_color="${RED}$status${NC}" ;;
+        *) status_color="$status" ;;
+    esac
+
+    printf "%-30s %-25s %-25s\n" "$name" "$(echo -e "$status_color")" "$(echo -e "$workflow_status")"
+done
+
+echo ""
+echo "💡 Tip: Run './scripts/audit-repos.sh' for detailed analysis"
+</file>
+
+<file path="scripts/README.md">
+# UPM Auto Publisher - Scripts
+
+Utility scripts for managing and auditing UPM auto-publishing setup.
+
+## Available Scripts
+
+### 1. `audit-repos.sh` - Comprehensive Audit ⭐ **Recommended**
+
+**Purpose**: Complete audit of all registered repositories with detailed status and recommendations.
+
+**Usage:**
+```bash
+./scripts/audit-repos.sh
+```
+
+**Features:**
+- ✅ Checks all repos in `config/repositories.json`
+- ✅ Verifies workflow file exists
+- ✅ Checks workflow state (active/disabled)
+- ✅ Shows run statistics and last run status
+- ✅ Compares registry status vs actual state
+- ✅ Provides recommendations for mismatches
+- ✅ Color-coded output
+- ✅ Summary statistics
+
+**Output Example:**
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔍 UPM Auto Publisher - Repository Audit
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Repository: UnityBuildScript
+  URL: https://github.com/The1Studio/UnityBuildScript
+  Registry Status: active
+  Packages: 1
+  ✅ Repository accessible
+  ✅ Workflow file exists
+      State: active
+      Total runs: 15
+      Last run: ✅ success (2025-01-15)
+
+  Status Analysis:
+  ✅ MATCHED - Registry 'active' and workflow exists
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 Audit Summary
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Total Repositories: 1
+Active:   1
+Pending:  0
+Disabled: 0
+
+Verification:
+  ✅ Matched:    1
+  ❌ Mismatched: 0
+```
+
+**When to use:**
+- 🔄 Regular audits (weekly/monthly)
+- 🐛 Troubleshooting setup issues
+- 📊 Before/after adding repos
+- ✅ Verifying automated deployment
+
+---
+
+### 2. `quick-check.sh` - Fast Status Overview
+
+**Purpose**: Quick table view of all repositories and their status.
+
+**Usage:**
+```bash
+./scripts/quick-check.sh
+```
+
+**Features:**
+- ⚡ Fast execution
+- 📊 Table format
+- ✅ Simple status indicators
+- 🎨 Color-coded
+
+**Output Example:**
+```
+🔍 Quick Status Check
+====================
+
+REPOSITORY                     REGISTRY STATUS  WORKFLOW
+────────────────────────────── ─────────────── ───────────────
+UnityBuildScript               active          ✅ EXISTS
+UnityUtilities                 pending         ❌ MISSING
+TheOneFeature                  active          ✅ EXISTS
+
+💡 Tip: Run './scripts/audit-repos.sh' for detailed analysis
+```
+
+**When to use:**
+- 🚀 Quick daily check
+- 👀 Before meetings/reports
+- 📋 Checking multiple repos fast
+
+---
+
+### 3. `check-single-repo.sh` - Single Repository Check
+
+**Purpose**: Detailed check of one specific repository.
+
+**Usage:**
+```bash
+./scripts/check-single-repo.sh <repository-name>
+
+# Example:
+./scripts/check-single-repo.sh UnityBuildScript
+```
+
+**Features:**
+- 🎯 Focused on single repo
+- 📝 Detailed workflow information
+- 📊 Run statistics
+- 🔗 Direct GitHub links
+
+**Output Example:**
+```
+🔍 Checking: UnityBuildScript
+====================
+
+✅ Workflow file exists
+
+Workflow Details:
+  Name: Publish to UPM Registry
+  State: active
+  Path: .github/workflows/publish-upm.yml
+
+Usage:
+  Total runs: 15
+  Last run: success (2025-01-15)
+
+🔗 View in GitHub:
+  https://github.com/The1Studio/UnityBuildScript/actions/workflows/publish-upm.yml
+```
+
+**When to use:**
+- 🔍 Investigating specific repo
+- 🐛 Debugging workflow issues
+- ✅ Verifying single repo setup
+
+---
+
+## Prerequisites
+
+All scripts require:
+- ✅ **GitHub CLI (gh)**: https://cli.github.com/
+- ✅ **jq**: JSON processor
+- ✅ **Authenticated with GitHub**: `gh auth login`
+
+**Install dependencies:**
+```bash
+# Arch Linux
+sudo pacman -S github-cli jq
+
+# Ubuntu/Debian
+sudo apt-get install gh jq
+
+# macOS
+brew install gh jq
+
+# Authenticate
+gh auth login
+```
+
+## Installation
+
+Make scripts executable:
+```bash
+chmod +x scripts/*.sh
+```
+
+## Usage Workflow
+
+### Daily/Weekly Check
+```bash
+# Quick overview
+./scripts/quick-check.sh
+
+# If any issues, run full audit
+./scripts/audit-repos.sh
+```
+
+### After Adding New Repository
+```bash
+# 1. Add repo to config/repositories.json with status: "pending"
+# 2. Commit and push
+# 3. Wait for automation to create PR
+# 4. Merge PR in target repo
+
+# 5. Run audit to verify
+./scripts/audit-repos.sh
+
+# 6. Update status to "active" if needed
+# 7. Run audit again to confirm
+./scripts/audit-repos.sh
+```
+
+### Troubleshooting Specific Repo
+```bash
+# Check single repo
+./scripts/check-single-repo.sh RepoName
+
+# If workflow missing, check registry
+grep "RepoName" config/repositories.json
+
+# Run full audit for recommendations
+./scripts/audit-repos.sh
+```
+
+## Exit Codes
+
+| Script | Exit 0 (Success) | Exit 1 (Error) |
+|--------|-----------------|----------------|
+| `audit-repos.sh` | All repos matched | Mismatches found |
+| `quick-check.sh` | Always exits 0 | Prerequisites missing |
+| `check-single-repo.sh` | Always exits 0 | Prerequisites missing |
+
+**Using in CI/CD:**
+```bash
+# Fail CI if audit finds issues
+./scripts/audit-repos.sh || exit 1
+```
+
+## Output Colors
+
+Scripts use colors for readability:
+- 🟢 **Green**: Success, active, exists
+- 🔴 **Red**: Error, missing, failed
+- 🟡 **Yellow**: Warning, pending, caution
+- 🔵 **Blue**: Info, labels
+
+## Script Comparison
+
+| Feature | audit-repos.sh | quick-check.sh | check-single-repo.sh |
+|---------|---------------|----------------|---------------------|
+| **Speed** | Slow (detailed) | Fast | Medium |
+| **Output** | Comprehensive | Table | Detailed single |
+| **Recommendations** | ✅ Yes | ❌ No | ❌ No |
+| **Run statistics** | ✅ Yes | ❌ No | ✅ Yes |
+| **Mismatch detection** | ✅ Yes | ❌ No | ❌ No |
+| **Summary** | ✅ Yes | ❌ No | ❌ No |
+| **Best for** | Regular audits | Quick checks | Single repo debug |
+
+## Integration with CI/CD
+
+### GitHub Actions
+
+```yaml
+name: Weekly Audit
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Every Monday at 9 AM
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup GitHub CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gh jq
+
+      - name: Authenticate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GH_TOKEN" | gh auth login --with-token
+
+      - name: Run Audit
+        run: ./scripts/audit-repos.sh
+```
+
+### Pre-commit Hook
+
+```bash
+#!/bin/bash
+# .git/hooks/pre-commit
+
+if git diff --cached --name-only | grep -q "config/repositories.json"; then
+    echo "🔍 Running quick check before commit..."
+    ./scripts/quick-check.sh
+fi
+```
+
+## Troubleshooting
+
+### "gh: command not found"
+```bash
+# Install GitHub CLI
+# See: https://cli.github.com/
+```
+
+### "jq: command not found"
+```bash
+# Arch Linux
+sudo pacman -S jq
+
+# Ubuntu/Debian
+sudo apt-get install jq
+```
+
+### "Not authenticated with GitHub"
+```bash
+gh auth login
+# Follow prompts
+```
+
+### "config/repositories.json not found"
+```bash
+# Run scripts from UPMAutoPublisher root
+cd /mnt/Work/1M/UPM/The1Studio/UPMAutoPublisher
+./scripts/audit-repos.sh
+```
+
+## Maintenance
+
+### Updating Scripts
+
+Scripts are in git - update like any code:
+```bash
+# Edit script
+nano scripts/audit-repos.sh
+
+# Test changes
+./scripts/audit-repos.sh
+
+# Commit
+git add scripts/audit-repos.sh
+git commit -m "Update audit script"
+git push
+```
+
+### Adding New Scripts
+
+1. Create script in `scripts/` directory
+2. Make executable: `chmod +x scripts/new-script.sh`
+3. Document in this README
+4. Test thoroughly
+5. Commit and push
+
+## Best Practices
+
+1. **Run audit-repos.sh weekly** - Catch issues early
+2. **Run quick-check.sh daily** - Quick status awareness
+3. **Check single repo when debugging** - Focused investigation
+4. **Automate with CI/CD** - Regular scheduled audits
+5. **Review recommendations** - Act on audit suggestions
+
+## Related Documentation
+
+- [Quick Registration Guide](../docs/quick-registration.md)
+- [Detection Methods](../docs/detection-methods.md)
+- [Troubleshooting](../docs/troubleshooting.md)
+
+## Support
+
+For issues with scripts:
+1. Check prerequisites are installed
+2. Verify GitHub authentication
+3. Run from correct directory
+4. Check script permissions
+5. Review script output for specific errors
+
+---
+
+**Quick Reference:**
+```bash
+# Full audit (recommended)
+./scripts/audit-repos.sh
+
+# Quick table view
+./scripts/quick-check.sh
+
+# Check single repo
+./scripts/check-single-repo.sh RepoName
+```
+</file>
+
+<file path="scripts/validate-config.sh">
+#!/usr/bin/env bash
+# validate-config.sh
+# Validates config/repositories.json against schema
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+echo "🔍 Validating config/repositories.json..."
+echo ""
+
+# Check if files exist
+if [ ! -f "$PROJECT_ROOT/config/repositories.json" ]; then
+    echo "❌ Error: config/repositories.json not found"
+    exit 1
+fi
+
+if [ ! -f "$PROJECT_ROOT/config/schema.json" ]; then
+    echo "❌ Error: config/schema.json not found"
+    exit 1
+fi
+
+# Check if ajv-cli is installed
+if ! command -v ajv &>/dev/null; then
+    echo "📦 ajv-cli not found, installing..."
+    if command -v npm &>/dev/null; then
+        npm install -g ajv-cli ajv-formats
+    else
+        echo "❌ Error: npm not found. Please install Node.js and npm."
+        exit 1
+    fi
+fi
+
+# Validate JSON syntax first
+if ! jq empty "$PROJECT_ROOT/config/repositories.json" 2>/dev/null; then
+    echo "❌ JSON syntax error in repositories.json"
+    echo ""
+    echo "Details:"
+    jq empty "$PROJECT_ROOT/config/repositories.json"
+    exit 1
+fi
+
+echo "✅ JSON syntax is valid"
+echo ""
+
+# Validate against schema
+if ajv validate \
+    -s "$PROJECT_ROOT/config/schema.json" \
+    -d "$PROJECT_ROOT/config/repositories.json" \
+    --strict=false \
+    2>&1; then
+    echo ""
+    echo "✅ config/repositories.json is valid!"
+    echo ""
+
+    # Show summary
+    total_repos=$(jq '.repositories | length' "$PROJECT_ROOT/config/repositories.json")
+    active_repos=$(jq '[.repositories[] | select(.status == "active")] | length' "$PROJECT_ROOT/config/repositories.json")
+    pending_repos=$(jq '[.repositories[] | select(.status == "pending")] | length' "$PROJECT_ROOT/config/repositories.json")
+    disabled_repos=$(jq '[.repositories[] | select(.status == "disabled")] | length' "$PROJECT_ROOT/config/repositories.json")
+
+    echo "📊 Repository Summary:"
+    echo "   Total: $total_repos"
+    echo "   Active: $active_repos"
+    echo "   Pending: $pending_repos"
+    echo "   Disabled: $disabled_repos"
+    echo ""
+
+    exit 0
+else
+    echo ""
+    echo "❌ Validation failed!"
+    echo ""
+    echo "Common issues:"
+    echo "  - Missing required fields (name, url, packages, status)"
+    echo "  - Invalid status value (must be: active, pending, or disabled)"
+    echo "  - Invalid package name format (must start with com.theone.)"
+    echo "  - Invalid URL format"
+    echo ""
+    echo "See config/schema.json for full schema definition"
+    exit 1
+fi
+</file>
+
+<file path=".editorconfig">
+# EditorConfig is awesome: https://EditorConfig.org
+
+# top-most EditorConfig file
+root = true
+
+# Unix-style newlines with a newline ending every file
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# YAML files (workflows, docker-compose)
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# JSON files (config, package.json)
+[*.json]
+indent_style = space
+indent_size = 2
+
+# Markdown files
+[*.md]
+indent_style = space
+indent_size = 2
+trim_trailing_whitespace = false  # Preserve two trailing spaces for line breaks
+
+# Shell scripts
+[*.sh]
+indent_style = space
+indent_size = 2
+
+# Makefiles require tabs
+[Makefile]
+indent_style = tab
+
+# Documentation
+[*.{md,txt,adoc}]
+max_line_length = off
+</file>
+
+<file path=".gitignore">
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Local environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Backup files
+*.bak
+*.backup
+
+# OS
+Thumbs.db
+.DS_Store
+</file>
+
+<file path="LICENSE">
+MIT License
+
+Copyright (c) 2025 The1Studio
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+</file>
+
+<file path=".claude/.env.example">
+# Claude Code - Project-Level Environment Variables
+# Priority: process.env > .claude/.env > .claude/hooks/.env
+# Copy this file to .env and set your API keys and configuration
+
+# ============================================
+# Claude Code Notification Hooks
+# ============================================
+# Discord Webhook URL (for Discord notifications)
+# Get from: Server Settings → Integrations → Webhooks → New Webhook
+DISCORD_WEBHOOK_URL=
+
+# Telegram Bot Token (for Telegram notifications)
+# Get from: @BotFather in Telegram
+TELEGRAM_BOT_TOKEN=
+
+# Telegram Chat ID (your chat ID or group ID)
+# Get from: https://api.telegram.org/bot<BOT_TOKEN>/getUpdates
+TELEGRAM_CHAT_ID=
+
+# ============================================
+# Google Gemini API Key (for Gemini skills)
+# ============================================
+# Get your key at: https://aistudio.google.com/apikey
+GEMINI_API_KEY=your-gemini-api-key-here
+
+# ==== Vertex AI (Optional) ====
+# Uncomment to use Vertex AI instead of AI Studio
+# GEMINI_USE_VERTEX=true
+# VERTEX_PROJECT_ID=your-gcp-project-id
+# VERTEX_LOCATION=us-central1
+
+# Add other API keys and configuration as needed
+</file>
+
+<file path="scripts/validate-changelog.sh">
+#!/usr/bin/env bash
+# validate-changelog.sh
+# Validates CHANGELOG.md files follow Keep a Changelog format
+# Usage: ./scripts/validate-changelog.sh <path_to_CHANGELOG.md>
+
+set -eo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Valid section names per Keep a Changelog spec
+VALID_SECTIONS=("Added" "Changed" "Deprecated" "Removed" "Fixed" "Security")
+
+# Error tracking
+ERRORS=0
+WARNINGS=0
+
+# Print functions
+print_error() {
+    echo -e "${RED}❌ Error: $1${NC}"
+    ERRORS=$((ERRORS + 1))
+}
+
+print_warning() {
+    echo -e "${YELLOW}⚠️  Warning: $1${NC}"
+    WARNINGS=$((WARNINGS + 1))
+}
+
+print_success() {
+    echo -e "${GREEN}✅ $1${NC}"
+}
+
+print_info() {
+    echo "ℹ️  $1"
+}
+
+# Usage
+usage() {
+    cat <<EOF
+Usage: $0 <path_to_CHANGELOG.md>
+
+Validates CHANGELOG.md files follow Keep a Changelog format:
+  - Proper header "# Changelog"
+  - Version format: ## [X.Y.Z] - YYYY-MM-DD
+  - Valid section names (Added, Changed, Deprecated, Removed, Fixed, Security)
+  - ISO 8601 date format
+
+Example:
+  $0 CHANGELOG.md
+  $0 path/to/CHANGELOG.md
+
+Exit codes:
+  0 - Valid changelog
+  1 - Invalid changelog (errors found)
+  2 - Warnings only (still valid)
+
+EOF
+    exit 1
+}
+
+# Check if file argument provided
+if [ $# -eq 0 ]; then
+    echo -e "${RED}Error: No file specified${NC}\n"
+    usage
+fi
+
+# Check for help flag
+if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]] || [[ "$1" == "help" ]]; then
+    usage
+fi
+
+CHANGELOG_FILE="$1"
+
+echo "🔍 Validating CHANGELOG: $CHANGELOG_FILE"
+echo ""
+
+# Check if file exists
+if [ ! -f "$CHANGELOG_FILE" ]; then
+    print_error "File not found: $CHANGELOG_FILE"
+    exit 1
+fi
+
+# Check if file is readable
+if [ ! -r "$CHANGELOG_FILE" ]; then
+    print_error "File not readable: $CHANGELOG_FILE"
+    exit 1
+fi
+
+# Read file content
+CONTENT=$(cat "$CHANGELOG_FILE")
+
+# 1. Check for proper header
+echo "📋 Checking header..."
+FIRST_LINE=$(head -n1 "$CHANGELOG_FILE")
+if [[ ! "$FIRST_LINE" =~ ^#[[:space:]]+[Cc]hangelog ]]; then
+    print_error "Missing or invalid header. Expected '# Changelog' as first line, got: '$FIRST_LINE'"
+else
+    print_success "Header is valid"
+fi
+echo ""
+
+# 2. Check for version entries
+echo "🔢 Checking version entries..."
+VERSION_COUNT=0
+LINE_NUM=0
+
+while IFS= read -r line; do
+    LINE_NUM=$((LINE_NUM + 1))
+
+    # Check for version headers (## [X.Y.Z] - YYYY-MM-DD)
+    if [[ "$line" =~ ^##[[:space:]]+\[([0-9]+\.[0-9]+\.[0-9]+|Unreleased)\][[:space:]]*-[[:space:]]*([0-9]{4}-[0-9]{2}-[0-9]{2})$ ]]; then
+        VERSION="${BASH_REMATCH[1]}"
+        DATE="${BASH_REMATCH[2]}"
+        VERSION_COUNT=$((VERSION_COUNT + 1))
+
+        # Validate semantic version format (skip Unreleased)
+        if [[ "$VERSION" != "Unreleased" ]]; then
+            if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                print_error "Line $LINE_NUM: Invalid version format '$VERSION'. Expected semantic version (X.Y.Z)"
+            fi
+        fi
+
+        # Validate date format (YYYY-MM-DD)
+        if [[ ! "$DATE" =~ ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ ]]; then
+            print_error "Line $LINE_NUM: Invalid date format '$DATE'. Expected ISO 8601 format (YYYY-MM-DD)"
+        else
+            # Check if date is valid (e.g., not 2024-02-31)
+            if ! date -d "$DATE" >/dev/null 2>&1; then
+                print_error "Line $LINE_NUM: Invalid date '$DATE'. Date does not exist"
+            fi
+        fi
+
+    # Check for malformed version headers
+    elif [[ "$line" =~ ^##[[:space:]]+\[ ]]; then
+        if [[ ! "$line" =~ -[[:space:]]*[0-9]{4}-[0-9]{2}-[0-9]{2} ]]; then
+            print_error "Line $LINE_NUM: Malformed version header. Missing or invalid date: '$line'"
+        else
+            print_error "Line $LINE_NUM: Malformed version header. Invalid format: '$line'"
+            print_info "Expected format: ## [X.Y.Z] - YYYY-MM-DD"
+        fi
+    fi
+done < "$CHANGELOG_FILE"
+
+if [ $VERSION_COUNT -eq 0 ]; then
+    print_warning "No version entries found. Expected at least one version entry"
+else
+    print_success "Found $VERSION_COUNT version entries"
+fi
+echo ""
+
+# 3. Check for valid section names
+echo "📑 Checking section names..."
+SECTION_COUNT=0
+INVALID_SECTIONS=()
+
+LINE_NUM=0
+while IFS= read -r line; do
+    LINE_NUM=$((LINE_NUM + 1))
+
+    # Check for section headers (### Section)
+    if [[ "$line" =~ ^###[[:space:]]+(.+)$ ]]; then
+        SECTION_NAME="${BASH_REMATCH[1]}"
+        SECTION_COUNT=$((SECTION_COUNT + 1))
+
+        # Check if section name is valid
+        VALID=false
+        for valid_section in "${VALID_SECTIONS[@]}"; do
+            if [ "$SECTION_NAME" == "$valid_section" ]; then
+                VALID=true
+                break
+            fi
+        done
+
+        if [ "$VALID" = false ]; then
+            INVALID_SECTIONS+=("Line $LINE_NUM: '$SECTION_NAME'")
+            print_error "Line $LINE_NUM: Invalid section name '$SECTION_NAME'. Valid sections: ${VALID_SECTIONS[*]}"
+        fi
+    fi
+done < "$CHANGELOG_FILE"
+
+if [ ${#INVALID_SECTIONS[@]} -eq 0 ] && [ $SECTION_COUNT -gt 0 ]; then
+    print_success "All $SECTION_COUNT sections use valid names"
+elif [ $SECTION_COUNT -eq 0 ]; then
+    print_warning "No section headers found (###). Expected: ${VALID_SECTIONS[*]}"
+fi
+echo ""
+
+# 4. Check for Unreleased section (recommended)
+echo "🚀 Checking for Unreleased section..."
+if echo "$CONTENT" | grep -q "^## \[Unreleased\]"; then
+    print_success "Unreleased section found"
+else
+    print_warning "No [Unreleased] section found. Consider adding one for tracking upcoming changes"
+fi
+echo ""
+
+# 5. Additional format checks
+echo "🔧 Additional format checks..."
+
+# Check for consistent indentation in lists
+if echo "$CONTENT" | grep -q "^-[^ ]"; then
+    print_warning "Found list items without space after dash (e.g., '-item' instead of '- item')"
+fi
+
+# Check for empty version sections
+EMPTY_VERSIONS=$(awk '
+    /^## \[/ {
+        if (version && !content) {
+            print version
+        }
+        version = $0
+        content = 0
+    }
+    /^###/ {
+        content = 1
+    }
+    END {
+        if (version && !content) {
+            print version
+        }
+    }
+' "$CHANGELOG_FILE")
+if [ -n "$EMPTY_VERSIONS" ]; then
+    print_warning "Found version(s) with no sections:"
+    echo "$EMPTY_VERSIONS" | while read -r line; do
+        echo "    $line"
+    done
+fi
+
+print_success "Format checks complete"
+echo ""
+
+# 6. Summary
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "📊 Validation Summary"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "File: $CHANGELOG_FILE"
+echo "Errors: $ERRORS"
+echo "Warnings: $WARNINGS"
+echo ""
+
+if [ $ERRORS -eq 0 ]; then
+    if [ $WARNINGS -eq 0 ]; then
+        print_success "Changelog is valid! ✨"
+        echo ""
+        exit 0
+    else
+        echo -e "${YELLOW}⚠️  Changelog is valid with $WARNINGS warning(s)${NC}"
+        echo ""
+        exit 2
+    fi
+else
+    print_error "Changelog has $ERRORS error(s). Please fix them."
+    echo ""
+    echo "Resources:"
+    echo "  - Keep a Changelog: https://keepachangelog.com/"
+    echo "  - Format guide: https://keepachangelog.com/en/1.1.0/"
+    echo ""
+    exit 1
+fi
+</file>
+
+<file path=".repomixignore">
+docs/*
+plans/*
+assets/*
+dist/*
+coverage/*
+build/*
+ios/*
+android/*
+tests/*
+__tests__/*
+__pycache__/*
+node_modules/*
+
+.opencode/*
+.claude/*
+.serena/*
+.pnpm-store/*
+.github/*
+.dart_tool/*
+.idea/*
+.husky/*
+.venv/*
+</file>
+
+<file path="CLAUDE.md">
+# CLAUDE.md - UPM Auto Publisher
+
+This file provides guidance to Claude Code when working with this repository.
+
+## Project Overview
+
+**UPM Auto Publisher** is an automation system for The1Studio organization that automatically publishes Unity Package Manager (UPM) packages to `upm.the1studio.org` when package versions are updated.
+
+**Purpose:** Simplify the package publishing workflow from 7 manual steps to just 2 (update version + push).
+
+**Key Components:**
+- GitHub Actions workflow template (`.github/workflows/publish-upm.yml`)
+- Repository registry (`config/repositories.json`)
+- Comprehensive documentation (`docs/`)
+
+## Repository Structure
+
+```
+UPMAutoPublisher/
+├── .github/workflows/
+│   └── publish-upm.yml           # Main workflow template
+├── config/
+│   ├── repositories.json         # Registry of repos using auto-publishing
+│   └── schema.json              # JSON schema for validation
+├── docs/
+│   ├── setup-instructions.md    # How to add workflow to repos
+│   ├── npm-token-setup.md       # NPM authentication setup
+│   ├── troubleshooting.md       # Common issues and solutions
+│   └── architecture-decisions.md # Design rationale
+├── README.md                     # Main documentation
+└── CLAUDE.md                     # This file
+
+```
+
+## How It Works
+
+### Workflow Trigger
+```yaml
+on:
+  push:
+    branches: [master, main]
+    paths: ['**/package.json']
+```
+
+### Publishing Logic
+1. Detect changed `package.json` files via `git diff`
+2. Extract package name and version from each file
+3. Check if version exists on `upm.the1studio.org`
+4. If new version: publish to registry
+5. **NEW:** Generate AI-powered changelogs for published packages
+6. Commit and push CHANGELOG.md updates back to repository
+7. Continue with other packages if one fails
+
+### Key Design Decisions
+- **Trigger:** On commit (not on tags)
+- **Authentication:** Organization-level NPM token
+- **Discovery:** Auto-detect packages (no config needed)
+- **Error Handling:** Continue on failure (multi-package support)
+- **Tags:** No automatic git tag creation
+- **Registry Configuration:** Uses `--registry` flag with environment variables (NOT publishConfig in package.json)
+- **AI Changelogs:** Optional automatic changelog generation using Gemini AI (requires GEMINI_API_KEY)
+
+### Registry Configuration Approach
+
+**IMPORTANT:** The workflow does NOT require `publishConfig` in `package.json`.
+
+**How it works:**
+```yaml
+# In .github/workflows/publish-upm.yml:
+env:
+  UPM_REGISTRY: ${{ vars.UPM_REGISTRY || 'https://upm.the1studio.org/' }}
+
+# Publishing command (line 377):
+npm publish --registry "$UPM_REGISTRY"
+```
+
+**Why this approach:**
+- ✅ Centralized registry configuration (change once, applies to all)
+- ✅ No need to modify each package.json
+- ✅ Supports organization-level registry variable
+- ✅ Falls back to default if variable not set
+- ✅ Cleaner package.json files
+
+**What this means for package.json:**
+- `publishConfig.registry` is **optional** (NOT required)
+- Workflow always provides registry via `--registry` flag
+- If present, publishConfig is ignored (workflow flag takes precedence)
+
+### Auto-Merge Feature
+
+**NEW:** PRs created in target repositories now have auto-merge enabled automatically.
+
+**How it works:**
+```yaml
+# In register-repos.yml after PR creation:
+gh pr merge "$pr_url" --auto --squash
+```
+
+**Behavior:**
+- ✅ PR auto-merges when all checks pass
+- ✅ Uses squash strategy for clean history
+- ⚠️ May fail if branch protection requires reviews
+- 📝 Graceful failure - PR remains open for manual merge if auto-merge fails
+
+**Benefits:**
+- Reduces manual overhead
+- Faster deployment cycle
+- PRs merge automatically when CI passes
+
+**When manual merge is needed:**
+- Repository has branch protection requiring reviews
+- Repository requires status checks that haven't passed yet
+- Auto-merge permission not available
+
+### GH_PAT Requirement
+
+**CRITICAL:** The system requires `GH_PAT` (Personal Access Token) organization secret.
+
+**Why needed:**
+- `GITHUB_TOKEN` cannot trigger other workflows (GitHub security feature to prevent infinite loops)
+- `manual-register-repo.yml` commits to master and needs to trigger `register-repos` workflow
+- `register-repos.yml` needs to create PRs in target repositories
+
+**Setup:**
+1. Create PAT at https://github.com/settings/tokens
+2. Select scopes: `repo`, `workflow`
+3. Set expiration: 90 days (recommended)
+4. Add to organization secrets as `GH_PAT`
+
+**Token Validation:**
+Workflows automatically validate GH_PAT before processing:
+```yaml
+- name: Validate GH_PAT
+  run: |
+    if ! gh auth status 2>/dev/null; then
+      echo "❌ GH_PAT is invalid or expired"
+      exit 1
+    fi
+```
+
+**Rotation:**
+- Must rotate every 90 days (or at expiration)
+- GitHub will email warnings before expiration
+- Workflows fail with clear error if GH_PAT expires
+- See `docs/configuration.md#gh_pat-setup` for rotation procedure
+
+### AI Changelog Generation
+
+**NEW FEATURE:** Automatic changelog generation using Google Gemini AI.
+
+**Overview:**
+After packages are published successfully, the workflow automatically generates changelog entries by analyzing git commit history and using AI to create user-facing descriptions.
+
+**How it works:**
+1. Workflow downloads `scripts/generate-changelog.sh` from UPMAutoPublisher
+2. For each published package:
+   - Extracts git commits since last version in package directory
+   - Sends commit history to Gemini AI with structured prompt
+   - AI generates changelog entry in "Keep a Changelog" format
+   - Updates or creates CHANGELOG.md next to package.json
+3. Commits all changelog changes with `[skip ci]` message
+4. Pushes changes back to source repository using GH_PAT
+
+**Requirements:**
+- `GEMINI_API_KEY` organization secret (optional)
+- `GH_PAT` secret with `repo` scope (already required for other features)
+
+**Setup:**
+```bash
+# Get API key from https://aistudio.google.com/apikey
+gh secret set GEMINI_API_KEY \
+  --body "AIza_your_key_here" \
+  --org The1Studio
+```
+
+**Behavior:**
+- ✅ Only runs after successful publishes (`if: env.published > 0`)
+- ✅ Uses `continue-on-error: true` to never fail workflow
+- ✅ Graceful fallback if GEMINI_API_KEY not set or API fails
+- ✅ Commits use `[skip ci]` to prevent infinite loops
+- ✅ Free tier sufficient for typical usage (<100 packages/day)
+
+**Generated format:**
+```markdown
+## [1.0.2] - 2025-01-16
+
+### Fixed
+- Fixed null reference exception in GetComponent method
+- Resolved memory leak in coroutine cleanup
+
+### Changed
+- Improved Update loop performance by 30%
+```
+
+**Workflow integration:**
+- Located in `.github/workflows/handle-publish-request.yml` (lines 286-396)
+- Runs after package detection, before audit log creation
+- Downloads script fresh on each run to ensure latest version
+- Processes all published packages in single commit
+
+**Manual usage:**
+```bash
+# Download script
+curl -sSfL \
+  "https://raw.githubusercontent.com/The1Studio/UPMAutoPublisher/master/scripts/generate-changelog.sh" \
+  -o generate-changelog.sh
+chmod +x generate-changelog.sh
+
+# Run for specific package
+./generate-changelog.sh \
+  "path/to/package.json" \
+  "old_version" \
+  "new_version" \
+  "your-gemini-api-key"
+```
+
+**See:** `docs/configuration.md#gemini_api_key-setup` for complete details
+
+## Common Tasks
+
+### Adding a New Repository to the Registry
+
+1. Edit `config/repositories.json`:
+```json
+{
+  "name": "NewRepository",
+  "url": "https://github.com/The1Studio/NewRepository",
+  "status": "active",
+  "packages": [
+    {
+      "name": "com.theone.newpackage",
+      "path": "Assets/NewPackage",
+      "latestVersion": "1.0.0"
+    }
+  ]
+}
+```
+
+2. Validate JSON:
+```bash
+jq . config/repositories.json
+```
+
+### Updating Documentation
+
+All documentation is in `docs/`:
+- **Setup:** `setup-instructions.md`
+- **NPM Token:** `npm-token-setup.md`
+- **Troubleshooting:** `troubleshooting.md`
+- **Architecture:** `architecture-decisions.md`
+
+When updating docs:
+- Keep examples current
+- Update "lastUpdated" date in repository.json
+- Cross-reference related docs
+- Test commands/code samples
+
+### Modifying the Workflow
+
+Template is in `.github/workflows/publish-upm.yml`
+
+**Important sections:**
+- **Triggers:** Lines 3-9 (when workflow runs)
+- **Node setup:** Lines 17-20 (Node.js version)
+- **Detection:** Lines 35-39 (finding changed files)
+- **Publishing:** Lines 92-100 (npm publish command)
+
+**Testing changes:**
+1. Create test repo or use existing
+2. Copy modified workflow to test repo
+3. Make package.json change and push
+4. Verify workflow behavior in Actions tab
+5. Check package published to registry
+
+## Environment Setup
+
+### Prerequisites
+- Node.js 18+ (for testing locally)
+- `jq` for JSON manipulation
+- `gh` CLI (optional, for GitHub operations)
+- Access to The1Studio organization
+- NPM authentication to `upm.the1studio.org`
+
+### Local Testing
+
+Test workflow logic without running in GitHub Actions:
+
+```bash
+# Simulate change detection
+changed_files=$(git diff --name-only HEAD~1 HEAD | grep 'package\.json$')
+
+# Process each package
+for package_json in $changed_files; do
+  package_name=$(jq -r '.name' "$package_json")
+  new_version=$(jq -r '.version' "$package_json")
+
+  echo "Would publish: $package_name@$new_version"
+
+  # Test if version exists
+  npm view "$package_name@$new_version" --registry https://upm.the1studio.org/
+
+  # Dry-run publish
+  cd "$(dirname "$package_json")"
+  npm publish --dry-run --registry https://upm.the1studio.org/
+done
+```
+
+## NPM Token Management
+
+### Current Token Location
+- Stored as: `NPM_TOKEN` GitHub organization secret
+- Scope: The1Studio organization
+- Registry: `upm.the1studio.org`
+
+### Checking Token
+```bash
+# Verify token works
+npm whoami --registry https://upm.the1studio.org/
+# Should output: admin
+
+# List tokens
+npm token list --registry https://upm.the1studio.org/
+```
+
+### Rotating Token
+See `docs/npm-token-setup.md` for complete instructions.
+
+## Troubleshooting Quick Reference
+
+### Workflow Not Running
+- Check branch is master/main
+- Verify package.json actually changed
+- Check Actions are enabled in repo settings
+
+### Publish Failed
+- Verify NPM_TOKEN secret exists
+- ~~Check package.json has `publishConfig.registry`~~ **NOT REQUIRED** - Workflow uses `--registry` flag with environment variables
+- Ensure version doesn't already exist
+
+### Multi-Package Issues
+- ~~Each must have `publishConfig.registry`~~ **NOT REQUIRED** - Registry configured via workflow environment variables
+- Check workflow logs for each package
+- Verify all packages have unique names
+
+**Full troubleshooting:** See `docs/troubleshooting.md`
+
+## Architecture Principles
+
+1. **Developer Experience First:** Minimize steps to publish
+2. **Fail Safe:** Can re-run workflows safely
+3. **Organization-Wide:** Consistent across all repos
+4. **Minimal Configuration:** Auto-discovery preferred
+5. **Observable:** Clear logging and error messages
+
+See `docs/architecture-decisions.md` for detailed rationale.
+
+## Important Files
+
+### Workflow Template
+**Location:** `.github/workflows/publish-upm.yml`
+**Purpose:** Copy this to repositories that need auto-publishing
+**Critical:** Keep Node.js version updated, validate YAML syntax
+
+### Repository Registry
+**Location:** `config/repositories.json`
+**Purpose:** Track which repos use auto-publishing
+**Maintenance:** Update when repos added/removed
+
+### Documentation
+**Location:** `docs/*.md`
+**Purpose:** Comprehensive guides for setup and troubleshooting
+**Maintenance:** Keep examples current, test commands
+
+## Development Workflow
+
+### Making Changes
+
+1. **Create Branch:**
+   ```bash
+   git checkout -b feature/your-change
+   ```
+
+2. **Make Changes:**
+   - Update relevant files
+   - Test locally if possible
+   - Update documentation if needed
+
+3. **Validate:**
+   ```bash
+   # Validate JSON files
+   jq . config/repositories.json
+
+   # Validate YAML
+   yamllint .github/workflows/publish-upm.yml
+   ```
+
+4. **Commit:**
+   ```bash
+   git add .
+   git commit -m "Description of change"
+   ```
+
+5. **Push & PR:**
+   ```bash
+   git push origin feature/your-change
+   # Create PR on GitHub
+   ```
+
+### Testing in Real Repository
+
+To test workflow changes:
+
+1. Choose a test repository with UPM package
+2. Copy modified workflow to test repo
+3. Create test version bump
+4. Push and monitor Actions tab
+5. Verify package published correctly
+6. Check logs for errors/warnings
+
+## Security Considerations
+
+### NPM Token
+- Stored as organization secret
+- Has write permissions to registry
+- Should be rotated annually
+- If compromised: revoke immediately
+
+### Workflow Permissions
+- Uses `secrets.NPM_TOKEN`
+- No write access to repository needed (no tag creation)
+- Minimal permissions principle
+
+### Package Validation
+- ~~Only publishes if `publishConfig.registry` matches~~ **Registry specified via `--registry` flag in workflow**
+- Checks version doesn't exist first
+- Validates package.json structure
+
+## Communication
+
+### When to Update Registry
+Update `config/repositories.json` when:
+- New repository adds auto-publishing
+- Repository removes auto-publishing
+- Package added/removed from repo
+- Major version milestone reached
+
+### Documentation Updates
+Update docs when:
+- Workflow behavior changes
+- New troubleshooting scenario discovered
+- Security requirements change
+- New best practice identified
+
+## Validation & Testing 🆕
+
+### Pre-Deployment Validation
+Before deploying or after making changes:
+```bash
+./scripts/pre-deployment-check.sh
+```
+Validates 37+ checks covering file structure, configuration, security, and dependencies.
+
+### Configuration Validation
+```bash
+./scripts/validate-config.sh  # Validate repositories.json against schema
+```
+
+### Repository Auditing
+```bash
+./scripts/audit-repos.sh  # Check all registered repos and workflow status
+```
+
+### Single Repository Check
+```bash
+./scripts/check-single-repo.sh UnityBuildScript
+```
+
+## References
+
+### Getting Started
+- **Main Docs:** `README.md`
+- **Quick Registration:** `docs/quick-registration.md` 🆕 **Automated repo setup (2 min)**
+- **Setup Guide:** `docs/setup-instructions.md` (Manual process)
+- **Token Setup:** `docs/npm-token-setup.md`
+
+### Configuration & Operations
+- **Configuration Guide:** `docs/configuration.md` 🆕 **All configurable options, org variables, audit logs**
+- **Self-Hosted Runners:** `docs/self-hosted-runners.md`
+- **Docker Setup:** `.docker/README.md`
+- **Troubleshooting:** `docs/troubleshooting.md`
+
+### Security & Compliance 🆕
+- **Security Improvements:** `docs/security-improvements.md` - **Complete security audit (25 issues, 18 fixed)**
+- **Pre-Deployment Check:** `scripts/pre-deployment-check.sh` - **Automated validation (37+ checks)**
+
+### Architecture & Design
+- **Architecture:** `docs/architecture-decisions.md`
+- **Registration System:** `docs/registration-system-overview.md`
+
+## Project Context
+
+### Origin
+Created 2025-01-16 to automate UPM package publishing for The1Studio organization.
+
+### Current Status
+- **Version 1.1.0** (2025-10-13)
+- **Security Score: A-** (Production Ready)
+- Active development with security hardening complete
+- UnityBuildScript is first registered repository
+
+### Recent Improvements (v1.1.0)
+- ✅ Fixed 18 critical/high/major security issues
+- ✅ Added configurable registry URL
+- ✅ Added comprehensive audit logging (90-day retention)
+- ✅ Added version rollback prevention
+- ✅ Added registry health checks
+- ✅ Added pre-deployment validation script
+- ✅ Created comprehensive security documentation
+
+### Future Plans (Optional Enhancements)
+- Roll out to all The1Studio UPM packages
+- Add notifications (Slack/Discord) - template in docs
+- Implement changelog generation
+- Add metrics and analytics
+
+## For Future Claude Sessions
+
+When starting a new session on this project:
+
+1. **Read README.md first** - Understand overall system
+2. **Check config/repositories.json** - See current registered repos
+3. **Review recent commits** - Understand recent changes
+4. **Check open issues** - Known problems or planned work
+5. **Read architecture-decisions.md** - Understand why things work this way
+
+### Common Session Types
+
+**Adding new repository:**
+- Edit config/repositories.json
+- Verify package.json has correct registry
+- Copy workflow to new repo
+- Test with version bump
+
+**Troubleshooting workflow:**
+- Check docs/troubleshooting.md first
+- Review GitHub Actions logs
+- Test locally with commands from this file
+- Update troubleshooting doc if new issue
+
+**Updating documentation:**
+- Locate relevant doc in docs/
+- Update content
+- Test code examples
+- Update cross-references
+- Update lastUpdated dates
+
+## Version History
+
+- **v1.1.0** (2025-10-13): Security hardening & quality improvements
+  - ✅ Fixed all 18 critical/high/major security issues
+  - ✅ Added configurable registry URL (organization variables)
+  - ✅ Added comprehensive audit logging (90-day retention)
+  - ✅ Added version rollback prevention
+  - ✅ Added registry health checks
+  - ✅ Added package size warnings
+  - ✅ Added pre-deployment validation script (37+ checks)
+  - ✅ Created comprehensive security documentation
+  - 🎯 Security score: C → A- (Production Ready)
+
+- **v1.0.0** (2025-01-16): Initial release
+  - GitHub Actions workflow
+  - Auto-detection and publishing
+  - Multi-package support
+  - Comprehensive documentation
+
+---
+
+**Remember:** This system is designed to be simple, safe, and automatic. Keep that philosophy when making changes.
+
+**Security Note:** All critical security issues have been resolved. System is production-ready with comprehensive validation tools and documentation.
+</file>
+
+<file path="README.md">
+# UPM Auto Publisher
+
+[![Publish Unpublished Packages](https://github.com/The1Studio/UPMAutoPublisher/actions/workflows/publish-unpublished.yml/badge.svg)](https://github.com/The1Studio/UPMAutoPublisher/actions/workflows/publish-unpublished.yml)
+[![Monitor Package Publishes](https://github.com/The1Studio/UPMAutoPublisher/actions/workflows/monitor-publishes.yml/badge.svg)](https://github.com/The1Studio/UPMAutoPublisher/actions/workflows/monitor-publishes.yml)
+[![Publish to UPM Registry](https://github.com/The1Studio/UPMAutoPublisher/actions/workflows/publish-upm.yml/badge.svg)](https://github.com/The1Studio/UPMAutoPublisher/actions/workflows/publish-upm.yml)
+
+Automated Unity Package Manager (UPM) publishing system for The1Studio organization. This system automatically detects package version changes and publishes them to `upm.the1studio.org` registry.
+
+---
+
+## 📢 Want to Add Auto-Publishing to Your Repository?
+
+### ⚡ New: Form-Based Registration (Easiest!)
+
+**👉 [Fill out a simple web form - no JSON editing!](https://github.com/The1Studio/UPMAutoPublisher/actions/workflows/manual-register-repo.yml)**
+
+Just click "Run workflow", fill in your repository details, and submit. The system automatically:
+- ✅ Validates your input
+- ✅ Updates the registry
+- ✅ Creates a pull request for you
+
+**Takes less than 1 minute!** 🎉
+
+📖 [Form Registration Guide](docs/form-registration.md)
+
+---
+
+### 📝 Alternative: Manual Registration
+
+**👉 [Traditional method: Edit JSON directly](#-quick-start---adding-new-repositories)**
+
+For users comfortable with JSON or bulk registrations.
+
+---
+
+**Already set up?** Just update your `package.json` version and push - publishing happens automatically! 🚀
+
+---
+
+## Overview
+
+This repository contains the GitHub Actions workflow and documentation for automatically publishing Unity packages to The1Studio's private UPM registry whenever package.json versions are updated.
+
+### How It Works
+
+1. **Trigger**: Monitors all registered repositories for commits to master/main branch
+2. **Detection**: Identifies changed `package.json` files in the commit
+3. **Version Check**: For each changed package:
+   - Extracts package name and version from package.json
+   - Queries `upm.the1studio.org` to check if version already exists
+   - Skips if version is already published
+4. **Publishing**: If new version detected:
+   - Changes to package directory
+   - Runs `npm publish --registry https://upm.the1studio.org/`
+   - Handles errors gracefully (continues with other packages if one fails)
+5. **Multi-Package Support**: Handles repos with multiple Unity packages
+
+### Key Features
+
+- **Automatic Detection**: No manual triggers needed - just update version in package.json and commit
+- **Multi-Package Support**: Handles repos with multiple UPM packages
+- **Smart Version Checking**: Only publishes if version doesn't exist on registry
+- **AI-Powered Changelogs**: Automatically generates CHANGELOG.md using Gemini AI
+- **Error Resilient**: Continues publishing other packages if one fails
+- **Organization-Wide**: Single NPM token shared across all repositories
+- **Tag-Free**: No need to manually create git tags (simplified from upm/{version} approach)
+
+## Architecture
+
+### Components
+
+1. **GitHub Actions Workflow** (`.github/workflows/publish-upm.yml`)
+   - Triggered on push to master/main
+   - Detects package.json changes
+   - Publishes to UPM registry
+
+2. **Repository Registry** (`config/repositories.json`)
+   - Lists all repositories that should use auto-publishing
+   - Tracks package locations within each repo
+
+3. **Setup Scripts** (`docs/setup-instructions.md`)
+   - Step-by-step guide for adding workflow to new repos
+   - NPM token configuration
+   - GitHub organization secret setup
+
+## 🚀 Quick Start - Adding New Repositories
+
+### ⚡ For Normal Users: Register Your Repository (2 Minutes)
+
+**Want to add UPM auto-publishing to your repository?** Follow these simple steps:
+
+#### Step 1: Add Your Repository to the Registry (30 seconds)
+
+Edit `config/repositories.json` in this repository and add your repo:
+
+```json
+{
+  "url": "https://github.com/The1Studio/YourRepo",
+  "status": "pending"
+}
+```
+
+**Important:**
+- Set `status: "pending"` to trigger automation
+- The workflow automatically detects all `package.json` files in your repository - no need to configure package names or paths!
+
+#### Step 2: Commit and Push (10 seconds)
+
+```bash
+git add config/repositories.json
+git commit -m "Register YourRepo for UPM auto-publishing"
+git push origin master
+```
+
+#### Step 3: Wait for Automation (1-2 minutes)
+
+The system automatically:
+- ✅ Creates a pull request in your repository
+- ✅ Adds the publishing workflow file
+- ✅ Includes setup documentation
+
+#### Step 4: Merge the PR (30 seconds)
+
+Go to your repository and merge the automated PR titled "🤖 Add UPM Auto-Publishing Workflow"
+
+#### Step 5: Update Status (20 seconds)
+
+Change `"status": "pending"` to `"status": "active"` in `repositories.json` and commit.
+
+#### Step 6: Test It! (1 minute)
+
+Update your `package.json` version and push:
+```bash
+# Bump version in your package.json
+sed -i 's/"version": "1.0.0"/"version": "1.0.1"/' Assets/YourPackage/package.json
+
+git add Assets/YourPackage/package.json
+git commit -m "Bump version to 1.0.1"
+git push origin master
+```
+
+**Done!** 🎉 Your package will be automatically published to https://upm.the1studio.org/
+
+**📖 Detailed Guide:** See [Quick Registration Guide](docs/quick-registration.md) for complete instructions, troubleshooting, and advanced options.
+
+### For Repository Maintainers
+
+To publish a new package version:
+
+1. Update version in your package.json:
+   ```json
+   {
+     "version": "1.2.11"  // Increment from 1.2.10
+   }
+   ```
+
+2. Commit and push to master:
+   ```bash
+   git add Assets/YourPackage/package.json
+   git commit -m "Bump version to 1.2.11"
+   git push origin master
+   ```
+
+3. GitHub Actions automatically publishes to upm.the1studio.org
+
+That's it! No tags, no manual publishing.
+
+### For New Repository Setup
+
+See [Setup Instructions](docs/setup-instructions.md) for adding the workflow to a new repository.
+
+## Configuration
+
+### Repository Registry
+
+The registry in `config/repositories.json` tracks which repositories have auto-publishing enabled:
+
+```json
+{
+  "repositories": [
+    {
+      "url": "https://github.com/The1Studio/UnityBuildScript",
+      "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/TheOneFeature",
+      "status": "pending"
+    },
+    {
+      "url": "https://github.com/The1Studio/UITemplate",
+      "status": "disabled"
+    }
+  ]
+}
+```
+
+**Required Fields (per schema):**
+- `url` (string, required) - Full GitHub repository URL
+  - Must match pattern: `^https://github\.com/[a-zA-Z0-9_-]+/[a-zA-Z0-9._-]+$`
+  - Example: `"https://github.com/The1Studio/UnityBuildScript"`
+- `status` (string, required) - One of: `"active"`, `"pending"`, or `"disabled"`
+  - `"pending"` - Triggers automated workflow deployment to the repository
+  - `"active"` - Workflow deployed and operational
+  - `"disabled"` - Temporarily disabled, skipped by automation
+
+**How Package Detection Works:**
+
+The workflow automatically discovers packages in your repository:
+
+1. Monitors commits to master/main branch
+2. Detects any changed `package.json` files via `git diff`
+3. Publishes each changed package to the registry
+4. Handles single-package and multi-package repositories automatically
+
+**No package configuration needed** - the workflow finds all packages automatically!
+
+**Multi-Package Repositories:**
+
+For repositories with multiple Unity packages (e.g., `/Assets/Core/package.json` and `/Assets/UI/package.json`):
+- Both packages are automatically detected
+- Each is published independently when its version changes
+- No need to list packages in the registry
+
+### GitHub Secrets Required
+
+#### NPM_TOKEN
+- **Purpose**: Authentication for publishing packages to `upm.the1studio.org`
+- **Scope**: Organization-level secret
+- **Usage**: Used by publish-upm.yml workflow in target repositories
+- **Setup**: See [NPM Token Setup](docs/npm-token-setup.md)
+
+#### GH_PAT (Personal Access Token)
+- **Purpose**: Enable workflows to trigger other workflows and create PRs in target repos
+- **Why Required**: GitHub's `GITHUB_TOKEN` cannot trigger other workflows (security feature to prevent infinite loops)
+- **Scope**: Organization-level secret with `repo` and `workflow` permissions
+- **Usage**:
+  - Used by manual-register-repo.yml to trigger register-repos workflow
+  - Used by register-repos.yml to create PRs in target repositories
+- **Expiration**: Must be rotated periodically (recommended: 90 days)
+
+**To create GH_PAT:**
+1. Go to https://github.com/settings/tokens
+2. Click "Generate new token (classic)"
+3. Select scopes:
+   - ✅ `repo` (Full control of private repositories)
+   - ✅ `workflow` (Update GitHub Action workflows)
+4. Set expiration (recommended: 90 days)
+5. Generate token and copy it
+6. Go to https://github.com/organizations/The1Studio/settings/secrets/actions
+7. Create new secret named `GH_PAT` with the token value
+
+**Token Validation:**
+The workflows automatically validate GH_PAT before processing:
+- Checks if secret is set
+- Verifies authentication is valid
+- Provides clear error messages if expired or missing
+
+## Historical Note: Tag Naming Convention
+
+**⚠️ NOTE**: This system does NOT use git tags for publishing.
+
+Early discussions considered using tags like `upm/{package-name}/{version}`, but this was removed to simplify the workflow. Publishing now triggers directly on `package.json` changes without requiring manual tag creation.
+
+This section is kept for historical reference only.
+
+## Workflow Logic
+
+```bash
+# 1. Detect changed package.json files
+changed_packages=$(git diff HEAD~1 --name-only | grep package.json)
+
+# 2. For each changed package
+for package_json in $changed_packages; do
+  # Extract package info
+  package_dir=$(dirname "$package_json")
+  package_name=$(jq -r '.name' "$package_json")
+  new_version=$(jq -r '.version' "$package_json")
+
+  # Check if version exists on registry
+  if ! npm view "$package_name@$new_version" --registry https://upm.the1studio.org/ 2>/dev/null; then
+    echo "Publishing $package_name@$new_version..."
+
+    # Publish to registry
+    cd "$package_dir"
+    npm publish --registry https://upm.the1studio.org/
+
+    echo "✅ Published $package_name@$new_version"
+  else
+    echo "⏭️  Version $new_version already exists for $package_name, skipping"
+  fi
+done
+```
+
+## Error Handling
+
+- **Version Already Exists**: Skip publishing, log message
+- **Package Not Found**: Skip (not a UPM package)
+- **Publish Fails**: Log error, continue with other packages
+- **Auth Fails**: Stop workflow, report error
+
+## Benefits
+
+### Before (Manual Process)
+1. Update package.json version
+2. Commit changes
+3. Create git tag: `git tag upm/1.2.10`
+4. Push commit: `git push`
+5. Push tag: `git push --tags`
+6. CD to package directory
+7. Publish: `npm publish --registry https://upm.the1studio.org/`
+
+### After (Automated)
+1. Update package.json version
+2. Commit and push
+
+**Time saved**: ~5 manual steps eliminated per release
+
+## Troubleshooting
+
+See [Troubleshooting Guide](docs/troubleshooting.md) for common issues and solutions.
+
+## Requirements
+
+### GitHub Repository
+- Repository in The1Studio organization
+- Unity package with package.json containing:
+  - `name`: Package identifier
+  - `version`: Semantic version
+  - ~~`publishConfig.registry`~~ **NOT REQUIRED** - The workflow specifies registry via `--registry` flag using environment variables
+
+### Self-Hosted Runners (ARC)
+
+**⚠️ IMPORTANT**: This project uses **Actions Runner Controller (ARC)** self-hosted runners.
+
+**Current Configuration:**
+- **Platform**: Kubernetes with ARC
+- **Namespace**: `arc-runners`
+- **Runner Set**: `the1studio-org-runners`
+- **Required Labels**: `[self-hosted, arc, the1studio, org]`
+- **Active Runners**: 2+ runners must be available
+
+**Benefits:**
+- ✅ Unlimited GitHub Actions minutes
+- ✅ Faster execution with local network and caching
+- ✅ Running on dedicated 128GB RAM Kubernetes cluster
+- ✅ Cost savings (no per-minute charges)
+
+**Verify Runners:**
+```bash
+# Check runner status
+kubectl get runner -n arc-runners
+
+# View runner details
+kubectl get pods -n arc-runners
+```
+
+**Expected Output:**
+```
+NAME                                   STATUS    ORGANIZATION
+the1studio-org-runners-7kfln-b9z2r    Running   the1studio
+the1studio-org-runners-7kfln-k7rr5    Running   the1studio
+```
+
+**Troubleshooting:**
+- If workflows queue indefinitely: Check runner availability
+- See [Self-Hosted Runners Guide](docs/self-hosted-runners.md) for setup and management
+- To use GitHub-hosted runners: Change `runs-on` to `ubuntu-latest` in workflow files
+
+## Related Documentation
+
+### Getting Started
+- [Form Registration Guide](docs/form-registration.md) - ⚡ **NEW: Web form registration (1 minute, no JSON editing)**
+- [Quick Registration Guide](docs/quick-registration.md) - 🆕 **JSON-based registration (2 minutes)**
+- [Setup Instructions](docs/setup-instructions.md) - Manual workflow setup
+- [NPM Token Setup](docs/npm-token-setup.md) - Creating and configuring NPM authentication
+
+### Configuration & Operations
+- [Configuration Guide](docs/configuration.md) - 🆕 **All configurable options, organization variables, audit logs**
+- [Self-Hosted Runners](docs/self-hosted-runners.md) - Docker-based custom runners
+- [Troubleshooting Guide](docs/troubleshooting.md) - Common issues and solutions
+
+### Security & Compliance
+- [Security Improvements](docs/security-improvements.md) - 🆕 **Complete security audit & fixes (25 issues)**
+- [Pre-Deployment Check](scripts/pre-deployment-check.sh) - 🆕 **Automated validation script (37+ checks)**
+
+### Architecture & Design
+- [Architecture Decisions](docs/architecture-decisions.md) - Design choices and rationale
+- [Registration System Overview](docs/registration-system-overview.md) - How automated registration works
+
+## Support
+
+For issues or questions:
+1. Check [Troubleshooting Guide](docs/troubleshooting.md)
+2. Review [GitHub Actions logs](https://github.com/The1Studio/UPMAutoPublisher/actions)
+3. Contact DevOps team
+
+## Validation & Testing
+
+### Pre-Deployment Validation
+
+Before deploying to production or after making changes, run the comprehensive validation script:
+
+```bash
+./scripts/pre-deployment-check.sh
+```
+
+This validates:
+- ✅ File structure completeness (12 critical files)
+- ✅ JSON configuration syntax and schema
+- ✅ Bash script syntax and security best practices
+- ✅ GitHub Actions workflow security fixes
+- ✅ Docker configuration security (secrets, no socket mounting)
+- ✅ Security checks (no hardcoded credentials, safe parsing)
+- ✅ All required dependencies installed
+
+**Result:** Pass/Fail/Warning status with actionable recommendations
+
+### Configuration Validation
+
+Validate `config/repositories.json` against schema:
+
+```bash
+./scripts/validate-config.sh
+```
+
+### Repository Auditing
+
+Check all registered repositories and verify their workflow status:
+
+```bash
+./scripts/audit-repos.sh
+```
+
+Provides comprehensive report on:
+- Repository accessibility
+- Workflow file existence and state
+- Last workflow run status
+- Status mismatches (registry vs actual)
+
+### Single Repository Check
+
+Quick status check for a specific repository:
+
+```bash
+./scripts/check-single-repo.sh UnityBuildScript
+# or
+./scripts/check-single-repo.sh The1Studio/UnityBuildScript
+# or
+./scripts/check-single-repo.sh https://github.com/The1Studio/UnityBuildScript
+```
+
+## Version History
+
+- **v1.2.0** (2025-10-14): Critical security fixes from fresh code review
+  - ✅ Fixed 3 HIGH priority issues (command injection, markdown injection, race conditions)
+  - ✅ Fixed 5 MAJOR priority issues (rate limiting, token exposure, temp file security)
+  - ✅ Fixed 2 MEDIUM/LOW issues (Docker versioning, Dependabot config)
+  - 🔒 Command injection prevention with complete jq JSON construction
+  - 🔒 Comprehensive markdown injection validation (links, HTML, code blocks)
+  - 🔒 GitHub concurrency control replaces file-based locking
+  - 🔒 npm rate limit handling with exponential backoff (5 attempts)
+  - 🔒 Secure token validation without process list exposure
+  - 🔒 Temp files with explicit 600 permissions
+  - 🔒 Early GITHUB_WORKSPACE validation
+  - 📦 Docker image version pinning (2.311.0)
+  - 🤖 Dependabot configuration for automated updates
+  - 🎯 Security score: A- → A (Hardened Production)
+  - 📊 Total fixes: 10 additional security issues resolved
+
+- **v1.1.0** (2025-10-14): Initial security hardening
+  - ✅ Fixed 26 security issues from first audit
+  - ✅ Added configurable registry URL, audit retention, package size threshold
+  - ✅ Added comprehensive audit logging
+  - ✅ Added version rollback prevention with semver
+  - ✅ Added retry logic, Node.js verification, Docker resource limits
+  - 🎯 Security score: C → A- (Production Ready)
+
+- **v1.0.0** (2025-01-16): Initial release
+  - Auto-detection of package.json changes
+  - Organization-level NPM token
+  - Multi-package repository support
+  - No git tag requirement
+
+## License
+
+MIT License - See LICENSE file for details
+</file>
+
+<file path="scripts/generate-changelog.sh">
+#!/bin/bash
+set -euo pipefail
+
+# Generate changelog entry using Gemini AI
+# Usage: generate-changelog.sh <package_json_path> <old_version> <new_version> <gemini_api_key>
+
+PACKAGE_JSON="$1"
+OLD_VERSION="$2"
+NEW_VERSION="$3"
+GEMINI_API_KEY="$4"
+
+PACKAGE_DIR=$(dirname "$PACKAGE_JSON")
+CHANGELOG_FILE="$PACKAGE_DIR/CHANGELOG.md"
+PACKAGE_NAME=$(jq -r '.name' "$PACKAGE_JSON")
+
+echo "📝 Generating changelog for $PACKAGE_NAME: $OLD_VERSION → $NEW_VERSION"
+
+# Function to call Gemini API with retry logic
+call_gemini_api() {
+  local prompt="$1"
+  local max_retries=3
+  local retry_delay=2
+
+  for attempt in $(seq 1 $max_retries); do
+    echo "🤖 Calling Gemini API (attempt $attempt/$max_retries)..." >&2
+
+    # Construct JSON request
+    request_body=$(jq -n \
+      --arg prompt "$prompt" \
+      '{
+        contents: [{
+          parts: [{
+            text: $prompt
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.2,
+          topP: 0.95,
+          topK: 40,
+          maxOutputTokens: 1024
+        }
+      }')
+
+    # Make API call
+    response=$(curl -s -X POST \
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=$GEMINI_API_KEY" \
+      -H 'Content-Type: application/json' \
+      -d "$request_body")
+
+    # Check for errors
+    if echo "$response" | jq -e '.error' > /dev/null 2>&1; then
+      error_msg=$(echo "$response" | jq -r '.error.message // "Unknown error"')
+      echo "⚠️  API error: $error_msg" >&2
+
+      if [ "$attempt" -lt "$max_retries" ]; then
+        echo "⏳ Retrying in ${retry_delay}s..." >&2
+        sleep $retry_delay
+        retry_delay=$((retry_delay * 2))  # Exponential backoff
+        continue
+      else
+        echo "❌ Max retries reached, API call failed" >&2
+        return 1
+      fi
+    fi
+
+    # Extract generated text
+    generated_text=$(echo "$response" | jq -r '.candidates[0].content.parts[0].text // ""')
+
+    if [ -z "$generated_text" ]; then
+      echo "⚠️  Empty response from API" >&2
+
+      if [ "$attempt" -lt "$max_retries" ]; then
+        echo "⏳ Retrying in ${retry_delay}s..." >&2
+        sleep $retry_delay
+        retry_delay=$((retry_delay * 2))
+        continue
+      else
+        echo "❌ Max retries reached, empty response" >&2
+        return 1
+      fi
+    fi
+
+    # Success
+    echo "$generated_text"
+    return 0
+  done
+
+  return 1
+}
+
+# Function to generate basic fallback changelog
+generate_fallback_changelog() {
+  local commits="$1"
+
+  cat <<EOF
+## [$NEW_VERSION] - $(date +%Y-%m-%d)
+
+### Changed
+EOF
+
+  # Parse commits and group by conventional commit type
+  echo "$commits" | while IFS= read -r commit; do
+    echo "- $commit"
+  done
+}
+
+# Get git commits since last version change in this package
+echo "📊 Extracting git commits..."
+
+# Find the commit where package.json was last changed with the old version
+if [ "$OLD_VERSION" != "0.0.0" ]; then
+  # Try to find when package.json had the old version
+  last_version_commit=$(git log --all --format="%H" -- "$PACKAGE_JSON" | while read commit; do
+    version=$(git show "$commit:$PACKAGE_JSON" 2>/dev/null | jq -r '.version // ""' 2>/dev/null || echo "")
+    if [ "$version" = "$OLD_VERSION" ]; then
+      echo "$commit"
+      break
+    fi
+  done | head -n 1)
+
+  if [ -n "$last_version_commit" ]; then
+    # Get commits from that point to HEAD, in the package directory
+    commits=$(git log --format="%s" "$last_version_commit..HEAD" -- "$PACKAGE_DIR" 2>/dev/null || echo "")
+  else
+    # Fallback: get recent commits in package directory
+    commits=$(git log --format="%s" -n 20 -- "$PACKAGE_DIR" 2>/dev/null || echo "")
+  fi
+else
+  # New package, get all commits
+  commits=$(git log --format="%s" -n 20 -- "$PACKAGE_DIR" 2>/dev/null || echo "")
+fi
+
+if [ -z "$commits" ]; then
+  echo "⚠️  No commits found, using generic changelog entry"
+  commits="Initial version $NEW_VERSION"
+fi
+
+echo "Found $(echo "$commits" | wc -l) commits"
+
+# Construct prompt for Gemini
+read -r -d '' PROMPT <<EOF || true
+You are a technical writer creating a CHANGELOG.md entry for a Unity package.
+
+Package: $PACKAGE_NAME
+Version: $OLD_VERSION → $NEW_VERSION
+
+Git commits since last version:
+$commits
+
+Generate a changelog entry following the "Keep a Changelog" format (https://keepachangelog.com/).
+
+Requirements:
+1. Start with: ## [$NEW_VERSION] - $(date +%Y-%m-%d)
+2. Use these sections ONLY if applicable: Added, Changed, Deprecated, Removed, Fixed, Security
+3. Each item should be a concise, user-facing description (not commit messages verbatim)
+4. Group related changes together
+5. Use present tense ("Add" not "Added")
+6. Focus on WHAT changed for users, not HOW it was implemented
+7. If commits are unclear or minimal, create a reasonable summary
+8. Do not include markdown code blocks, just the raw changelog text
+
+Example format:
+## [1.0.2] - 2025-01-16
+
+### Fixed
+- Fixed null reference exception in GetComponent method
+- Resolved memory leak in coroutine cleanup
+
+### Changed
+- Improved Update loop performance by 30%
+
+Generate the changelog entry now (do not include any explanations or extra text):
+EOF
+
+# Try to generate with AI
+echo "🤖 Generating AI-powered changelog..."
+ai_changelog=""
+
+if [ -n "$GEMINI_API_KEY" ] && [ "$GEMINI_API_KEY" != "none" ]; then
+  if ai_changelog=$(call_gemini_api "$PROMPT"); then
+    echo "✅ AI generation successful"
+
+    # Clean up the response (remove markdown code blocks if present)
+    ai_changelog=$(echo "$ai_changelog" | sed 's/```markdown//g' | sed 's/```//g' | sed '/^$/d' | sed 's/^[[:space:]]*//')
+
+  else
+    echo "⚠️  AI generation failed, using fallback"
+    ai_changelog=$(generate_fallback_changelog "$commits")
+  fi
+else
+  echo "⚠️  No API key provided, using fallback"
+  ai_changelog=$(generate_fallback_changelog "$commits")
+fi
+
+# Update or create CHANGELOG.md
+echo "📄 Updating CHANGELOG.md..."
+
+if [ -f "$CHANGELOG_FILE" ]; then
+  # CHANGELOG exists, insert new version at the top
+  echo "Updating existing CHANGELOG.md"
+
+  # Create temporary file
+  temp_file=$(mktemp)
+
+  # Read existing file
+  if grep -q "^# Changelog" "$CHANGELOG_FILE"; then
+    # Has header, insert after header and any intro text, before first version
+    awk -v new_entry="$ai_changelog" '
+      /^## \[/ && !inserted {
+        print new_entry
+        print ""
+        inserted=1
+      }
+      { print }
+    ' "$CHANGELOG_FILE" > "$temp_file"
+  else
+    # No proper header, add header and entry
+    {
+      echo "# Changelog"
+      echo ""
+      echo "All notable changes to this package will be documented in this file."
+      echo ""
+      echo "The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)."
+      echo ""
+      echo "$ai_changelog"
+      echo ""
+      cat "$CHANGELOG_FILE"
+    } > "$temp_file"
+  fi
+
+  mv "$temp_file" "$CHANGELOG_FILE"
+
+else
+  # Create new CHANGELOG
+  echo "Creating new CHANGELOG.md"
+
+  cat > "$CHANGELOG_FILE" <<EOF
+# Changelog
+
+All notable changes to this package will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+$ai_changelog
+EOF
+fi
+
+echo "✅ Changelog generated successfully"
+echo ""
+echo "Generated entry:"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "$ai_changelog"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+exit 0
+</file>
+
+<file path="config/repositories.json">
+{
+  "$schema": "./schema.json",
+  "repositories": [
+    {
+      "url": "https://github.com/The1Studio/UnityBuildScript",
+      "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/TheOneFeature",
+      "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/UITemplate",
+      "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/PlayableLabs",
+      "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/GameFoundation",
+      "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/LiveOps",
+      "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/TheOne.Extensions",
+      "status": "skip"
+    },
+    {
+      "url": "https://github.com/The1Studio/TheOne.FTUE",
+      "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/ThirdPartyServices",
+      "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/TheOne.Entities",
+      "status": "skip"
+    },
+    {
+      "url": "https://github.com/The1Studio/UITemplateProjectMigration",
+      "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/UITemplateLocalization",
+      "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/UITemplateLocalData",
+      "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/UITemplateEditorCore",
+      "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/UnityOptimizationTools",
+      "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/ICFeature",
+      "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/NewVibration",
+      "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/PlayableAdsTemplate",
+      "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/TheOne.DI",
+      "status": "skip"
+    },
+    {
+      "url": "https://github.com/The1Studio/PLAGameFoundation",
+      "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/TheOne.Pooling",
+      "status": "skip"
+    },
+    {
+      "url": "https://github.com/The1Studio/TheOne.WebGL.Poki",
+      "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/TheOne.WebGL.Core",
+      "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/TheOne.Lifecycle",
+      "status": "skip"
+    },
+    {
+      "url": "https://github.com/The1Studio/DynamicUserDifficulty",
+      "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/DynamicUserDifficultyUITemplate",
+      "status": "active"
+    }
+  ]
+}
+</file>
+
+<file path="config/package-cache.json">
+{
+  "updated": "2025-11-12T06:12:14Z",
+  "repositories": {
+    "The1Studio/TheOneFeature": {
+      "packages": {
+        "com.theone.feature.adapters": {
+          "path": "Core/Adapters",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.core": {
+          "path": "Core/Core",
+          "version": "1.0.3",
+          "publishedVersion": "1.0.3"
+        },
+        "com.theone.feature.data.commoncondition": {
+          "path": "Core/Data/CommonCondition/Core",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.data.jsonconverter": {
+          "path": "Core/Data/JsonConverter",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.authentication.core": {
+          "path": "Core/Features/Authentication/Core",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.battlepass.core": {
+          "path": "Core/Features/BattlePass/Core",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.battlepass.final-chest": {
+          "path": "Core/Features/BattlePass/FinalChest",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.battlepass.rewardhandlers": {
+          "path": "Core/Features/BattlePass/RewardHandlers",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.booster.core": {
+          "path": "Core/Features/Booster/Core",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.features.booster.default": {
+          "path": "Core/Features/Booster/Default",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.features.collectibleobject.core": {
+          "path": "Core/Features/CollectibleObject",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.currencyprogress.core": {
+          "path": "Core/Features/CurrencyProgress",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.dailymission.core": {
+          "path": "Core/Features/DailyMission",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.dailyreward.core": {
+          "path": "Core/Features/DailyReward",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.economy.entry.core": {
+          "path": "Core/Features/EconomyEntry",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.endlesstreasure.core": {
+          "path": "Core/Features/NoInternet",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.example.core": {
+          "path": "Core/Features/Example",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.features.ftue.userexperience": {
+          "path": "Core/Features/FTUE/UserExperience",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.featureconditions": {
+          "path": "Core/Features/FeatureConditions",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.entry.core": {
+          "path": "Core/Features/FeatureEntry/Core",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.freepack.core": {
+          "path": "Core/Features/FreePack",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.gameplay.core": {
+          "path": "Core/Features/Gameplay",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.generics": {
+          "path": "Core/Features/Generics",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.homeanimation": {
+          "path": "Core/Features/HomeAnimation",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.iaa.entry.core": {
+          "path": "Core/Features/IAAEntry",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.iap.core": {
+          "path": "Core/Features/IAP",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.features.inventory.core": {
+          "path": "Core/Features/Inventory",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.leaderboard.core": {
+          "path": "Core/Features/Leaderboard/Core",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.leaderboard.passedlevelstracker": {
+          "path": "Core/Features/Leaderboard/PassedLevelsTracker",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.features.lives.core": {
+          "path": "Core/Features/Lives/Core",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.lives.initialinfinitelives": {
+          "path": "Core/Features/Lives/InitialInfiniteLives",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.milestonestreak": {
+          "path": "Core/Features/MilestoneStreak",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.notification": {
+          "path": "Core/Features/Notification",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.piggybank.core": {
+          "path": "Core/Features/PiggyBank",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.playfab.core": {
+          "path": "Core/Features/Playfab",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.potentialloss.core": {
+          "path": "Core/Features/PotentialLoss",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.profile.core": {
+          "path": "Core/Features/Profile",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.progression-reward.core": {
+          "path": "Core/Features/ProgressionReward/Core",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.progressionreward.levelchest": {
+          "path": "Core/Features/ProgressionReward/LevelChest",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.racing.core": {
+          "path": "Core/Features/RaceEvent",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.features.time.core": {
+          "path": "Core/Features/Time",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.upcomingfeature.core": {
+          "path": "Core/Features/UpComingFeature/Core",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.upcomingfeature.default": {
+          "path": "Core/Features/UpComingFeature/Default",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.userexperience.core": {
+          "path": "Core/Features/UserExperience/Core",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.userexperience.defaultimplement": {
+          "path": "Core/Features/UserExperience/DefaultImplement",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.winstreak.beforeplay.core": {
+          "path": "Core/Features/WinStreak/BeforePlay",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.winstreak.core": {
+          "path": "Core/Features/WinStreak/Core",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.winstreak.leaderboard.core": {
+          "path": "Core/Features/WinStreak/Leaderboard/Core",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.winstreak.leaderboard.pve": {
+          "path": "Core/Features/WinStreak/Leaderboard/PvE",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.winstreak.suddendead.core": {
+          "path": "Core/Features/WinStreak/SuddenDead/Core/Scripts",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.tracking": {
+          "path": "Core/Tracking",
+          "version": "1.0.11",
+          "publishedVersion": "1.0.11"
+        },
+        "com.theone.feature.package.trueshadow": {
+          "path": "Packages/Le Tai's Asset/TrueShadow",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.package.ui.gradient.effect": {
+          "path": "Packages/P&C UI Gradient Effect",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.ui.autosuggest.core": {
+          "path": "UI/Common/AutoSuggest/Core",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.ui.autosuggest.default": {
+          "path": "UI/Common/AutoSuggest/Default",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.ui.common.featureentry.condition": {
+          "path": "UI/Common/FeatureEntryCondition",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.entry.view": {
+          "path": "UI/Common/FeatureEntryView",
+          "version": "1.0.3",
+          "publishedVersion": "1.0.3"
+        },
+        "com.theone.ui.common.informationpopup": {
+          "path": "UI/Common/InformationPopup",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.ui.common.timelineanimation": {
+          "path": "UI/Common/TimelineAnimation",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.ui.common.transitionloading": {
+          "path": "UI/Common/TransitionLoading",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.ui.layouts.baseprefabs": {
+          "path": "UI/Layouts/BasePrefabs",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.actionhandlers.core": {
+          "path": "UI/Layouts/Puzzle3D_1/ActionHandlers/Abstractions",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.actionhandlers.default": {
+          "path": "UI/Layouts/Puzzle3D_1/ActionHandlers/DefaultImplementations",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.screw3doriginal.ui.bottomnavbar": {
+          "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/TopNavBar",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.screw3doriginal.ui.gameplay": {
+          "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/Gameplay",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.screw3doriginal.ui.home": {
+          "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/Home",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.screw3doriginal.ui.leaderboard": {
+          "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/Leaderboard",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.screw3doriginal.ui.piggybank": {
+          "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/PiggyBank",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.screw3doriginal.ui.screentransition": {
+          "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/ScreenTransition",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.screw3doriginal.ui.shop": {
+          "path": "UI/Layouts/Puzzle3D_1/BaseFeaturePrefabs/Shop",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.ui.layouts.puzzle3d1.baseprefabs": {
+          "path": "UI/Layouts/Puzzle3D_1/LayoutBasePrefabs",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.battlepass": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/BattlePass",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.beforeplay": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/BeforePlay",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.common.bottomnavbar": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/BottomNavBar",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.common.claimreward": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/ClaimReward",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.currency": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/Currency",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.common.dailymission": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/DailyMission",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.dailyreward": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/DailyReward",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.endlesstreasure": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/EndlessTreasure",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.common.freepack": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/FreePack",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.gameplay": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/Gameplay",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.common.home": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/Home",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.iap": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/IAP",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.iappacks": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/IapPacks",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.common.items": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/Items",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.leaderboard": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/Leaderboard",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.lives": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/Lives",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.lose": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/Lose",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.ui.puzzle3d_1.milestonestreak": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/MilestoneStreak",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.piggybank": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/PiggyBank",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.profile": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/Profile",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.ui.puzzle3d_1.progressionreward": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/ProgressionReward",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.purchasebooster": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/PurchaseBooster",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.racing": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/RaceEvent",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.rateus": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/RateUs",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.removeadsbottom": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/RemoveAdsBottom",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.ui.puzzle3d_1.setting": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/Setting",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.shop": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/Shop",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.streakleaderboard": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/StreakLeaderboard",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.streaksuddendead": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/StreakSuddenDead",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.topnavbar": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/TopNavView",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.ui_stuff": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/UIStuff",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.unlockitem": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/UnlockItem",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.upcomingfeature": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/UpComingFeature",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.feature.puzzle3d_1.ui.win": {
+          "path": "UI/Layouts/Puzzle3D_1/Scripts/Win",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.ui.puzzle3d_1.uifx": {
+          "path": "UI/Layouts/Puzzle3D_1/UIFX",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.spriteprimitives": {
+          "path": "UI/SpritePrimitives",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.ui.utilities": {
+          "path": "UI/Utilities",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        },
+        "com.theone.package.ui.vfx": {
+          "path": "UI/VFX",
+          "version": "1.0.2",
+          "publishedVersion": "1.0.2"
+        }
+      }
+    },
+    "The1Studio/UITemplate": {
+      "packages": {
+        "com.theone.template.editor": {
+          "path": "Editor/Core",
+          "version": "1.0.0",
+          "publishedVersion": "1.0.0"
+        },
+        "com.theone.tool.localdata": {
+          "path": "Editor/LocalData",
+          "version": "1.0.0",
+          "publishedVersion": "1.0.0"
+        },
+        "com.theone.tool.localization": {
+          "path": "Editor/Localization",
+          "version": "1.0.0",
+          "publishedVersion": "1.0.0"
+        },
+        "com.theone.tool.optimization": {
+          "path": "Editor/Optimization",
+          "version": "1.0.0",
+          "publishedVersion": "1.0.1"
+        },
+        "com.theone.tool.migration": {
+          "path": "Editor/ProjectMigration",
+          "version": "1.0.0",
+          "publishedVersion": "1.0.0"
+        },
+        "com.heurekagames.assethunterpro": {
+          "path": "Packages/com.heurekagames.assethunterpro",
+          "version": "2.2.23",
+          "publishedVersion": "2.2.23"
+        },
+        "com.heurekagames.utils": {
+          "path": "Packages/com.heurekagames.utils",
+          "version": "1.0.3",
+          "publishedVersion": "1.0.3"
+        },
+        "com.theone.vibration": {
+          "path": "Scripts/Modules/Platform/Vibration",
+          "version": "1.0.0",
+          "publishedVersion": "1.0.0"
+        },
+        "com.theone.utils.autogeneratechildrenfromfields": {
+          "path": "Scripts/Utils/AutoGenerateChildrenFromFields",
+          "version": "1.0.8",
+          "publishedVersion": "1.0.8"
+        }
+      }
+    },
+    "The1Studio/PlayableLabs": {
+      "packages": {
+        "@playablelabs/api": {
+          "path": "apps/api",
+          "version": "0.1.0",
+          "publishedVersion": null
+        },
+        "@playablelabs/web": {
+          "path": "apps/web",
+          "version": "0.1.0",
+          "publishedVersion": null
+        },
+        "@playablelabs/playable-engine": {
+          "path": "packages/playable-engine",
+          "version": "0.1.0",
+          "publishedVersion": "0.1.0"
+        },
+        "@playablelabs/shared": {
+          "path": "packages/shared",
+          "version": "0.1.0",
+          "publishedVersion": "0.1.0"
+        },
+        "@playablelabs/preview": {
+          "path": "services/preview",
+          "version": "0.1.0",
+          "publishedVersion": null
+        }
+      }
+    },
+    "The1Studio/LiveOps": {
+      "packages": {
+        "chrome-devtools-scripts": {
+          "path": ".claude/skills/chrome-devtools/scripts",
+          "version": "1.0.0",
+          "publishedVersion": "1.0.0"
+        },
+        "@liveops/api": {
+          "path": "apps/api",
+          "version": "0.1.0",
+          "publishedVersion": null
+        },
+        "@liveops/dashboard": {
+          "path": "apps/dashboard",
+          "version": "0.1.0",
+          "publishedVersion": null
+        },
+        "@liveops/shared": {
+          "path": "packages/shared",
+          "version": "0.1.0",
+          "publishedVersion": "0.1.0"
+        }
+      }
+    },
+    "The1Studio/ThirdPartyServices": {
+      "packages": {
+        "3rd.remoteconfig.bytebrew": {
+          "path": "ServiceImplementation/RemoteConfig/ByteBrewRemoteConfig",
+          "version": "1.0.0",
+          "publishedVersion": "1.0.0"
+        },
+        "com.theone.3rd.remoteconfig.core": {
+          "path": "ServiceImplementation/RemoteConfig/Core",
+          "version": "1.0.0",
+          "publishedVersion": "1.0.0"
+        },
+        "3rd.remoteconfig.firebase": {
+          "path": "ServiceImplementation/RemoteConfig/FireBaseRemoteConfig",
+          "version": "1.0.0",
+          "publishedVersion": "1.0.0"
+        }
+      }
+    }
+  }
+}
+</file>
+
+</files>

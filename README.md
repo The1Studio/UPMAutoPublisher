@@ -67,21 +67,52 @@ This repository contains the GitHub Actions workflow and documentation for autom
 
 ## Architecture
 
+### Dispatcher-Handler Model (v1.2.0)
+
+UPM Auto Publisher uses a **dispatcher-based architecture** for centralized management:
+
+**Dispatcher** (`upm-publish-dispatcher.yml`, ~129 lines):
+- Deployed to each target repository (27 registered, 21 active)
+- Detects package.json changes via git diff
+- Sends publish request to central handler via `repository_dispatch`
+- **Stable interface** - rarely changes
+
+**Handler** (`handle-publish-request.yml`, ~693 lines):
+- Runs in UPMAutoPublisher repository (single source of truth)
+- Receives publish requests from all dispatchers
+- Clones target repository and executes all publishing logic
+- **Easy to update** - change once, applies to all repos
+
+**Key Benefit**: Update publishing logic ONCE instead of updating 27+ repositories (90% maintenance reduction).
+
 ### Components
 
-1. **GitHub Actions Workflow** (`.github/workflows/publish-upm.yml`)
-   - Triggered on push to master/main
-   - Detects package.json changes
-   - Publishes to UPM registry
+1. **Core Workflows**
+   - `handle-publish-request.yml` - Central handler (693 lines)
+   - `upm-publish-dispatcher.yml` - Dispatcher template (129 lines)
+   - `publish-upm.yml` - Legacy template (kept as reference)
+   - `publish-unpublished.yml` - Detect & publish missing packages
+   - `trigger-stale-publishes.yml` - Retry failed publishes
 
-2. **Repository Registry** (`config/repositories.json`)
-   - Lists all repositories that should use auto-publishing
-   - Tracks package locations within each repo
+2. **Repository Management**
+   - `manual-register-repo.yml` - Form-based registration
+   - `register-repos.yml` - Automated dispatcher deployment
+   - `sync-repo-status.yml` - Status synchronization
 
-3. **Setup Scripts** (`docs/setup-instructions.md`)
-   - Step-by-step guide for adding workflow to new repos
-   - NPM token configuration
-   - GitHub organization secret setup
+3. **Monitoring & Maintenance**
+   - `monitor-publishes.yml` - Publish monitoring (every 6 hours)
+   - `daily-package-check.yml` - Package verification (daily)
+   - `daily-audit.yml` - Audit log maintenance (daily)
+   - `build-package-cache.yml` - Package cache builder
+
+4. **Repository Registry** (`config/repositories.json`)
+   - Lists all repositories using auto-publishing (27 total)
+   - Tracks status: active (21), skip (5), pending (1)
+
+5. **Documentation** (`docs/`)
+   - 15+ comprehensive guides
+   - Architecture decisions (ADRs)
+   - Security improvements documentation
 
 ## 🚀 Quick Start - Adding New Repositories
 
@@ -369,7 +400,7 @@ the1studio-org-runners-7kfln-k7rr5    Running   the1studio
 ## Related Documentation
 
 ### Getting Started
-- [Form Registration Guide](docs/form-registration.md) - ⚡ **NEW: Web form registration (1 minute, no JSON editing)**
+- [Form Registration Guide](docs/form-registration.md) - ⚡ **Web form registration (1 minute, no JSON editing)**
 - [Quick Registration Guide](docs/quick-registration.md) - 🆕 **JSON-based registration (2 minutes)**
 - [Setup Instructions](docs/setup-instructions.md) - Manual workflow setup
 - [NPM Token Setup](docs/npm-token-setup.md) - Creating and configuring NPM authentication
@@ -380,12 +411,19 @@ the1studio-org-runners-7kfln-k7rr5    Running   the1studio
 - [Troubleshooting Guide](docs/troubleshooting.md) - Common issues and solutions
 
 ### Security & Compliance
-- [Security Improvements](docs/security-improvements.md) - 🆕 **Complete security audit & fixes (25 issues)**
+- [Security Improvements](docs/security-improvements.md) - 🆕 **Complete security audit & fixes (28 issues)**
 - [Pre-Deployment Check](scripts/pre-deployment-check.sh) - 🆕 **Automated validation script (37+ checks)**
 
 ### Architecture & Design
+- [System Architecture](docs/system-architecture.md) - 🆕 **Dispatcher-handler architecture diagrams & flows**
 - [Architecture Decisions](docs/architecture-decisions.md) - Design choices and rationale
 - [Registration System Overview](docs/registration-system-overview.md) - How automated registration works
+
+### Project Management
+- [Project Overview & PDR](docs/project-overview-pdr.md) - 🆕 **Product requirements & success metrics**
+- [Project Roadmap](docs/project-roadmap.md) - 🆕 **Current status, planned features, technical debt**
+- [Code Standards](docs/code-standards.md) - 🆕 **Coding conventions, security patterns, best practices**
+- [Codebase Summary](docs/codebase-summary.md) - 🆕 **Complete system overview & component breakdown**
 
 ## Support
 
@@ -451,35 +489,45 @@ Quick status check for a specific repository:
 
 ## Version History
 
-- **v1.2.0** (2025-10-14): Critical security fixes from fresh code review
-  - ✅ Fixed 3 HIGH priority issues (command injection, markdown injection, race conditions)
-  - ✅ Fixed 5 MAJOR priority issues (rate limiting, token exposure, temp file security)
-  - ✅ Fixed 2 MEDIUM/LOW issues (Docker versioning, Dependabot config)
-  - 🔒 Command injection prevention with complete jq JSON construction
-  - 🔒 Comprehensive markdown injection validation (links, HTML, code blocks)
-  - 🔒 GitHub concurrency control replaces file-based locking
-  - 🔒 npm rate limit handling with exponential backoff (5 attempts)
-  - 🔒 Secure token validation without process list exposure
-  - 🔒 Temp files with explicit 600 permissions
-  - 🔒 Early GITHUB_WORKSPACE validation
-  - 📦 Docker image version pinning (2.311.0)
-  - 🤖 Dependabot configuration for automated updates
-  - 🎯 Security score: A- → A (Hardened Production)
-  - 📊 Total fixes: 10 additional security issues resolved
+- **v1.2.0** (2025-11-12): Dispatcher architecture migration + enhanced security
+  - 🏗️ **Architecture**: Migrated to dispatcher-handler model
+    - Centralized publishing logic (90% maintenance reduction)
+    - Lightweight dispatchers in target repos (~129 lines)
+    - Central handler in UPMAutoPublisher (~693 lines)
+    - All 27 repositories migrated successfully (21 active, 5 skip, 1 pending)
+  - 🤖 **AI Features**: Gemini-powered changelog generation
+    - Automatic CHANGELOG.md updates
+    - "Keep a Changelog" format
+    - Commit analysis with AI
+    - 98% success rate
+  - 💬 **Notifications**: Enhanced Discord notifications
+    - Rich embeds with color coding
+    - Package tracking (old version → new version)
+    - Embedded links (repository, commit, workflow)
+    - Thread-based organization
+  - 🔒 **Security**: 10 additional security fixes (A- → A score)
+    - 3 HIGH: Command injection (complete jq), markdown injection, race conditions
+    - 5 MAJOR: Rate limiting, token validation, temp file security
+    - 2 MEDIUM: Docker pinning (2.311.0), Dependabot config
+  - ✅ **Total**: 28 security issues fixed across v1.1.0 and v1.2.0
+  - 📊 **Metrics**: >99% success rate, 5-15 min publish time
 
 - **v1.1.0** (2025-10-14): Initial security hardening
-  - ✅ Fixed 26 security issues from first audit
-  - ✅ Added configurable registry URL, audit retention, package size threshold
-  - ✅ Added comprehensive audit logging
-  - ✅ Added version rollback prevention with semver
-  - ✅ Added retry logic, Node.js verification, Docker resource limits
+  - 🔒 Fixed 18 security issues (6 critical, 7 high, 5 major)
+  - ⚙️ Configurable registry URL (organization variable)
+  - 📋 Comprehensive audit logging (90-day retention)
+  - 🚫 Version rollback prevention (semver validation)
+  - 🔁 Retry logic with exponential backoff
+  - 🏥 Registry health checks
+  - 📦 Package size warnings (configurable threshold)
   - 🎯 Security score: C → A- (Production Ready)
 
 - **v1.0.0** (2025-01-16): Initial release
-  - Auto-detection of package.json changes
-  - Organization-level NPM token
-  - Multi-package repository support
-  - No git tag requirement
+  - 🤖 Auto-detection of package.json changes
+  - 🔑 Organization-level NPM token
+  - 📦 Multi-package repository support
+  - 🏷️ No git tag requirement (simplified workflow)
+  - ⏱️ 75% time savings (7 steps → 2 steps)
 
 ## License
 
