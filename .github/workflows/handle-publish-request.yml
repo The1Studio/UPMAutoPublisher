@@ -362,49 +362,72 @@ jobs:
             exit 0
           fi
 
+          # Define URLs early for use in truncated message
+          workflow_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          repository="${{ github.event.client_payload.repository }}"
+          commit_sha="${{ github.event.client_payload.commit_sha }}"
+          commit_short="${commit_sha:0:7}"
+          commit_url="https://github.com/$repository/commit/$commit_sha"
+          timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
           # Build detailed package information from tracking file
+          # Limit to 10 packages to avoid Discord's 6000 char limit
           package_details=""
           package_count=0
+          total_packages=0
+          MAX_PACKAGES_SHOWN=10
 
           if [ -f published_packages.txt ] && [ -s published_packages.txt ]; then
+            # Count total packages first
+            total_packages=$(wc -l < published_packages.txt | tr -d ' ')
+
             while IFS='|' read -r name old_ver new_ver; do
               [ -z "$name" ] && continue
               package_count=$((package_count + 1))
 
-              # Determine version change type
-              if [ "$old_ver" = "0.0.0" ]; then
-                # New package
-                line="### 🆕 **$name**"$'\n'
-                line="${line}┗━ **Version:** \`$new_ver\` _(new package)_"$'\n'
-                line="${line}┗━ **Registry:** https://upm.the1studio.org/-/web/detail/$name"
-              else
-                # Version upgrade - determine type
-                IFS='.' read -r old_major old_minor old_patch <<< "$old_ver"
-                IFS='.' read -r new_major new_minor new_patch <<< "$new_ver"
-
-                if [ "$new_major" != "$old_major" ]; then
-                  change_type="🔴 **MAJOR**"
-                  emoji="🚀"
-                elif [ "$new_minor" != "$old_minor" ]; then
-                  change_type="🟡 **MINOR**"
-                  emoji="✨"
+              # Only show first MAX_PACKAGES_SHOWN packages in detail
+              if [ "$package_count" -le "$MAX_PACKAGES_SHOWN" ]; then
+                # Determine version change type
+                if [ "$old_ver" = "0.0.0" ]; then
+                  # New package
+                  line="### 🆕 **$name**"$'\n'
+                  line="${line}┗━ **Version:** \`$new_ver\` _(new package)_"$'\n'
+                  line="${line}┗━ **Registry:** https://upm.the1studio.org/-/web/detail/$name"
                 else
-                  change_type="🟢 **PATCH**"
-                  emoji="🔧"
+                  # Version upgrade - determine type
+                  IFS='.' read -r old_major old_minor old_patch <<< "$old_ver"
+                  IFS='.' read -r new_major new_minor new_patch <<< "$new_ver"
+
+                  if [ "$new_major" != "$old_major" ]; then
+                    change_type="🔴 **MAJOR**"
+                    emoji="🚀"
+                  elif [ "$new_minor" != "$old_minor" ]; then
+                    change_type="🟡 **MINOR**"
+                    emoji="✨"
+                  else
+                    change_type="🟢 **PATCH**"
+                    emoji="🔧"
+                  fi
+
+                  line="### $emoji **$name**"$'\n'
+                  line="${line}┣━ **Version:** \`$old_ver\` ➜ \`$new_ver\`"$'\n'
+                  line="${line}┣━ **Change Type:** $change_type"$'\n'
+                  line="${line}┗━ **Registry:** https://upm.the1studio.org/-/web/detail/$name"
                 fi
 
-                line="### $emoji **$name**"$'\n'
-                line="${line}┣━ **Version:** \`$old_ver\` ➜ \`$new_ver\`"$'\n'
-                line="${line}┣━ **Change Type:** $change_type"$'\n'
-                line="${line}┗━ **Registry:** https://upm.the1studio.org/-/web/detail/$name"
-              fi
-
-              if [ -z "$package_details" ]; then
-                package_details="$line"
-              else
-                package_details="$package_details\n\n$line"
+                if [ -z "$package_details" ]; then
+                  package_details="$line"
+                else
+                  package_details="$package_details\n\n$line"
+                fi
               fi
             done < published_packages.txt
+
+            # Add summary if more packages than shown
+            if [ "$total_packages" -gt "$MAX_PACKAGES_SHOWN" ]; then
+              remaining=$((total_packages - MAX_PACKAGES_SHOWN))
+              package_details="$package_details\n\n---\n\n_📦 **And $remaining more package(s)**_\n_View full list in [workflow run]($workflow_url)_"
+            fi
           else
             package_details="No packages published"
           fi
@@ -417,13 +440,6 @@ jobs:
               skipped_summary="⏭️  **$skipped_count packages skipped** (already published)"
             fi
           fi
-
-          workflow_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          repository="${{ github.event.client_payload.repository }}"
-          commit_sha="${{ github.event.client_payload.commit_sha }}"
-          commit_short="${commit_sha:0:7}"
-          commit_url="https://github.com/$repository/commit/$commit_sha"
-          timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
           # Construct beautiful Discord embed with jq
           jq -n \
