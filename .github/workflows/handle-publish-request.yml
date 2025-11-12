@@ -365,8 +365,8 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
 
-            # Stage all CHANGELOG.md files (both root and subdirectories)
-            git add "**/CHANGELOG.md" CHANGELOG.md || true
+            # Stage all CHANGELOG.md files
+            find . -name "CHANGELOG.md" -not -path "./Library/*" -not -path "./.git/*" -exec git add {} \; || true
 
             if git diff --staged --quiet; then
               echo "⚠️  No changelog changes to commit"
