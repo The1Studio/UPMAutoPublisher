@@ -387,8 +387,8 @@ jobs:
 
               # Only show first MAX_PACKAGES_SHOWN packages in detail
               if [ "$package_count" -le "$MAX_PACKAGES_SHOWN" ]; then
-                # Build GitHub source URL
-                source_url="https://github.com/$repository/tree/$commit_sha/$package_path"
+                # Build GitHub source URL (using master branch for persistent links)
+                source_url="https://github.com/$repository/tree/master/$package_path"
 
                 # Determine version change type
                 if [ "$old_ver" = "0.0.0" ]; then
