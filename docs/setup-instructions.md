@@ -36,7 +36,48 @@ Ensure your `package.json` has the required Unity package fields:
 
 **Location**: The package.json can be anywhere in your repo (e.g., `Assets/YourPackage/package.json`)
 
-### 2. Copy Workflow File
+### 2. Add CHANGELOG.md (Recommended)
+
+It's highly recommended to maintain a changelog for each package. This helps users understand what changed between versions.
+
+**Create CHANGELOG.md next to package.json:**
+
+```bash
+# Copy the template
+cp /path/to/UPMAutoPublisher/docs/CHANGELOG.template.md Assets/YourPackage/CHANGELOG.md
+```
+
+**Or create manually:**
+
+```markdown
+# Changelog
+
+All notable changes to this package will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+## [Unreleased]
+
+## [1.0.0] - 2025-01-16
+
+### Added
+- Initial release
+```
+
+**File structure:**
+```
+Assets/YourPackage/
+├── package.json
+├── CHANGELOG.md         ← Add this
+├── README.md
+└── Runtime/
+```
+
+**Update CHANGELOG.md before bumping version in package.json.**
+
+See [Changelog Management](changelog-management.md) for detailed guidelines and best practices.
+
+### 3. Copy Workflow File
 
 Copy the workflow file to your repository:
 
@@ -50,7 +91,7 @@ cp /path/to/UPMAutoPublisher/.github/workflows/publish-upm.yml .github/workflows
 
 Or create `.github/workflows/publish-upm.yml` manually with the content from the template.
 
-### 3. Verify GitHub Organization Secret
+### 4. Verify GitHub Organization Secret
 
 The workflow uses `secrets.NPM_TOKEN` which should already be configured at organization level.
 
@@ -60,7 +101,7 @@ The workflow uses `secrets.NPM_TOKEN` which should already be configured at orga
 
 **If not configured**, see [NPM Token Setup](npm-token-setup.md)
 
-### 4. Register Repository
+### 5. Register Repository
 
 Add your repository to the registry:
 
@@ -103,7 +144,7 @@ For **multi-package repositories**, add multiple package entries:
 }
 ```
 
-### 5. Test the Workflow
+### 6. Test the Workflow
 
 1. Update version in your package.json:
    ```json
