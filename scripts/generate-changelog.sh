@@ -22,7 +22,7 @@ call_gemini_api() {
   local retry_delay=2
 
   for attempt in $(seq 1 $max_retries); do
-    echo "🤖 Calling Gemini API (attempt $attempt/$max_retries)..."
+    echo "🤖 Calling Gemini API (attempt $attempt/$max_retries)..." >&2
 
     # Construct JSON request
     request_body=$(jq -n \
@@ -50,15 +50,15 @@ call_gemini_api() {
     # Check for errors
     if echo "$response" | jq -e '.error' > /dev/null 2>&1; then
       error_msg=$(echo "$response" | jq -r '.error.message // "Unknown error"')
-      echo "⚠️  API error: $error_msg"
+      echo "⚠️  API error: $error_msg" >&2
 
       if [ "$attempt" -lt "$max_retries" ]; then
-        echo "⏳ Retrying in ${retry_delay}s..."
+        echo "⏳ Retrying in ${retry_delay}s..." >&2
         sleep $retry_delay
         retry_delay=$((retry_delay * 2))  # Exponential backoff
         continue
       else
-        echo "❌ Max retries reached, API call failed"
+        echo "❌ Max retries reached, API call failed" >&2
         return 1
       fi
     fi
@@ -67,15 +67,15 @@ call_gemini_api() {
     generated_text=$(echo "$response" | jq -r '.candidates[0].content.parts[0].text // ""')
 
     if [ -z "$generated_text" ]; then
-      echo "⚠️  Empty response from API"
+      echo "⚠️  Empty response from API" >&2
 
       if [ "$attempt" -lt "$max_retries" ]; then
-        echo "⏳ Retrying in ${retry_delay}s..."
+        echo "⏳ Retrying in ${retry_delay}s..." >&2
         sleep $retry_delay
         retry_delay=$((retry_delay * 2))
         continue
       else
-        echo "❌ Max retries reached, empty response"
+        echo "❌ Max retries reached, empty response" >&2
         return 1
       fi
     fi
