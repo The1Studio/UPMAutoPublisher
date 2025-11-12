@@ -261,7 +261,7 @@ jobs:
 
             if npm_publish_with_retry --access public; then
               echo "✅ Successfully published $package_name@$new_version"
-              echo "$package_name|$latest_version|$new_version" >> "$WORK_DIR/published_packages.txt"
+              echo "$package_name|$latest_version|$new_version|$package_dir" >> "$WORK_DIR/published_packages.txt"
               published_count=$((published_count + 1))
             else
               echo "❌ Failed to publish $package_name@$new_version"
@@ -293,7 +293,7 @@ jobs:
           # Read package details
           published_list=""
           if [ -f published_packages.txt ] && [ -s published_packages.txt ]; then
-            published_list=$(cat published_packages.txt | jq -R -s -c 'split("\n") | map(select(length > 0) | split("|") | {name: .[0], old_version: .[1], new_version: .[2]})')
+            published_list=$(cat published_packages.txt | jq -R -s -c 'split("\n") | map(select(length > 0) | split("|") | {name: .[0], old_version: .[1], new_version: .[2], path: .[3]})')
           else
             published_list="[]"
           fi
@@ -381,18 +381,22 @@ jobs:
             # Count total packages first
             total_packages=$(wc -l < published_packages.txt | tr -d ' ')
 
-            while IFS='|' read -r name old_ver new_ver; do
+            while IFS='|' read -r name old_ver new_ver package_path; do
               [ -z "$name" ] && continue
               package_count=$((package_count + 1))
 
               # Only show first MAX_PACKAGES_SHOWN packages in detail
               if [ "$package_count" -le "$MAX_PACKAGES_SHOWN" ]; then
+                # Build GitHub source URL
+                source_url="https://github.com/$repository/tree/$commit_sha/$package_path"
+
                 # Determine version change type
                 if [ "$old_ver" = "0.0.0" ]; then
                   # New package
                   line="### 🆕 **$name**"$'\n'
-                  line="${line}┗━ **Version:** \`$new_ver\` _(new package)_"$'\n'
-                  line="${line}┗━ **Registry:** https://upm.the1studio.org/-/web/detail/$name"
+                  line="${line}┣━ **Version:** \`$new_ver\` _(new package)_"$'\n'
+                  line="${line}┣━ **Registry:** https://upm.the1studio.org/-/web/detail/$name"$'\n'
+                  line="${line}┗━ **Source:** $source_url"
                 else
                   # Version upgrade - determine type
                   IFS='.' read -r old_major old_minor old_patch <<< "$old_ver"
@@ -412,7 +416,8 @@ jobs:
                   line="### $emoji **$name**"$'\n'
                   line="${line}┣━ **Version:** \`$old_ver\` ➜ \`$new_ver\`"$'\n'
                   line="${line}┣━ **Change Type:** $change_type"$'\n'
-                  line="${line}┗━ **Registry:** https://upm.the1studio.org/-/web/detail/$name"
+                  line="${line}┣━ **Registry:** https://upm.the1studio.org/-/web/detail/$name"$'\n'
+                  line="${line}┗━ **Source:** $source_url"
                 fi
 
                 if [ -z "$package_details" ]; then
