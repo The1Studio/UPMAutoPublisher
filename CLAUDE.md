@@ -47,7 +47,9 @@ on:
 2. Extract package name and version from each file
 3. Check if version exists on `upm.the1studio.org`
 4. If new version: publish to registry
-5. Continue with other packages if one fails
+5. **NEW:** Generate AI-powered changelogs for published packages
+6. Commit and push CHANGELOG.md updates back to repository
+7. Continue with other packages if one fails
 
 ### Key Design Decisions
 - **Trigger:** On commit (not on tags)
@@ -56,6 +58,7 @@ on:
 - **Error Handling:** Continue on failure (multi-package support)
 - **Tags:** No automatic git tag creation
 - **Registry Configuration:** Uses `--registry` flag with environment variables (NOT publishConfig in package.json)
+- **AI Changelogs:** Optional automatic changelog generation using Gemini AI (requires GEMINI_API_KEY)
 
 ### Registry Configuration Approach
 
@@ -140,6 +143,78 @@ Workflows automatically validate GH_PAT before processing:
 - GitHub will email warnings before expiration
 - Workflows fail with clear error if GH_PAT expires
 - See `docs/configuration.md#gh_pat-setup` for rotation procedure
+
+### AI Changelog Generation
+
+**NEW FEATURE:** Automatic changelog generation using Google Gemini AI.
+
+**Overview:**
+After packages are published successfully, the workflow automatically generates changelog entries by analyzing git commit history and using AI to create user-facing descriptions.
+
+**How it works:**
+1. Workflow downloads `scripts/generate-changelog.sh` from UPMAutoPublisher
+2. For each published package:
+   - Extracts git commits since last version in package directory
+   - Sends commit history to Gemini AI with structured prompt
+   - AI generates changelog entry in "Keep a Changelog" format
+   - Updates or creates CHANGELOG.md next to package.json
+3. Commits all changelog changes with `[skip ci]` message
+4. Pushes changes back to source repository using GH_PAT
+
+**Requirements:**
+- `GEMINI_API_KEY` organization secret (optional)
+- `GH_PAT` secret with `repo` scope (already required for other features)
+
+**Setup:**
+```bash
+# Get API key from https://aistudio.google.com/apikey
+gh secret set GEMINI_API_KEY \
+  --body "AIza_your_key_here" \
+  --org The1Studio
+```
+
+**Behavior:**
+- ✅ Only runs after successful publishes (`if: env.published > 0`)
+- ✅ Uses `continue-on-error: true` to never fail workflow
+- ✅ Graceful fallback if GEMINI_API_KEY not set or API fails
+- ✅ Commits use `[skip ci]` to prevent infinite loops
+- ✅ Free tier sufficient for typical usage (<100 packages/day)
+
+**Generated format:**
+```markdown
+## [1.0.2] - 2025-01-16
+
+### Fixed
+- Fixed null reference exception in GetComponent method
+- Resolved memory leak in coroutine cleanup
+
+### Changed
+- Improved Update loop performance by 30%
+```
+
+**Workflow integration:**
+- Located in `.github/workflows/handle-publish-request.yml` (lines 286-396)
+- Runs after package detection, before audit log creation
+- Downloads script fresh on each run to ensure latest version
+- Processes all published packages in single commit
+
+**Manual usage:**
+```bash
+# Download script
+curl -sSfL \
+  "https://raw.githubusercontent.com/The1Studio/UPMAutoPublisher/master/scripts/generate-changelog.sh" \
+  -o generate-changelog.sh
+chmod +x generate-changelog.sh
+
+# Run for specific package
+./generate-changelog.sh \
+  "path/to/package.json" \
+  "old_version" \
+  "new_version" \
+  "your-gemini-api-key"
+```
+
+**See:** `docs/configuration.md#gemini_api_key-setup` for complete details
 
 ## Common Tasks
 

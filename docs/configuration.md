@@ -415,8 +415,9 @@ gh variable delete VARIABLE_NAME --org The1Studio
 | Secret | Purpose | Scope | How to Obtain |
 |--------|---------|-------|---------------|
 | `DISCORD_WEBHOOK_UPM` | Discord webhook URL for publish notifications | Organization | See [Discord Notifications](#discord-notifications) |
+| `GEMINI_API_KEY` | AI-powered changelog generation | Organization | See [Gemini API Key](#gemini_api_key-setup) below |
 
-**Note**: If `DISCORD_WEBHOOK_UPM` is not set, workflows will continue normally without sending Discord notifications.
+**Note**: If `DISCORD_WEBHOOK_UPM` or `GEMINI_API_KEY` are not set, workflows will continue normally without sending Discord notifications or generating AI changelogs.
 
 ### NPM_TOKEN Setup
 
@@ -531,6 +532,58 @@ gh workflow run manual-register-repo.yml \
 - Add a calendar reminder for 80 days from creation
 - GitHub will email warnings before expiration
 - Workflows will fail with clear error message if GH_PAT expires
+
+### GEMINI_API_KEY Setup
+
+The `GEMINI_API_KEY` (optional) enables AI-powered automatic changelog generation using Google Gemini API.
+
+**Requirements:**
+- **Type**: API key from Google AI Studio
+- **Model**: gemini-2.0-flash-exp (fast, cost-effective)
+- **Usage**: Analyzes git commits and generates Keep a Changelog format entries
+- **Fallback**: If not set or API fails, packages still publish (no changelog generated or basic fallback used)
+
+**How to Create:**
+
+1. Go to https://aistudio.google.com/app/apikey
+2. Click "Create API key"
+3. Select project or create new one
+4. Copy the API key (starts with `AIza...`)
+5. Add to organization secrets:
+   ```bash
+   gh secret set GEMINI_API_KEY \
+     --body "AIza_your_key_here" \
+     --org The1Studio
+   ```
+   Or via GitHub web UI at https://github.com/organizations/The1Studio/settings/secrets/actions
+
+**How It Works:**
+- Automatically triggers after packages are successfully published
+- Downloads `generate-changelog.sh` script from UPMAutoPublisher repository
+- For each published package:
+  - Analyzes git commits since last version in package directory
+  - Sends commit history to Gemini AI with structured prompt
+  - Generates human-readable changelog in Keep a Changelog format
+  - Updates or creates CHANGELOG.md next to package.json
+- Commits all changelog changes with `[skip ci]` message
+- Pushes changes back to source repository using `GH_PAT`
+- If API fails, falls back to basic changelog format or skips gracefully
+- Uses `continue-on-error: true` to never fail the workflow
+
+**API Limits (Free Tier):**
+- 15 requests per minute
+- 1,500 requests per day
+- 1 million tokens per day
+- ~500 tokens per changelog (~0.05% of daily limit)
+
+**Cost:**
+- Free tier sufficient for typical usage (<100 packages/day)
+- If exceeded: automatic fallback, no publishing blocked
+
+**Security:**
+- Stored as organization secret (encrypted at rest)
+- GitHub automatically masks in logs
+- Can be rotated anytime without workflow changes
 
 ---
 

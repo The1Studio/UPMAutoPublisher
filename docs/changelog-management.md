@@ -9,10 +9,44 @@ This document outlines changelog management strategies for UPM packages in The1S
 - ✅ Packages auto-publish on version bump
 - ✅ Discord notifications show version changes
 - ✅ Audit logs track all publishes
-- ❌ No automated changelog generation
-- ❌ No CHANGELOG.md files in packages
+- ✅ **AI-powered changelog generation available** (Gemini API)
+- ✅ Automatic CHANGELOG.md creation/updates
 
 ## Recommended Approach
+
+### Option 5: AI-Generated with Gemini API ⭐ **RECOMMENDED**
+
+**Pros:**
+- ✅ Fully automated - no developer action needed
+- ✅ Intelligent analysis of git commits
+- ✅ Human-readable, context-aware descriptions
+- ✅ Follows Keep a Changelog format automatically
+- ✅ Handles multiple packages simultaneously
+- ✅ Graceful fallback if API unavailable
+- ✅ Zero maintenance overhead
+
+**Cons:**
+- ❌ Requires Gemini API key (free tier sufficient)
+- ❌ Small latency added to publish workflow (~5-10s)
+- ❌ Quality depends on commit message quality
+
+**How It Works:**
+1. Developer updates package.json version and pushes
+2. Workflow detects package change
+3. AI analyzes git commits since last version
+4. Generates changelog entry in Keep a Changelog format
+5. Commits CHANGELOG.md back to repository
+6. Publishes package to registry
+
+**Implementation:**
+Fully integrated in UPM Auto Publisher workflow. No action needed from developers.
+
+**Setup:**
+Add `GEMINI_API_KEY` to organization secrets (see [Configuration Guide](./configuration.md#gemini_api_key-setup)).
+
+**Status:** ✅ Production Ready
+
+---
 
 ### Option 1: Manual CHANGELOG.md (RECOMMENDED)
 
@@ -374,27 +408,25 @@ Changelog tracking begins with version 1.0.17.
 
 **Recommended for The1Studio:**
 
-1. **Start with Manual CHANGELOG.md** (Phase 1-2)
-   - Simple, immediate
-   - Add template to docs
-   - Create baseline for existing packages
+1. **Use AI-Generated Changelogs (Option 5)** - **PRIMARY**
+   - Fully automated, zero developer overhead
+   - Set up `GEMINI_API_KEY` organization secret
+   - Changelogs generated automatically on every publish
+   - Fallback to basic changelog if API unavailable
 
-2. **Add Pre-commit Reminder** (Phase 3)
-   - Optional but helpful
-   - Prevents forgotten changelogs
+2. **Manual CHANGELOG.md as Supplement** (Optional)
+   - Developers can still manually edit changelogs
+   - Useful for adding context AI might miss
+   - Pre-commit hooks available for reminders
 
-3. **Consider Automation Later** (Phase 4)
-   - After team establishes habit
-   - If conventional commits are adopted
-   - If volume becomes overwhelming
+**Implementation Status:**
+✅ AI changelog generation is production-ready and integrated in workflow
 
 **Next Steps:**
-1. Review this document
-2. Create CHANGELOG.md template
-3. Add 1-2 example changelogs in TheOneFeature
-4. Update setup documentation
-5. Roll out to team
+1. ✅ Add `GEMINI_API_KEY` to organization secrets
+2. ✅ System automatically generates changelogs on publish
+3. No developer action required - fully automatic
 
 ---
 
-**Last Updated:** 2025-01-16
+**Last Updated:** 2025-11-12

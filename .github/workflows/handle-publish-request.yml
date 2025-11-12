@@ -283,6 +283,117 @@ jobs:
           echo "✅ Published: $published_count"
           echo "⏭️  Skipped: $skipped_count"
 
+      - name: Generate AI Changelogs
+        if: env.published > 0
+        continue-on-error: true  # Don't fail workflow if changelog generation fails
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          cd target-repo
+
+          echo "📝 AI Changelog Generation"
+          echo "=================================================="
+
+          # Check if GEMINI_API_KEY is available
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "⚠️  GEMINI_API_KEY not set, skipping AI changelog generation"
+            echo "ℹ️  Changelogs can still be generated manually using scripts/generate-changelog.sh"
+            exit 0
+          fi
+
+          # Download generate-changelog.sh script from UPMAutoPublisher
+          echo "📥 Downloading changelog generation script..."
+          curl -sSfL \
+            "https://raw.githubusercontent.com/${{ github.repository }}/master/scripts/generate-changelog.sh" \
+            -o generate-changelog.sh
+
+          if [ ! -f generate-changelog.sh ]; then
+            echo "❌ Failed to download generate-changelog.sh"
+            exit 1
+          fi
+
+          chmod +x generate-changelog.sh
+          echo "✅ Script downloaded successfully"
+
+          # Process each published package
+          if [ ! -f published_packages.txt ] || [ ! -s published_packages.txt ]; then
+            echo "⚠️  No published packages found"
+            exit 0
+          fi
+
+          changelog_success=0
+          changelog_failed=0
+
+          while IFS='|' read -r package_name old_version new_version package_dir; do
+            [ -z "$package_name" ] && continue
+
+            echo ""
+            echo "📝 Generating changelog for $package_name..."
+            echo "   $old_version → $new_version"
+
+            package_json="$package_dir/package.json"
+
+            if [ ! -f "$package_json" ]; then
+              echo "❌ package.json not found: $package_json"
+              changelog_failed=$((changelog_failed + 1))
+              continue
+            fi
+
+            # Run changelog generation
+            if ./generate-changelog.sh "$package_json" "$old_version" "$new_version" "$GEMINI_API_KEY"; then
+              echo "✅ Changelog generated for $package_name"
+              changelog_success=$((changelog_success + 1))
+            else
+              echo "⚠️  Failed to generate changelog for $package_name"
+              changelog_failed=$((changelog_failed + 1))
+            fi
+
+          done < published_packages.txt
+
+          echo ""
+          echo "=================================================="
+          echo "📊 Changelog Generation Summary"
+          echo "=================================================="
+          echo "✅ Success: $changelog_success"
+          echo "❌ Failed: $changelog_failed"
+
+          # If any changelogs were generated, commit and push
+          if [ "$changelog_success" -gt 0 ]; then
+            echo ""
+            echo "💾 Committing changelog updates..."
+
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+
+            # Stage all CHANGELOG.md files
+            git add "**/CHANGELOG.md" || true
+
+            if git diff --staged --quiet; then
+              echo "⚠️  No changelog changes to commit"
+            else
+              # Commit with [skip ci] to avoid triggering another workflow
+              git commit -m "docs: update changelogs for published packages [skip ci]" \
+                -m "Auto-generated changelogs for $changelog_success package(s)" \
+                -m "- Generated using Gemini AI" \
+                -m "- Based on git commit history" \
+                -m "- Follows Keep a Changelog format"
+
+              # Push changes back to source repository
+              echo "📤 Pushing changelog updates..."
+
+              # Use GH_PAT for authentication (required to push to source repo)
+              git remote set-url origin "https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.event.client_payload.repository }}.git"
+
+              # Push to the branch that triggered this workflow
+              if git push origin HEAD:${{ github.event.client_payload.branch }}; then
+                echo "✅ Changelogs pushed successfully"
+              else
+                echo "❌ Failed to push changelogs"
+                exit 1
+              fi
+            fi
+          fi
+
       - name: Create audit log
         if: always()
         run: |

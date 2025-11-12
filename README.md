@@ -60,6 +60,7 @@ This repository contains the GitHub Actions workflow and documentation for autom
 - **Automatic Detection**: No manual triggers needed - just update version in package.json and commit
 - **Multi-Package Support**: Handles repos with multiple UPM packages
 - **Smart Version Checking**: Only publishes if version doesn't exist on registry
+- **AI-Powered Changelogs**: Automatically generates CHANGELOG.md using Gemini AI
 - **Error Resilient**: Continues publishing other packages if one fails
 - **Organization-Wide**: Single NPM token shared across all repositories
 - **Tag-Free**: No need to manually create git tags (simplified from upm/{version} approach)
