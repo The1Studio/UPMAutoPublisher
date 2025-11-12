@@ -498,16 +498,17 @@ jobs:
 
               # Only show first MAX_PACKAGES_SHOWN packages in detail
               if [ "$package_count" -le "$MAX_PACKAGES_SHOWN" ]; then
-                # Build GitHub source URL (using master branch for persistent links)
-                source_url="https://github.com/$repository/tree/master/$package_path"
+                # Build CHANGELOG.md URL (using master branch for persistent links)
+                changelog_url="https://github.com/$repository/blob/master/$package_path/CHANGELOG.md"
+                registry_url="https://upm.the1studio.org/-/web/detail/$name"
 
                 # Determine version change type
                 if [ "$old_ver" = "0.0.0" ]; then
                   # New package
                   line="### 🆕 **$name**"$'\n'
                   line="${line}┣━ **Version:** \`$new_ver\` _(new package)_"$'\n'
-                  line="${line}┣━ **Registry:** https://upm.the1studio.org/-/web/detail/$name"$'\n'
-                  line="${line}┗━ **Source:** $source_url"
+                  line="${line}┣━ [Registry]($registry_url)"$'\n'
+                  line="${line}┗━ [Changelog]($changelog_url)"
                 else
                   # Version upgrade - determine type
                   IFS='.' read -r old_major old_minor old_patch <<< "$old_ver"
@@ -527,8 +528,8 @@ jobs:
                   line="### $emoji **$name**"$'\n'
                   line="${line}┣━ **Version:** \`$old_ver\` ➜ \`$new_ver\`"$'\n'
                   line="${line}┣━ **Change Type:** $change_type"$'\n'
-                  line="${line}┣━ **Registry:** https://upm.the1studio.org/-/web/detail/$name"$'\n'
-                  line="${line}┗━ **Source:** $source_url"
+                  line="${line}┣━ [Registry]($registry_url)"$'\n'
+                  line="${line}┗━ [Changelog]($changelog_url)"
                 fi
 
                 if [ -z "$package_details" ]; then
