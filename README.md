@@ -39,15 +39,40 @@ For users comfortable with JSON or bulk registrations.
 
 ## Overview
 
-This repository contains the GitHub Actions workflow and documentation for automatically publishing Unity packages to The1Studio's private UPM registry whenever package.json versions are updated.
+This repository contains the automation system for publishing Unity packages to The1Studio's private UPM registry. **Zero setup required in your repository** - just register once and push version changes!
 
-### How It Works
+### 🆕 How It Works (Event-Driven Webhook Approach)
 
-1. **Trigger**: Monitors all registered repositories for commits to master/main branch
-2. **Detection**: Identifies changed `package.json` files in the commit
-3. **Version Check**: For each changed package:
-   - Extracts package name and version from package.json
-   - Queries `upm.the1studio.org` to check if version already exists
+1. **Register Once**: Add your repository to `config/repositories.json` (or use the [form](https://github.com/The1Studio/UPMAutoPublisher/actions/workflows/manual-register-repo.yml))
+2. **Push Changes**: Update `package.json` version and push to master/main
+3. **Instant Publishing**: Organization webhook automatically:
+   - Detects `package.json` changes (<1 second)
+   - Validates repository is registered
+   - Checks if version exists in registry
+   - Publishes to `upm.the1studio.org` if new
+   - Sends Discord notification
+
+**No dispatcher workflow needed in your repository!** 🎉
+
+### Architecture
+
+```
+Your Repository (push)
+    ↓
+GitHub Organization Webhook (instant)
+    ↓
+Cloudflare Worker (validates & triggers)
+    ↓
+UPMAutoPublisher (publishes packages)
+    ↓
+Discord Notification ✅
+```
+
+### Version Check
+
+For each changed package:
+- Extracts package name and version from package.json
+- Queries `upm.the1studio.org` to check if version already exists
    - Skips if version is already published
 4. **Publishing**: If new version detected:
    - Changes to package directory
@@ -196,9 +221,21 @@ To publish a new package version:
 
 That's it! No tags, no manual publishing.
 
-### For New Repository Setup
+### ⚙️ System Architecture (Advanced)
 
-See [Setup Instructions](docs/setup-instructions.md) for adding the workflow to a new repository.
+The UPM Auto Publisher now uses an **event-driven webhook architecture** for zero-touch automation:
+
+**Component	 | Purpose | Technology**
+---------|---------|-------------
+**Organization Webhook** | Receives ALL push events instantly | GitHub Webhooks
+**Cloudflare Worker** | Validates and routes events | Serverless (Free tier)
+**handle-publish-request** | Publishes packages | GitHub Actions
+**monitor-all-repos** | Fallback polling every 5 min | GitHub Actions (scheduled)
+
+📖 **Setup Guides:**
+- [Webhook Setup](docs/webhook-setup-guide.md) - Event-driven approach (recommended)
+- [Centralized Monitoring](docs/centralized-monitoring-approaches.md) - Compare all approaches
+- ~~[Legacy Setup](docs/setup-instructions.md)~~ - Deprecated (dispatcher per repo)
 
 ## Configuration
 

@@ -32,33 +32,54 @@ UPMAutoPublisher/
 
 ```
 
-## How It Works
+## How It Works (Event-Driven Webhook Architecture)
 
-### Workflow Trigger
-```yaml
-on:
-  push:
-    branches: [master, main]
-    paths: ['**/package.json']
+### 🆕 Architecture (2025-11-13)
+
+**Zero setup in target repositories!** The system now uses organization webhooks:
+
+```
+Target Repository (push package.json change)
+    ↓
+GitHub Organization Webhook (instant, <1s)
+    ↓
+Cloudflare Worker (cloudflare-worker/)
+    ├─ Verify HMAC signature
+    ├─ Check package.json changed
+    ├─ Validate repo registered in config/repositories.json
+    └─ Trigger repository_dispatch
+            ↓
+UPMAutoPublisher: handle-publish-request.yml
+    ├─ Clone target repository
+    ├─ Detect changed packages
+    ├─ Check versions in registry
+    ├─ Publish new versions
+    ├─ Generate AI changelogs (Gemini)
+    └─ Send Discord notification
 ```
 
 ### Publishing Logic
-1. Detect changed `package.json` files via `git diff`
-2. Extract package name and version from each file
-3. Check if version exists on `upm.the1studio.org`
-4. If new version: publish to registry
-5. **NEW:** Generate AI-powered changelogs for published packages
-6. Commit and push CHANGELOG.md updates back to repository
-7. Continue with other packages if one fails
+1. **Webhook receives push event** (< 1 second latency)
+2. Cloudflare Worker validates and triggers publish workflow
+3. Clone target repository at specific commit SHA
+4. Detect changed `package.json` files
+5. Extract package name and version from each file
+6. Check if version exists on `upm.the1studio.org`
+7. If new version: publish to registry
+8. Generate AI-powered changelogs (optional, Gemini API)
+9. Commit and push CHANGELOG.md updates
+10. Send Discord notification with results
 
 ### Key Design Decisions
-- **Trigger:** On commit (not on tags)
-- **Authentication:** Organization-level NPM token
+- **Trigger:** Organization webhook (event-driven, not polling)
+- **Repository Setup:** Zero - just register in config/repositories.json
+- **Authentication:** Organization-level NPM token + GitHub PAT
 - **Discovery:** Auto-detect packages (no config needed)
 - **Error Handling:** Continue on failure (multi-package support)
 - **Tags:** No automatic git tag creation
-- **Registry Configuration:** Uses `--registry` flag with environment variables (NOT publishConfig in package.json)
-- **AI Changelogs:** Optional automatic changelog generation using Gemini AI (requires GEMINI_API_KEY)
+- **Registry Configuration:** Uses `--registry` flag with environment variables
+- **AI Changelogs:** Optional automatic changelog generation (Gemini AI)
+- **Fallback:** Scheduled polling every 5 minutes (monitor-all-repos.yml)
 
 ### Registry Configuration Approach
 

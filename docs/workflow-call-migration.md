@@ -1,8 +1,21 @@
 # Migration to workflow_call Pattern
 
+**⚠️ DEPRECATED:** This approach is superseded by the **organization webhook** solution.
+
 **Date:** 2025-11-13
-**Status:** 🚀 RECOMMENDED - More Reliable Than repository_dispatch
-**Impact:** Eliminates silent dispatch failures
+**Status:** ⛔ DEPRECATED - Use webhook approach instead
+**Replacement:** [Webhook Setup Guide](./webhook-setup-guide.md)
+
+**Why deprecated:**
+- Webhook approach requires **zero setup** in target repos (workflow_call requires updating each repo)
+- Webhook is **event-driven** with <1s latency (workflow_call still has dispatch delay)
+- Webhook is **simpler** (no workflow file changes needed)
+
+**If you still want workflow_call:** See legacy template in `templates/` directory.
+
+---
+
+## Original Documentation (For Reference Only)
 
 ---
 
