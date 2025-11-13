@@ -275,31 +275,92 @@ jobs:
     if: always()
     steps:
       - name: Send Discord notification
-        uses: sarisia/actions-status-discord@v1
-        if: always()
-        with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK_UPM}}
-          status: ${{ needs.build-cache.result }}
-          title: "📦 UPM Package Cache Build"
-          description: |
-            **Workflow:** Build Package Cache
-            **Trigger:** ${{ github.event_name }}
-            **Branch:** `${{ github.ref_name }}`
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_UPM }}
+          DISCORD_THREAD_ID: "1437635908781342783"
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "⚠️  DISCORD_WEBHOOK_UPM secret not set, skipping notification"
+            exit 0
+          fi
 
-            **📊 Statistics:**
-            • Total Packages: `${{ needs.build-cache.outputs.stats_total || '0' }}`
-            • ✅ Up-to-date: `${{ needs.build-cache.outputs.stats_uptodate || '0' }}`
-            • ⚠️ Stale: `${{ needs.build-cache.outputs.stats_stale || '0' }}`
-            • 🆕 Not Published: `${{ needs.build-cache.outputs.stats_new || '0' }}`
+          # Determine status emoji and color
+          status="${{ needs.build-cache.result }}"
+          if [ "$status" == "success" ]; then
+            status_emoji="✅"
+            color=4764443  # Green
+          elif [ "$status" == "failure" ]; then
+            status_emoji="❌"
+            color=15158332  # Red
+          else
+            status_emoji="⚠️"
+            color=16776960  # Yellow
+          fi
 
-            **🚀 Auto-Publish Results:**
-            • Triggered: `${{ needs.build-cache.outputs.triggered || '0' }}`
-            • Missing workflow_dispatch: `${{ needs.build-cache.outputs.no_dispatch || '0' }}`
-            • Failed: `${{ needs.build-cache.outputs.failed || '0' }}`
+          workflow_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          cache_url="https://github.com/${{ github.repository }}/blob/master/config/package-cache.json"
+          timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-            **🔗 Links:**
-            • [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-            • [Cache File](${{ github.server_url }}/${{ github.repository }}/blob/master/config/package-cache.json)
-          color: ${{ needs.build-cache.result == 'success' && '0x48C21B' || needs.build-cache.result == 'failure' && '0xFF0000' || '0xFFCC00' }}
-          username: "THE 1 GAME STUDIO"
-          avatar_url: "https://raw.githubusercontent.com/The1Studio/UPMAutoPublisher/master/.github/assets/the1studio-logo.png"
+          total="${{ needs.build-cache.outputs.stats_total || '0' }}"
+          uptodate="${{ needs.build-cache.outputs.stats_uptodate || '0' }}"
+          stale="${{ needs.build-cache.outputs.stats_stale || '0' }}"
+          new="${{ needs.build-cache.outputs.stats_new || '0' }}"
+          triggered="${{ needs.build-cache.outputs.triggered || '0' }}"
+          no_dispatch="${{ needs.build-cache.outputs.no_dispatch || '0' }}"
+          failed="${{ needs.build-cache.outputs.failed || '0' }}"
+
+          jq -n \
+            --arg status_emoji "$status_emoji" \
+            --argjson color "$color" \
+            --arg workflow_url "$workflow_url" \
+            --arg cache_url "$cache_url" \
+            --arg branch "${{ github.ref_name }}" \
+            --arg total "$total" \
+            --arg uptodate "$uptodate" \
+            --arg stale "$stale" \
+            --arg new "$new" \
+            --arg triggered "$triggered" \
+            --arg no_dispatch "$no_dispatch" \
+            --arg failed "$failed" \
+            --arg timestamp "$timestamp" \
+            '{
+              "embeds": [{
+                "author": {
+                  "name": "UPM Auto Publisher",
+                  "icon_url": "https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/npm/npm.png"
+                },
+                "title": ($status_emoji + " Package Cache Build"),
+                "description": ("💾 **Workflow:** Build Package Cache\n🌿 **Branch:** `" + $branch + "`\n━━━━━━━━━━━━━━━━━━━━━━━"),
+                "color": $color,
+                "fields": [
+                  {
+                    "name": "📊 Cache Statistics",
+                    "value": ("```\nTotal:        " + $total + "\nUp-to-date:   " + $uptodate + "\nStale:        " + $stale + "\nNot Published: " + $new + "\n```"),
+                    "inline": false
+                  },
+                  {
+                    "name": "🚀 Auto-Publish Results",
+                    "value": ("```\nTriggered:    " + $triggered + "\nNo Dispatch:  " + $no_dispatch + "\nFailed:       " + $failed + "\n```"),
+                    "inline": false
+                  },
+                  {
+                    "name": "🔗 Quick Links",
+                    "value": ("[📋 Workflow Run](" + $workflow_url + ") • [💾 Cache File](" + $cache_url + ")"),
+                    "inline": false
+                  }
+                ],
+                "footer": {
+                  "text": "THE 1 GAME STUDIO • Daily Job",
+                  "icon_url": "https://raw.githubusercontent.com/The1Studio/UPMAutoPublisher/master/.github/assets/the1studio-logo.png"
+                },
+                "timestamp": $timestamp
+              }]
+            }' > discord_payload.json
+
+          # Send to Discord (with thread_id as query parameter)
+          curl -X POST "$DISCORD_WEBHOOK?thread_id=$DISCORD_THREAD_ID" \
+            -H "Content-Type: application/json" \
+            -d @discord_payload.json \
+            --fail --silent --show-error || echo "⚠️  Failed to send Discord notification"
+
+          rm -f discord_payload.json
