@@ -286,7 +286,7 @@ jobs:
             for url in "${urls[@]}"; do
               repo_name=$(echo "$url" | sed 's|.*/pull/.*||' | sed 's|https://github.com/||')
               pr_num=$(echo "$url" | grep -o 'pull/[0-9]*' | cut -d'/' -f2)
-              pr_list="${pr_list}• [${repo_name}#${pr_num}](${url})\\n"
+              pr_list="${pr_list}• [${repo_name}#${pr_num}](${url})\n"
             done
             pr_field="{\"name\": \"🔧 Fix PRs Created\", \"value\": \"$pr_list\", \"inline\": false},"
           else
@@ -310,12 +310,12 @@ jobs:
                   "icon_url": "https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/npm/npm.png"
                 },
                 "title": ($status_emoji + " Package.json Validation"),
-                "description": "🔍 **Workflow:** Validate All Packages\\n🤖 **AI:** Gemini 2.0 Flash\\n⏰ **Schedule:** Weekly Monday 3 AM UTC\\n━━━━━━━━━━━━━━━━━━━━━━━",
+                "description": ("🔍 **Workflow:** Validate All Packages\n🤖 **AI:** Gemini 2.0 Flash\n⏰ **Schedule:** Weekly Monday 3 AM UTC\n━━━━━━━━━━━━━━━━━━━━━━━"),
                 "color": $color,
                 "fields": ([
                   {
                     "name": "📊 Validation Results",
-                    "value": ("```\\nRepositories:      " + $total_repos + "\\nWith Issues:       " + $repos_with_issues + "\\nFiles with Issues: " + $files_with_issues + "\\nPRs Created:       " + $prs_created + "\\n```"),
+                    "value": ("```\nRepositories:      " + $total_repos + "\nWith Issues:       " + $repos_with_issues + "\nFiles with Issues: " + $files_with_issues + "\nPRs Created:       " + $prs_created + "\n```"),
                     "inline": false
                   }
                 ] + (if $pr_field != "" then [$pr_field | fromjson] else [] end) + [
