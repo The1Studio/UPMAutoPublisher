@@ -179,32 +179,99 @@ jobs:
     if: always()
     steps:
       - name: Send Discord notification
-        uses: sarisia/actions-status-discord@v1
-        if: always()
-        with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK_UPM}}
-          status: ${{ needs.audit.result }}
-          title: "🔍 Daily Repository Audit"
-          description: |
-            **Workflow:** Daily Audit
-            **Trigger:** ${{ github.event_name }}
-            **Schedule:** Daily at 9 AM UTC
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_UPM }}
+          DISCORD_THREAD_ID: "1437635908781342783"
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "⚠️  DISCORD_WEBHOOK_UPM secret not set, skipping notification"
+            exit 0
+          fi
 
-            **📊 Repository Status:**
-            • Total: `${{ needs.audit.outputs.total_repos || '0' }}`
-            • ✅ Active: `${{ needs.audit.outputs.active || '0' }}`
-            • ⏸️ Pending: `${{ needs.audit.outputs.pending || '0' }}`
-            • 🚫 Disabled: `${{ needs.audit.outputs.disabled || '0' }}`
+          # Determine status emoji and color
+          status="${{ needs.audit.result }}"
+          if [ "$status" == "success" ]; then
+            status_emoji="✅"
+            color=4764443  # Green
+          elif [ "$status" == "failure" ]; then
+            status_emoji="❌"
+            color=15158332  # Red
+          else
+            status_emoji="⚠️"
+            color=16776960  # Yellow
+          fi
 
-            **📦 Package Status:**
-            ${{ needs.audit.outputs.cache_exists == 'true' && format('• Total: `{0}`
-            • ✅ Up-to-date: `{1}`
-            • ⚠️ Needs Publish: `{2}`
-            • 🆕 Not Published: `{3}`', needs.audit.outputs.total_pkgs, needs.audit.outputs.uptodate, needs.audit.outputs.stale, needs.audit.outputs.new) || '• ⚠️ Cache not found' }}
+          workflow_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          registry_url="https://github.com/${{ github.repository }}/blob/master/config/repositories.json"
+          timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-            **🔗 Links:**
-            • [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-            • [Repository Registry](${{ github.server_url }}/${{ github.repository }}/blob/master/config/repositories.json)
-          color: ${{ needs.audit.result == 'success' && '0x48C21B' || needs.audit.result == 'failure' && '0xFF0000' || '0xFFCC00' }}
-          username: "THE 1 GAME STUDIO"
-          avatar_url: "https://raw.githubusercontent.com/The1Studio/UPMAutoPublisher/master/.github/assets/the1studio-logo.png"
+          total_repos="${{ needs.audit.outputs.total_repos || '0' }}"
+          active="${{ needs.audit.outputs.active || '0' }}"
+          pending="${{ needs.audit.outputs.pending || '0' }}"
+          disabled="${{ needs.audit.outputs.disabled || '0' }}"
+
+          cache_exists="${{ needs.audit.outputs.cache_exists }}"
+          total_pkgs="${{ needs.audit.outputs.total_pkgs || '0' }}"
+          uptodate="${{ needs.audit.outputs.uptodate || '0' }}"
+          stale="${{ needs.audit.outputs.stale || '0' }}"
+          new="${{ needs.audit.outputs.new || '0' }}"
+
+          # Build package status field value
+          if [ "$cache_exists" == "true" ]; then
+            pkg_status="[\`\`\`\\nTotal:        $total_pkgs\\nUp-to-date:   $uptodate\\nStale:        $stale\\nNot Published: $new\\n\`\`\`]"
+          else
+            pkg_status="⚠️ **Cache not found**"
+          fi
+
+          jq -n \
+            --arg status_emoji "$status_emoji" \
+            --argjson color "$color" \
+            --arg workflow_url "$workflow_url" \
+            --arg registry_url "$registry_url" \
+            --arg total_repos "$total_repos" \
+            --arg active "$active" \
+            --arg pending "$pending" \
+            --arg disabled "$disabled" \
+            --arg pkg_status "$pkg_status" \
+            --arg timestamp "$timestamp" \
+            '{
+              "embeds": [{
+                "author": {
+                  "name": "UPM Auto Publisher",
+                  "icon_url": "https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/npm/npm.png"
+                },
+                "title": ($status_emoji + " Daily Repository Audit"),
+                "description": "🔍 **Workflow:** Daily Audit\\n⏰ **Schedule:** Daily at 9 AM UTC\\n━━━━━━━━━━━━━━━━━━━━━━━",
+                "color": $color,
+                "fields": [
+                  {
+                    "name": "📊 Repository Status",
+                    "value": ("```\\nTotal:    " + $total_repos + "\\nActive:   " + $active + "\\nPending:  " + $pending + "\\nDisabled: " + $disabled + "\\n```"),
+                    "inline": false
+                  },
+                  {
+                    "name": "📦 Package Status",
+                    "value": $pkg_status,
+                    "inline": false
+                  },
+                  {
+                    "name": "🔗 Quick Links",
+                    "value": ("[📋 Workflow Run](" + $workflow_url + ") • [📝 Registry](" + $registry_url + ")"),
+                    "inline": false
+                  }
+                ],
+                "footer": {
+                  "text": "THE 1 GAME STUDIO • Daily Job",
+                  "icon_url": "https://raw.githubusercontent.com/The1Studio/UPMAutoPublisher/master/.github/assets/the1studio-logo.png"
+                },
+                "timestamp": $timestamp
+              }]
+            }' > discord_payload.json
+
+          # Send to Discord (with thread_id as query parameter)
+          curl -X POST "$DISCORD_WEBHOOK?thread_id=$DISCORD_THREAD_ID" \
+            -H "Content-Type: application/json" \
+            -d @discord_payload.json \
+            --fail --silent --show-error || echo "⚠️  Failed to send Discord notification"
+
+          rm -f discord_payload.json

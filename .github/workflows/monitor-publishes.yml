@@ -193,30 +193,82 @@ jobs:
     if: always() && needs.monitor.outputs.total_checked > 0
     steps:
       - name: Send Discord notification
-        uses: sarisia/actions-status-discord@v1
-        if: always()
-        with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK_UPM}}
-          status: ${{ needs.monitor.result }}
-          title: "📊 Package Publish Activity"
-          description: |
-            **Workflow:** Publish Monitor
-            **Trigger:** ${{ github.event_name }}
-            **Monitoring Window:** Last 15 minutes
-            **Time:** $(date -u +%H:%M) UTC
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_UPM }}
+          DISCORD_THREAD_ID: "1437635908781342783"
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "⚠️  DISCORD_WEBHOOK_UPM secret not set, skipping notification"
+            exit 0
+          fi
 
-            **📊 Activity Summary:**
-            • Total Workflows: `${{ needs.monitor.outputs.total_checked || '0' }}`
-            • ✅ Successful: `${{ needs.monitor.outputs.successful || '0' }}`
-            • ❌ Failed: `${{ needs.monitor.outputs.failed || '0' }}`
-            • 🔄 In Progress: `${{ needs.monitor.outputs.in_progress || '0' }}`
+          # Determine status emoji and color based on failures
+          failed="${{ needs.monitor.outputs.failed || '0' }}"
+          successful="${{ needs.monitor.outputs.successful || '0' }}"
 
-            ${{ needs.monitor.outputs.published_packages != '' && format('**📦 Recent Publishes:**
-            {0}', needs.monitor.outputs.published_packages) || '' }}
+          if [ "$failed" -gt 0 ]; then
+            status_emoji="❌"
+            color=15158332  # Red
+          elif [ "$successful" -gt 0 ]; then
+            status_emoji="✅"
+            color=4764443  # Green
+          else
+            status_emoji="🔄"
+            color=16776960  # Yellow
+          fi
 
-            **🔗 Links:**
-            • [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-            • [All Repositories](${{ github.server_url }}/${{ github.repository }}/blob/master/config/repositories.json)
-          color: ${{ needs.monitor.outputs.failed > 0 && '0xFF0000' || needs.monitor.outputs.successful > 0 && '0x48C21B' || '0xFFCC00' }}
-          username: "THE 1 GAME STUDIO"
-          avatar_url: "https://raw.githubusercontent.com/The1Studio/UPMAutoPublisher/master/.github/assets/the1studio-logo.png"
+          workflow_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          registry_url="https://github.com/${{ github.repository }}/blob/master/config/repositories.json"
+          timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          monitoring_time=$(date -u +%H:%M)
+
+          total="${{ needs.monitor.outputs.total_checked || '0' }}"
+          in_progress="${{ needs.monitor.outputs.in_progress || '0' }}"
+
+          jq -n \
+            --arg status_emoji "$status_emoji" \
+            --argjson color "$color" \
+            --arg workflow_url "$workflow_url" \
+            --arg registry_url "$registry_url" \
+            --arg monitoring_time "$monitoring_time" \
+            --arg total "$total" \
+            --arg successful "$successful" \
+            --arg failed "$failed" \
+            --arg in_progress "$in_progress" \
+            --arg timestamp "$timestamp" \
+            '{
+              "embeds": [{
+                "author": {
+                  "name": "UPM Auto Publisher",
+                  "icon_url": "https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/npm/npm.png"
+                },
+                "title": ($status_emoji + " Package Publish Activity"),
+                "description": ("📊 **Workflow:** Publish Monitor\\n⏰ **Window:** Last 15 minutes\\n🕐 **Time:** " + $monitoring_time + " UTC\\n━━━━━━━━━━━━━━━━━━━━━━━"),
+                "color": $color,
+                "fields": [
+                  {
+                    "name": "📊 Activity Summary",
+                    "value": ("```\\nTotal:       " + $total + "\\nSuccessful:  " + $successful + "\\nFailed:      " + $failed + "\\nIn Progress: " + $in_progress + "\\n```"),
+                    "inline": false
+                  },
+                  {
+                    "name": "🔗 Quick Links",
+                    "value": ("[📋 Workflow Run](" + $workflow_url + ") • [📝 Registry](" + $registry_url + ")"),
+                    "inline": false
+                  }
+                ],
+                "footer": {
+                  "text": "THE 1 GAME STUDIO • Monitoring",
+                  "icon_url": "https://raw.githubusercontent.com/The1Studio/UPMAutoPublisher/master/.github/assets/the1studio-logo.png"
+                },
+                "timestamp": $timestamp
+              }]
+            }' > discord_payload.json
+
+          # Send to Discord (with thread_id as query parameter)
+          curl -X POST "$DISCORD_WEBHOOK?thread_id=$DISCORD_THREAD_ID" \
+            -H "Content-Type: application/json" \
+            -d @discord_payload.json \
+            --fail --silent --show-error || echo "⚠️  Failed to send Discord notification"
+
+          rm -f discord_payload.json
