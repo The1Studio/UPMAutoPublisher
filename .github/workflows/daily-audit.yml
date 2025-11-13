@@ -182,7 +182,7 @@ jobs:
         uses: sarisia/actions-status-discord@v1
         if: always()
         with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          webhook: ${{ secrets.DISCORD_WEBHOOK_UPM}}
           status: ${{ needs.audit.result }}
           title: "🔍 Daily Repository Audit"
           description: |

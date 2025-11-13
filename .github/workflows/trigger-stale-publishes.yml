@@ -266,7 +266,7 @@ jobs:
         uses: sarisia/actions-status-discord@v1
         if: always()
         with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          webhook: ${{ secrets.DISCORD_WEBHOOK_UPM}}
           status: ${{ needs.trigger-publishes.result }}
           title: "🚀 Trigger Stale Package Publishing"
           description: |
