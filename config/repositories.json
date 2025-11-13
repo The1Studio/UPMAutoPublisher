@@ -96,6 +96,10 @@
     {
       "url": "https://github.com/The1Studio/UnityAdQualitySDK",
       "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/TheOne.ProjectSetup.git",
+      "status": "pending"
     }
   ]
 }
