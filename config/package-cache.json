@@ -1,5 +1,5 @@
 {
-  "updated": "2025-11-13T06:11:50Z",
+  "updated": "2025-11-13T07:11:27Z",
   "repositories": {
     "The1Studio/TheOneFeature": {
       "packages": {
@@ -668,6 +668,15 @@
           "path": "ServiceImplementation/RemoteConfig/FireBaseRemoteConfig",
           "version": "1.0.0",
           "publishedVersion": "1.0.0"
+        }
+      }
+    },
+    "The1Studio/UnityAdQualitySDK": {
+      "packages": {
+        "com.theone.adquality": {
+          "path": "Assets/IronSourceAdQuality",
+          "version": "7.25.2",
+          "publishedVersion": null
         }
       }
     }
