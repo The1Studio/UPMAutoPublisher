@@ -218,7 +218,7 @@ jobs:
 
           # Build package status field value
           if [ "$cache_exists" == "true" ]; then
-            pkg_status="[\`\`\`\\nTotal:        $total_pkgs\\nUp-to-date:   $uptodate\\nStale:        $stale\\nNot Published: $new\\n\`\`\`]"
+            pkg_status="```\nTotal:        $total_pkgs\nUp-to-date:   $uptodate\nStale:        $stale\nNot Published: $new\n```"
           else
             pkg_status="⚠️ **Cache not found**"
           fi
@@ -241,12 +241,12 @@ jobs:
                   "icon_url": "https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/npm/npm.png"
                 },
                 "title": ($status_emoji + " Daily Repository Audit"),
-                "description": "🔍 **Workflow:** Daily Audit\\n⏰ **Schedule:** Daily at 9 AM UTC\\n━━━━━━━━━━━━━━━━━━━━━━━",
+                "description": ("🔍 **Workflow:** Daily Audit\n⏰ **Schedule:** Daily at 9 AM UTC\n━━━━━━━━━━━━━━━━━━━━━━━"),
                 "color": $color,
                 "fields": [
                   {
                     "name": "📊 Repository Status",
-                    "value": ("```\\nTotal:    " + $total_repos + "\\nActive:   " + $active + "\\nPending:  " + $pending + "\\nDisabled: " + $disabled + "\\n```"),
+                    "value": ("```\nTotal:    " + $total_repos + "\nActive:   " + $active + "\nPending:  " + $pending + "\nDisabled: " + $disabled + "\n```"),
                     "inline": false
                   },
                   {

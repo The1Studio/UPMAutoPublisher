@@ -243,12 +243,12 @@ jobs:
                   "icon_url": "https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/npm/npm.png"
                 },
                 "title": ($status_emoji + " Package Publish Activity"),
-                "description": ("📊 **Workflow:** Publish Monitor\\n⏰ **Window:** Last 15 minutes\\n🕐 **Time:** " + $monitoring_time + " UTC\\n━━━━━━━━━━━━━━━━━━━━━━━"),
+                "description": ("📊 **Workflow:** Publish Monitor\n⏰ **Window:** Last 15 minutes\n🕐 **Time:** " + $monitoring_time + " UTC\n━━━━━━━━━━━━━━━━━━━━━━━"),
                 "color": $color,
                 "fields": [
                   {
                     "name": "📊 Activity Summary",
-                    "value": ("```\\nTotal:       " + $total + "\\nSuccessful:  " + $successful + "\\nFailed:      " + $failed + "\\nIn Progress: " + $in_progress + "\\n```"),
+                    "value": ("```\nTotal:       " + $total + "\nSuccessful:  " + $successful + "\nFailed:      " + $failed + "\nIn Progress: " + $in_progress + "\n```"),
                     "inline": false
                   },
                   {
