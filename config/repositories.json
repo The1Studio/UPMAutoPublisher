@@ -27,7 +27,7 @@
     },
     {
       "url": "https://github.com/The1Studio/TheOne.Extensions",
-      "status": "skip"
+      "status": "disabled"
     },
     {
       "url": "https://github.com/The1Studio/TheOne.FTUE",
@@ -39,7 +39,7 @@
     },
     {
       "url": "https://github.com/The1Studio/TheOne.Entities",
-      "status": "skip"
+      "status": "disabled"
     },
     {
       "url": "https://github.com/The1Studio/UITemplateProjectMigration",
@@ -75,7 +75,7 @@
     },
     {
       "url": "https://github.com/The1Studio/TheOne.DI",
-      "status": "skip"
+      "status": "disabled"
     },
     {
       "url": "https://github.com/The1Studio/PLAGameFoundation",
@@ -83,7 +83,7 @@
     },
     {
       "url": "https://github.com/The1Studio/TheOne.Pooling",
-      "status": "skip"
+      "status": "disabled"
     },
     {
       "url": "https://github.com/The1Studio/TheOne.WebGL.Poki",
@@ -95,7 +95,7 @@
     },
     {
       "url": "https://github.com/The1Studio/TheOne.Lifecycle",
-      "status": "skip"
+      "status": "disabled"
     },
     {
       "url": "https://github.com/The1Studio/DynamicUserDifficulty",
