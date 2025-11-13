@@ -1,0 +1,74 @@
+# UPM Publish Dispatcher - Template for registered repositories
+# This workflow detects package.json changes and calls the centralized
+# publish handler in UPMAutoPublisher using workflow_call (reliable, synchronous)
+
+name: UPM Publish Dispatcher
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - '**/package.json'
+  workflow_dispatch:
+    inputs:
+      package_path:
+        description: 'Specific package path to publish (e.g., Assets/MyPackage)'
+        required: false
+        type: string
+
+jobs:
+  detect-and-dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Need 2 commits for git diff
+
+      - name: Detect changed packages
+        id: detect
+        run: |
+          echo "🔍 Detecting changed packages..."
+
+          # Check if specific package requested via workflow_dispatch
+          if [ -n "${{ github.event.inputs.package_path }}" ]; then
+            echo "📦 Specific package requested: ${{ github.event.inputs.package_path }}"
+            echo "package_path=${{ github.event.inputs.package_path }}" >> $GITHUB_OUTPUT
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # For push events, detect changed package.json files
+          changed_files=$(git diff --name-only HEAD~1 HEAD | grep 'package\.json$' || echo "")
+
+          if [ -z "$changed_files" ]; then
+            echo "⏭️  No package.json changes detected"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "📦 Changed packages:"
+          echo "$changed_files"
+
+          echo "package_path=" >> $GITHUB_OUTPUT  # Empty for auto-detection
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+
+  # Call the centralized publish handler
+  publish:
+    needs: detect-and-dispatch
+    if: needs.detect-and-dispatch.outputs.has_changes == 'true'
+    uses: The1Studio/UPMAutoPublisher/.github/workflows/handle-publish-request-reusable.yml@master
+    with:
+      repository: ${{ github.repository }}
+      commit_sha: ${{ github.sha }}
+      commit_message: ${{ github.event.head_commit.message }}
+      commit_author: ${{ github.event.head_commit.author.username }}
+      branch: ${{ github.ref_name }}
+      package_path: ${{ needs.detect-and-dispatch.outputs.package_path }}
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      DISCORD_WEBHOOK_UPM: ${{ secrets.DISCORD_WEBHOOK_UPM }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GH_PAT: ${{ secrets.GH_PAT }}

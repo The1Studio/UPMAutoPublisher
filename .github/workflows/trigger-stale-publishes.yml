@@ -299,7 +299,7 @@ jobs:
 
           # Build triggers section
           if [ "$dry_run" != "true" ]; then
-            triggers_value="[\`\`\`\nTriggered:  $triggered\nNot Ready:  $not_ready\nNo Dispatch: $no_dispatch\nFailed:     $failed\n\`\`\`]"
+            triggers_value=$'```\nTriggered:  '"$triggered"$'\nNot Ready:  '"$not_ready"$'\nNo Dispatch: '"$no_dispatch"$'\nFailed:     '"$failed"$'\n```'
           else
             triggers_value="⚠️ **Dry Run Mode** - No workflows triggered"
           fi
