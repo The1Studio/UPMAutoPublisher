@@ -216,6 +216,56 @@ chmod +x generate-changelog.sh
 
 **See:** `docs/configuration.md#gemini_api_key-setup` for complete details
 
+### AI Package.json Validation
+
+**NEW FEATURE:** Real-time package.json validation using Google Gemini AI.
+
+**Overview:**
+Before publishing packages, the workflow automatically validates package.json files using AI to detect and fix issues, preventing failed publishes and maintaining quality standards.
+
+**How it works:**
+1. Validates package.json before npm publish
+2. Checks for:
+   - JSON syntax errors (missing/trailing commas)
+   - Missing required UPM fields
+   - Invalid formats (package name, semver, Unity version)
+   - Dependency issues
+3. If critical issues found:
+   - Auto-fixes the issues if possible
+   - Creates PR with fixes in target repository
+   - Enables auto-merge on the fix PR
+   - Skips publish until fix is merged
+4. If only warnings found:
+   - Logs warnings but continues with publish
+5. Uses validation guide at `docs/package-json-validation-guide.md`
+
+**Requirements:**
+- `GEMINI_API_KEY` organization secret (optional but recommended)
+- `GH_PAT` secret with `repo` scope (already required)
+
+**Behavior:**
+- ✅ Runs on every publish attempt (not just weekly)
+- ✅ Auto-fixes critical issues and creates PRs
+- ✅ Enables auto-merge on fix PRs
+- ✅ Graceful fallback if API not available
+- ✅ Uses temperature 0.1 for deterministic validation
+- ✅ Never fails workflow - only skips problematic packages
+
+**Example Flow:**
+```
+Package detected → Gemini validation
+  ├─ ✅ Valid → Continue to publish
+  ├─ ⚠️ Warnings → Log warnings + publish
+  └─ ❌ Critical issues
+      ├─ Auto-fix available → Create PR + skip publish
+      └─ No auto-fix → Skip publish + log error
+```
+
+**Validation Guide:**
+Complete validation rules documented at `docs/package-json-validation-guide.md`
+
+**See:** `docs/configuration.md#gemini_api_key-setup` for setup details
+
 ## Common Tasks
 
 ### Adding a New Repository to the Registry
