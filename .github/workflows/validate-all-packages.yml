@@ -1,0 +1,342 @@
+name: Validate All Package.json Files
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'  # Weekly on Monday at 3 AM UTC
+
+  workflow_dispatch:
+    inputs:
+      create_prs:
+        description: 'Create PRs to fix issues automatically'
+        type: boolean
+        default: true
+      dry_run:
+        description: 'Dry run (validate only, no PRs)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate-all:
+    runs-on: [self-hosted, arc, the1studio, org]
+    timeout-minutes: 60
+    name: Validate package.json across all repositories
+    outputs:
+      total_repos: ${{ steps.validate.outputs.total_repos }}
+      total_files: ${{ steps.validate.outputs.total_files }}
+      repos_with_issues: ${{ steps.validate.outputs.repos_with_issues }}
+      files_with_issues: ${{ steps.validate.outputs.files_with_issues }}
+      prs_created: ${{ steps.create_prs.outputs.prs_created }}
+      pr_urls: ${{ steps.create_prs.outputs.pr_urls }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install dependencies
+        run: |
+          # Fix APT sources
+          sudo sed -i 's|http://archive.ubuntu.com|https://archive.ubuntu.com|g' /etc/apt/sources.list
+          sudo sed -i 's|http://security.ubuntu.com|https://security.ubuntu.com|g' /etc/apt/sources.list
+          sudo mv /etc/apt/sources.list.d /etc/apt/sources.list.d.bak 2>/dev/null || true
+          sudo mkdir -p /etc/apt/sources.list.d
+
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq jq curl
+
+          # Install GitHub CLI
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y gh
+
+      - name: Validate all repositories
+        id: validate
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          echo "🔍 Starting validation of all registered repositories..."
+          echo ""
+
+          total_repos=0
+          total_files=0
+          repos_with_issues=0
+          files_with_issues=0
+
+          # Create results directory
+          mkdir -p /tmp/validation_results
+
+          # Process each active repository
+          while IFS= read -r repo_json; do
+            url=$(echo "$repo_json" | jq -r '.url')
+            status=$(echo "$repo_json" | jq -r '.status')
+
+            # Skip disabled repos
+            if [ "$status" = "disabled" ]; then
+              continue
+            fi
+
+            # Extract repo name
+            if [[ "$url" =~ github\.com/([^/]+)/([^/]+) ]]; then
+              repo_full="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+            else
+              continue
+            fi
+
+            total_repos=$((total_repos + 1))
+
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "📦 Validating: $repo_full"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+            # Run validation script
+            if ./scripts/validate-package-json.sh "$url" 2>&1; then
+              echo "✅ No issues found"
+            else
+              echo "❌ Issues found"
+              repos_with_issues=$((repos_with_issues + 1))
+
+              # Copy validation results
+              if [ -f validation_results.json ]; then
+                repo_safe=$(echo "$repo_full" | tr '/' '_')
+                cp validation_results.json "/tmp/validation_results/${repo_safe}.json"
+
+                # Count files with issues
+                issue_count=$(jq 'length' validation_results.json)
+                files_with_issues=$((files_with_issues + issue_count))
+                total_files=$((total_files + issue_count))
+              fi
+            fi
+
+            echo ""
+            sleep 2  # Rate limit protection
+
+          done < <(jq -c '.repositories[]' config/repositories.json)
+
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📊 Validation Summary"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Total repositories checked: $total_repos"
+          echo "Repositories with issues: $repos_with_issues"
+          echo "Total files with issues: $files_with_issues"
+          echo ""
+
+          # Set outputs
+          echo "total_repos=$total_repos" >> $GITHUB_OUTPUT
+          echo "total_files=$total_files" >> $GITHUB_OUTPUT
+          echo "repos_with_issues=$repos_with_issues" >> $GITHUB_OUTPUT
+          echo "files_with_issues=$files_with_issues" >> $GITHUB_OUTPUT
+
+      - name: Create fix PRs
+        id: create_prs
+        if: steps.validate.outputs.repos_with_issues > 0 && inputs.dry_run != true && (inputs.create_prs == true || github.event_name == 'schedule')
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "🔧 Creating fix PRs for repositories with issues..."
+          echo ""
+
+          prs_created=0
+          pr_urls=""
+
+          # Process each repository with issues
+          for validation_file in /tmp/validation_results/*.json; do
+            if [ ! -f "$validation_file" ]; then
+              continue
+            fi
+
+            # Extract repo name from filename
+            filename=$(basename "$validation_file" .json)
+            repo_full=$(echo "$filename" | tr '_' '/')
+
+            # Find repo URL
+            repo_url=$(jq -r ".repositories[] | select(.url | contains(\"$repo_full\")) | .url" config/repositories.json)
+
+            if [ -z "$repo_url" ]; then
+              echo "⚠️  Could not find URL for $repo_full"
+              continue
+            fi
+
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "🔧 Creating PR for: $repo_full"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+            if ./scripts/create-fix-pr.sh "$repo_url" "$validation_file" 2>&1; then
+              prs_created=$((prs_created + 1))
+
+              # Get PR URL
+              if [ -f pr_url.txt ]; then
+                pr_url=$(cat pr_url.txt)
+                if [ -z "$pr_urls" ]; then
+                  pr_urls="$pr_url"
+                else
+                  pr_urls="$pr_urls,$pr_url"
+                fi
+                rm -f pr_url.txt
+              fi
+
+              echo "✅ PR created successfully"
+            else
+              echo "⚠️  No PR created (no fixable issues or already fixed)"
+            fi
+
+            echo ""
+            sleep 2  # Rate limit protection
+
+          done
+
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ PR Creation Complete"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "PRs created: $prs_created"
+          echo ""
+
+          # Set outputs
+          echo "prs_created=$prs_created" >> $GITHUB_OUTPUT
+          echo "pr_urls=$pr_urls" >> $GITHUB_OUTPUT
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "# 🔍 Package.json Validation Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Date**: $(date -u +%Y-%m-%d\ %H:%M:%S) UTC" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          total_repos="${{ steps.validate.outputs.total_repos || '0' }}"
+          repos_with_issues="${{ steps.validate.outputs.repos_with_issues || '0' }}"
+          files_with_issues="${{ steps.validate.outputs.files_with_issues || '0' }}"
+
+          echo "## 📊 Validation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Repositories checked**: $total_repos" >> $GITHUB_STEP_SUMMARY
+          echo "- **Repositories with issues**: $repos_with_issues" >> $GITHUB_STEP_SUMMARY
+          echo "- **Files with issues**: $files_with_issues" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$repos_with_issues" -gt 0 ]; then
+            prs_created="${{ steps.create_prs.outputs.prs_created || '0' }}"
+
+            if [ "${{ inputs.dry_run }}" == "true" ]; then
+              echo "⚠️ **Dry run mode** - No PRs were created" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "## 🔧 Fix PRs Created" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "- **PRs created**: $prs_created" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+
+              # List PR URLs if available
+              pr_urls="${{ steps.create_prs.outputs.pr_urls }}"
+              if [ -n "$pr_urls" ]; then
+                echo "### Pull Requests:" >> $GITHUB_STEP_SUMMARY
+                IFS=',' read -ra urls <<< "$pr_urls"
+                for url in "${urls[@]}"; do
+                  echo "- [$url]($url)" >> $GITHUB_STEP_SUMMARY
+                done
+              fi
+            fi
+          else
+            echo "✅ **All package.json files are valid!**" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  notify-discord:
+    runs-on: [self-hosted, arc, the1studio, org]
+    needs: validate-all
+    if: always()
+    steps:
+      - name: Send Discord notification
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_UPM }}
+          DISCORD_THREAD_ID: "1437635908781342783"
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "⚠️  DISCORD_WEBHOOK_UPM secret not set, skipping notification"
+            exit 0
+          fi
+
+          # Determine status
+          status="${{ needs.validate-all.result }}"
+          if [ "$status" == "success" ]; then
+            status_emoji="✅"
+            color=4764443  # Green
+          elif [ "$status" == "failure" ]; then
+            status_emoji="❌"
+            color=15158332  # Red
+          else
+            status_emoji="⚠️"
+            color=16776960  # Yellow
+          fi
+
+          workflow_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          total_repos="${{ needs.validate-all.outputs.total_repos || '0' }}"
+          repos_with_issues="${{ needs.validate-all.outputs.repos_with_issues || '0' }}"
+          files_with_issues="${{ needs.validate-all.outputs.files_with_issues || '0' }}"
+          prs_created="${{ needs.validate-all.outputs.prs_created || '0' }}"
+          pr_urls="${{ needs.validate-all.outputs.pr_urls }}"
+
+          # Build PR list field
+          if [ -n "$pr_urls" ] && [ "$pr_urls" != "null" ]; then
+            pr_list=""
+            IFS=',' read -ra urls <<< "$pr_urls"
+            for url in "${urls[@]}"; do
+              repo_name=$(echo "$url" | sed 's|.*/pull/.*||' | sed 's|https://github.com/||')
+              pr_num=$(echo "$url" | grep -o 'pull/[0-9]*' | cut -d'/' -f2)
+              pr_list="${pr_list}• [${repo_name}#${pr_num}](${url})\\n"
+            done
+            pr_field="{\"name\": \"🔧 Fix PRs Created\", \"value\": \"$pr_list\", \"inline\": false},"
+          else
+            pr_field=""
+          fi
+
+          jq -n \
+            --arg status_emoji "$status_emoji" \
+            --argjson color "$color" \
+            --arg workflow_url "$workflow_url" \
+            --arg total_repos "$total_repos" \
+            --arg repos_with_issues "$repos_with_issues" \
+            --arg files_with_issues "$files_with_issues" \
+            --arg prs_created "$prs_created" \
+            --arg pr_field "$pr_field" \
+            --arg timestamp "$timestamp" \
+            '{
+              "embeds": [{
+                "author": {
+                  "name": "UPM Auto Publisher",
+                  "icon_url": "https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/npm/npm.png"
+                },
+                "title": ($status_emoji + " Package.json Validation"),
+                "description": "🔍 **Workflow:** Validate All Packages\\n🤖 **AI:** Gemini 2.0 Flash\\n⏰ **Schedule:** Weekly Monday 3 AM UTC\\n━━━━━━━━━━━━━━━━━━━━━━━",
+                "color": $color,
+                "fields": ([
+                  {
+                    "name": "📊 Validation Results",
+                    "value": ("```\\nRepositories:      " + $total_repos + "\\nWith Issues:       " + $repos_with_issues + "\\nFiles with Issues: " + $files_with_issues + "\\nPRs Created:       " + $prs_created + "\\n```"),
+                    "inline": false
+                  }
+                ] + (if $pr_field != "" then [$pr_field | fromjson] else [] end) + [
+                  {
+                    "name": "🔗 Quick Links",
+                    "value": ("[📋 Workflow Run](" + $workflow_url + ")"),
+                    "inline": false
+                  }
+                ]),
+                "footer": {
+                  "text": "THE 1 GAME STUDIO • Validation",
+                  "icon_url": "https://raw.githubusercontent.com/The1Studio/UPMAutoPublisher/master/.github/assets/the1studio-logo.png"
+                },
+                "timestamp": $timestamp
+              }]
+            }' > discord_payload.json
+
+          # Send to Discord
+          curl -X POST "$DISCORD_WEBHOOK?thread_id=$DISCORD_THREAD_ID" \
+            -H "Content-Type: application/json" \
+            -d @discord_payload.json \
+            --fail --silent --show-error || echo "⚠️  Failed to send Discord notification"
+
+          rm -f discord_payload.json
