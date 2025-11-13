@@ -1,0 +1,93 @@
+name: Deploy Cloudflare Worker
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'cloudflare-worker/**'
+      - '.github/workflows/deploy-cloudflare-worker.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: cloudflare-worker
+        run: npm install
+
+      - name: Deploy to Cloudflare Workers
+        working-directory: cloudflare-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          echo "🚀 Deploying UPM Webhook Handler to Cloudflare Workers..."
+          npx wrangler deploy
+          echo "✅ Deployment complete!"
+
+      - name: Get deployment URL
+        working-directory: cloudflare-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          echo "📋 Worker URL:"
+          npx wrangler deployments list --name upm-webhook-handler | head -5
+
+      - name: Send Discord notification
+        if: always()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_UPM }}
+          DISCORD_THREAD_ID: ${{ vars.DISCORD_THREAD_MONITORING }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "⚠️  DISCORD_WEBHOOK_UPM not set, skipping notification"
+            exit 0
+          fi
+
+          status="${{ job.status }}"
+          if [ "$status" == "success" ]; then
+            status_emoji="✅"
+            color=4764443
+          else
+            status_emoji="❌"
+            color=15158332
+          fi
+
+          workflow_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          jq -n \
+            --arg status_emoji "$status_emoji" \
+            --argjson color "$color" \
+            --arg workflow_url "$workflow_url" \
+            --arg timestamp "$timestamp" \
+            '{
+              "embeds": [{
+                "title": ($status_emoji + " Cloudflare Worker Deployed"),
+                "description": "UPM Webhook Handler deployment completed",
+                "color": $color,
+                "fields": [
+                  {
+                    "name": "🔗 Workflow",
+                    "value": ("[View Run](" + $workflow_url + ")"),
+                    "inline": false
+                  }
+                ],
+                "timestamp": $timestamp
+              }]
+            }' | curl -X POST "$DISCORD_WEBHOOK?thread_id=$DISCORD_THREAD_ID" \
+              -H "Content-Type: application/json" \
+              -d @- \
+              --silent --show-error || true
