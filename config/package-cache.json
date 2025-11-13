@@ -1,11 +1,11 @@
 {
-  "updated": "2025-11-13T11:48:34Z",
+  "updated": "2025-11-13T12:14:19Z",
   "repositories": {
     "The1Studio/TheOneFeature": {
       "packages": {
         "com.theone.feature.adapters": {
           "path": "Core/Adapters",
-          "version": "1.0.3",
+          "version": "1.0.4",
           "publishedVersion": "1.0.3"
         },
         "com.theone.feature.core": {
