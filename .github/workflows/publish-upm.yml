@@ -605,6 +605,7 @@ jobs:
         if: success() && env.published > 0
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_UPM }}
+          DISCORD_THREAD_ID: "1437635998509957181"
         run: |
           if [ -z "$DISCORD_WEBHOOK" ]; then
             echo "⚠️  DISCORD_WEBHOOK_UPM secret not set, skipping notification"
@@ -703,8 +704,8 @@ jobs:
               }]
             }' > discord_payload.json
 
-          # Send to Discord
-          curl -X POST "$DISCORD_WEBHOOK" \
+          # Send to Discord (with thread_id as query parameter)
+          curl -X POST "$DISCORD_WEBHOOK?thread_id=$DISCORD_THREAD_ID" \
             -H "Content-Type: application/json" \
             -d @discord_payload.json \
             --fail --silent --show-error || echo "⚠️  Failed to send Discord notification"
@@ -716,6 +717,7 @@ jobs:
         if: failure() || (success() && env.failed > 0)
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_UPM }}
+          DISCORD_THREAD_ID: "1437635998509957181"
         run: |
           if [ -z "$DISCORD_WEBHOOK" ]; then
             echo "⚠️  DISCORD_WEBHOOK_UPM secret not set, skipping notification"
@@ -794,8 +796,8 @@ jobs:
               }]
             }' > discord_payload.json
 
-          # Send to Discord
-          curl -X POST "$DISCORD_WEBHOOK" \
+          # Send to Discord (with thread_id as query parameter)
+          curl -X POST "$DISCORD_WEBHOOK?thread_id=$DISCORD_THREAD_ID" \
             -H "Content-Type: application/json" \
             -d @discord_payload.json \
             --fail --silent --show-error || echo "⚠️  Failed to send Discord notification"
