@@ -153,6 +153,8 @@ jobs:
 
       - name: Detect and validate packages
         id: detect
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           cd target-repo
           source npm-helpers.sh
@@ -223,6 +225,172 @@ jobs:
 
             echo "📋 Package: $package_name"
             echo "📌 Version: $new_version"
+
+            # AI-powered package.json validation
+            if [ -n "$GEMINI_API_KEY" ]; then
+              echo "🤖 Validating package.json with Gemini AI..."
+
+              # Read package.json content
+              PACKAGE_CONTENT=$(cat "$package_json")
+
+              # Create validation prompt
+              VALIDATION_PROMPT=$(cat <<'PROMPT_EOF'
+You are validating a Unity Package Manager (UPM) package.json file. Follow the validation guide at https://github.com/The1Studio/UPMAutoPublisher/blob/master/docs/package-json-validation-guide.md
+
+Analyze this package.json and return a JSON response:
+
+```json
+PACKAGE_JSON_CONTENT
+```
+
+Return ONLY valid JSON in this exact format:
+{
+  "valid": true/false,
+  "issues": [{
+    "severity": "critical"|"warning",
+    "type": "syntax_error"|"missing_field"|"invalid_format",
+    "field": "field_name",
+    "message": "Description",
+    "suggestion": "How to fix"
+  }],
+  "fixedContent": "corrected JSON content if auto-fixable",
+  "summary": "Brief summary"
+}
+
+Focus on CRITICAL issues:
+- JSON syntax errors (missing/trailing commas)
+- Missing required fields (name, version, displayName, description, unity)
+- Invalid formats (package name, semver, Unity version)
+- Dependency issues
+
+If fixable, provide corrected JSON in "fixedContent".
+PROMPT_EOF
+)
+
+              # Replace placeholder with actual content
+              VALIDATION_PROMPT="${VALIDATION_PROMPT//PACKAGE_JSON_CONTENT/$PACKAGE_CONTENT}"
+
+              # Call Gemini API
+              GEMINI_RESPONSE=$(curl -s -X POST \
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=$GEMINI_API_KEY" \
+                -H "Content-Type: application/json" \
+                -d "$(jq -n \
+                  --arg prompt "$VALIDATION_PROMPT" \
+                  '{
+                    "contents": [{
+                      "parts": [{"text": $prompt}]
+                    }],
+                    "generationConfig": {
+                      "temperature": 0.1,
+                      "maxOutputTokens": 2048
+                    }
+                  }')" 2>/dev/null || echo "")
+
+              if [ -n "$GEMINI_RESPONSE" ]; then
+                # Extract AI response
+                AI_OUTPUT=$(echo "$GEMINI_RESPONSE" | jq -r '.candidates[0].content.parts[0].text // empty' 2>/dev/null || echo "")
+
+                if [ -n "$AI_OUTPUT" ]; then
+                  # Try to parse JSON from response (may be wrapped in markdown code blocks)
+                  VALIDATION_RESULT=$(echo "$AI_OUTPUT" | sed -n '/^{/,/^}/p' | jq '.' 2>/dev/null || echo "")
+
+                  if [ -n "$VALIDATION_RESULT" ]; then
+                    IS_VALID=$(echo "$VALIDATION_RESULT" | jq -r '.valid // false')
+                    ISSUES_COUNT=$(echo "$VALIDATION_RESULT" | jq -r '.issues | length' 2>/dev/null || echo "0")
+                    CRITICAL_COUNT=$(echo "$VALIDATION_RESULT" | jq -r '[.issues[] | select(.severity == "critical")] | length' 2>/dev/null || echo "0")
+
+                    if [ "$IS_VALID" = "false" ] && [ "$CRITICAL_COUNT" -gt 0 ]; then
+                      echo "⚠️  Validation found $CRITICAL_COUNT critical issue(s)"
+
+                      # Check if auto-fix available
+                      FIXED_CONTENT=$(echo "$VALIDATION_RESULT" | jq -r '.fixedContent // empty')
+
+                      if [ -n "$FIXED_CONTENT" ]; then
+                        echo "🔧 Auto-fix available, creating PR..."
+
+                        # Save validation results
+                        echo "$VALIDATION_RESULT" > "$WORK_DIR/validation_${package_name//\//_}.json"
+
+                        # Create fix branch
+                        FIX_BRANCH="fix/package-json-validation-$(date +%Y%m%d-%H%M%S)"
+                        git checkout -b "$FIX_BRANCH"
+
+                        # Apply fix
+                        echo "$FIXED_CONTENT" > "$package_json"
+
+                        # Create PR
+                        SUMMARY=$(echo "$VALIDATION_RESULT" | jq -r '.summary // "Package.json validation fixes"')
+                        ISSUES_LIST=$(echo "$VALIDATION_RESULT" | jq -r '.issues[] | "- [\(.severity | ascii_upcase)] \(.field): \(.message)"' | head -10)
+
+                        git add "$package_json"
+                        git commit -m "fix(package.json): $SUMMARY
+
+Auto-fix applied by Gemini AI validation
+
+Issues fixed:
+$ISSUES_LIST
+
+Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+                        git push origin "$FIX_BRANCH"
+
+                        PR_URL=$(gh pr create \
+                          --title "🔧 Fix package.json validation issues in $package_name" \
+                          --body "## 🤖 AI-Powered Package.json Validation
+
+**Package:** \`$package_name\`
+**Critical Issues:** $CRITICAL_COUNT
+**Total Issues:** $ISSUES_COUNT
+
+### Issues Fixed:
+$ISSUES_LIST
+
+### Summary:
+$SUMMARY
+
+---
+
+**Validation Workflow:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+This PR was automatically created by Gemini AI validation. Please review the changes before merging." \
+                          --label "automated" \
+                          --label "bug" 2>&1 || echo "")
+
+                        if [ -n "$PR_URL" ]; then
+                          echo "✅ PR created: $PR_URL"
+
+                          # Try to enable auto-merge
+                          gh pr merge "$PR_URL" --auto --squash 2>&1 || echo "⚠️  Auto-merge not available"
+
+                          # Save PR URL for Discord notification
+                          echo "$package_name|$PR_URL" >> "$WORK_DIR/validation_prs.txt"
+                        fi
+
+                        # Switch back to original branch
+                        git checkout -
+
+                        echo "⏭️  Skipping publish for now (fix PR created)"
+                        echo "$package_name|SKIPPED|Validation fix PR created" >> "$WORK_DIR/skipped_packages.txt"
+                        skipped_count=$((skipped_count + 1))
+                        continue
+                      else
+                        echo "❌ Critical issues found but no auto-fix available"
+                        echo "$package_name|SKIPPED|Validation failed (no auto-fix)" >> "$WORK_DIR/skipped_packages.txt"
+                        skipped_count=$((skipped_count + 1))
+                        continue
+                      fi
+                    elif [ "$ISSUES_COUNT" -gt 0 ]; then
+                      echo "⚠️  Found $ISSUES_COUNT warning(s) but no critical issues"
+                      echo "Proceeding with publish..."
+                    else
+                      echo "✅ Validation passed"
+                    fi
+                  fi
+                fi
+              fi
+            else
+              echo "ℹ️  Gemini validation skipped (GEMINI_API_KEY not set)"
+            fi
 
             # Check if version already exists
             if npm_view_with_retry "$package_name@$new_version" version 2>/dev/null; then

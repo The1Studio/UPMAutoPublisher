@@ -14,10 +14,6 @@
       "status": "active"
     },
     {
-      "url": "https://github.com/The1Studio/PlayableLabs",
-      "status": "active"
-    },
-    {
       "url": "https://github.com/The1Studio/GameFoundation",
       "status": "active"
     },
@@ -70,16 +66,8 @@
       "status": "active"
     },
     {
-      "url": "https://github.com/The1Studio/PlayableAdsTemplate",
-      "status": "active"
-    },
-    {
       "url": "https://github.com/The1Studio/TheOne.DI",
       "status": "disabled"
-    },
-    {
-      "url": "https://github.com/The1Studio/PLAGameFoundation",
-      "status": "active"
     },
     {
       "url": "https://github.com/The1Studio/TheOne.Pooling",
