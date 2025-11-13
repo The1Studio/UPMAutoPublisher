@@ -1,5 +1,5 @@
 {
-  "updated": "2025-11-13T07:37:51Z",
+  "updated": "2025-11-13T11:48:34Z",
   "repositories": {
     "The1Studio/TheOneFeature": {
       "packages": {
@@ -370,7 +370,7 @@
         },
         "com.theone.feature.puzzle3d_1.ui.common.bottomnavbar": {
           "path": "UI/Layouts/Puzzle3D_1/Scripts/BottomNavBar",
-          "version": "1.0.3",
+          "version": "1.0.4",
           "publishedVersion": "1.0.3"
         },
         "com.theone.feature.puzzle3d_1.ui.common.claimreward": {
@@ -599,35 +599,6 @@
         }
       }
     },
-    "The1Studio/PlayableLabs": {
-      "packages": {
-        "@playablelabs/api": {
-          "path": "apps/api",
-          "version": "0.1.0",
-          "publishedVersion": null
-        },
-        "@playablelabs/web": {
-          "path": "apps/web",
-          "version": "0.1.0",
-          "publishedVersion": null
-        },
-        "@playablelabs/playable-engine": {
-          "path": "packages/playable-engine",
-          "version": "0.1.0",
-          "publishedVersion": "0.1.0"
-        },
-        "@playablelabs/shared": {
-          "path": "packages/shared",
-          "version": "0.1.0",
-          "publishedVersion": "0.1.0"
-        },
-        "@playablelabs/preview": {
-          "path": "services/preview",
-          "version": "0.1.0",
-          "publishedVersion": null
-        }
-      }
-    },
     "The1Studio/LiveOps": {
       "packages": {
         "chrome-devtools-scripts": {
@@ -649,6 +620,15 @@
           "path": "packages/shared",
           "version": "0.1.0",
           "publishedVersion": "0.1.0"
+        }
+      }
+    },
+    "The1Studio/TheOne.FTUE": {
+      "packages": {
+        "com.theone.ftue": {
+          "path": "Sources",
+          "version": "1.0.0",
+          "publishedVersion": null
         }
       }
     },
