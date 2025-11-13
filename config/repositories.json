@@ -104,6 +104,10 @@
     {
       "url": "https://github.com/The1Studio/DynamicUserDifficultyUITemplate",
       "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/UnityAdQualitySDK",
+      "status": "pending"
     }
   ]
 }
