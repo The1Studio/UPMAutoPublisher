@@ -326,26 +326,98 @@ jobs:
     if: always()
     steps:
       - name: Send Discord notification
-        uses: sarisia/actions-status-discord@v1
-        if: always()
-        with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK_UPM }}
-          status: ${{ needs.publish-unpublished.result }}
-          title: "PACKAGE: Batch Publish Unpublished Packages"
-          description: |
-            **Workflow:** Publish Unpublished
-            **Trigger:** ${{ github.event_name == 'schedule' && 'Scheduled (Weekly)' || 'Manual' }}
-            **Dry Run:** ${{ inputs.dry_run || 'false' }}
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_UPM }}
+          DISCORD_THREAD_ID: "1437635998509957181"
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "⚠️  DISCORD_WEBHOOK_UPM secret not set, skipping notification"
+            exit 0
+          fi
 
-            **SUMMARY: Results:**
-            • Total Processed: `${{ needs.publish-unpublished.outputs.total_processed || '0' }}`
-            • SUCCESS: Published: `${{ needs.publish-unpublished.outputs.successful || '0' }}`
-            • WARNING: Skipped: `${{ needs.publish-unpublished.outputs.skipped || '0' }}`
-            • ERROR: Failed: `${{ needs.publish-unpublished.outputs.failed || '0' }}`
+          # Determine status emoji and color
+          status="${{ needs.publish-unpublished.result }}"
+          if [ "$status" == "success" ]; then
+            status_emoji="✅"
+            status_text="Success"
+            color=4764443  # Green
+          elif [ "$status" == "failure" ]; then
+            status_emoji="❌"
+            status_text="Failed"
+            color=15158332  # Red
+          else
+            status_emoji="⚠️"
+            status_text="Completed with Issues"
+            color=16776960  # Yellow
+          fi
 
-            **🔗 Links:**
-            • [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-            • [Package Cache](${{ github.server_url }}/${{ github.repository }}/blob/master/config/package-cache.json)
-          color: ${{ needs.publish-unpublished.result == 'success' && '0x48C21B' || needs.publish-unpublished.result == 'failure' && '0xFF0000' || '0xFFCC00' }}
-          username: "THE 1 GAME STUDIO"
-          avatar_url: "https://raw.githubusercontent.com/The1Studio/UPMAutoPublisher/master/.github/assets/the1studio-logo.png"
+          workflow_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          cache_url="https://github.com/${{ github.repository }}/blob/master/config/package-cache.json"
+          trigger="${{ github.event_name == 'schedule' && '🕐 Scheduled (Weekly)' || '🖱️ Manual' }}"
+          dry_run="${{ inputs.dry_run || 'false' }}"
+          timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          total="${{ needs.publish-unpublished.outputs.total_processed || '0' }}"
+          published="${{ needs.publish-unpublished.outputs.successful || '0' }}"
+          skipped="${{ needs.publish-unpublished.outputs.skipped || '0' }}"
+          failed="${{ needs.publish-unpublished.outputs.failed || '0' }}"
+
+          jq -n \
+            --arg status_emoji "$status_emoji" \
+            --arg status_text "$status_text" \
+            --argjson color "$color" \
+            --arg workflow_url "$workflow_url" \
+            --arg cache_url "$cache_url" \
+            --arg trigger "$trigger" \
+            --arg dry_run "$dry_run" \
+            --arg total "$total" \
+            --arg published "$published" \
+            --arg skipped "$skipped" \
+            --arg failed "$failed" \
+            --arg timestamp "$timestamp" \
+            '{
+              "embeds": [{
+                "author": {
+                  "name": "UPM Auto Publisher",
+                  "icon_url": "https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/npm/npm.png"
+                },
+                "title": ($status_emoji + " Batch Publish Unpublished Packages"),
+                "description": "📦 **Workflow:** Publish Unpublished Packages\n━━━━━━━━━━━━━━━━━━━━━━━",
+                "color": $color,
+                "fields": [
+                  {
+                    "name": "🎯 Trigger",
+                    "value": $trigger,
+                    "inline": true
+                  },
+                  {
+                    "name": "🧪 Dry Run",
+                    "value": $dry_run,
+                    "inline": true
+                  },
+                  {
+                    "name": "📊 Results Summary",
+                    "value": ("```\nTotal:     " + $total + "\nPublished: " + $published + "\nSkipped:   " + $skipped + "\nFailed:    " + $failed + "\n```"),
+                    "inline": false
+                  },
+                  {
+                    "name": "🔗 Quick Links",
+                    "value": ("[📋 Workflow Run](" + $workflow_url + ") • [💾 Package Cache](" + $cache_url + ")"),
+                    "inline": false
+                  }
+                ],
+                "footer": {
+                  "text": "THE 1 GAME STUDIO",
+                  "icon_url": "https://raw.githubusercontent.com/The1Studio/UPMAutoPublisher/master/.github/assets/the1studio-logo.png"
+                },
+                "timestamp": $timestamp
+              }]
+            }' > discord_payload.json
+
+          # Send to Discord (with thread_id as query parameter)
+          curl -X POST "$DISCORD_WEBHOOK?thread_id=$DISCORD_THREAD_ID" \
+            -H "Content-Type: application/json" \
+            -d @discord_payload.json \
+            --fail --silent --show-error || echo "⚠️  Failed to send Discord notification"
+
+          rm -f discord_payload.json

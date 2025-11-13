@@ -263,32 +263,99 @@ jobs:
     if: always()
     steps:
       - name: Send Discord notification
-        uses: sarisia/actions-status-discord@v1
-        if: always()
-        with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK_UPM}}
-          status: ${{ needs.trigger-publishes.result }}
-          title: "🚀 Trigger Stale Package Publishing"
-          description: |
-            **Workflow:** Trigger Stale Publishes
-            **Trigger:** ${{ github.event_name }}
-            **Mode:** ${{ needs.trigger-publishes.outputs.dry_run == 'true' && '⚠️ Dry Run' || '🚀 Live Run' }}
-            **Schedule:** Daily at noon UTC
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_UPM }}
+          DISCORD_THREAD_ID: "1437635998509957181"
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "⚠️  DISCORD_WEBHOOK_UPM secret not set, skipping notification"
+            exit 0
+          fi
 
-            **📊 Stale Packages:**
-            • Found: `${{ needs.trigger-publishes.outputs.stale_count || '0' }}`
+          # Determine status emoji and color
+          status="${{ needs.trigger-publishes.result }}"
+          if [ "$status" == "success" ]; then
+            status_emoji="✅"
+            color=4764443  # Green
+          elif [ "$status" == "failure" ]; then
+            status_emoji="❌"
+            color=15158332  # Red
+          else
+            status_emoji="⚠️"
+            color=16776960  # Yellow
+          fi
 
-            ${{ needs.trigger-publishes.outputs.dry_run != 'true' && format('**🚀 Publish Triggers:**
-            • ✅ Triggered: `{0}`
-            • 🔧 Not Ready (workflow not deployed): `{1}`
-            • ⚠️ Missing workflow_dispatch: `{2}`
-            • ❌ Failed: `{3}`', needs.trigger-publishes.outputs.triggered || '0', needs.trigger-publishes.outputs.not_ready || '0', needs.trigger-publishes.outputs.no_dispatch || '0', needs.trigger-publishes.outputs.failed || '0') || '**⚠️ Dry Run Mode**
-            No workflows were triggered.
-            Set `dry_run: false` to trigger workflows.' }}
+          workflow_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          cache_url="https://github.com/${{ github.repository }}/blob/master/config/package-cache.json"
+          dry_run="${{ needs.trigger-publishes.outputs.dry_run }}"
+          mode_text=$([ "$dry_run" == "true" ] && echo "⚠️ Dry Run" || echo "🚀 Live Run")
+          timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-            **🔗 Links:**
-            • [Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-            • [Package Cache](${{ github.server_url }}/${{ github.repository }}/blob/master/config/package-cache.json)
-          color: ${{ needs.trigger-publishes.result == 'success' && '0x48C21B' || needs.trigger-publishes.result == 'failure' && '0xFF0000' || '0xFFCC00' }}
-          username: "THE 1 GAME STUDIO"
-          avatar_url: "https://raw.githubusercontent.com/The1Studio/UPMAutoPublisher/master/.github/assets/the1studio-logo.png"
+          stale_count="${{ needs.trigger-publishes.outputs.stale_count || '0' }}"
+          triggered="${{ needs.trigger-publishes.outputs.triggered || '0' }}"
+          not_ready="${{ needs.trigger-publishes.outputs.not_ready || '0' }}"
+          no_dispatch="${{ needs.trigger-publishes.outputs.no_dispatch || '0' }}"
+          failed="${{ needs.trigger-publishes.outputs.failed || '0' }}"
+
+          # Build triggers section
+          if [ "$dry_run" != "true" ]; then
+            triggers_value="[\`\`\`\nTriggered:  $triggered\nNot Ready:  $not_ready\nNo Dispatch: $no_dispatch\nFailed:     $failed\n\`\`\`]"
+          else
+            triggers_value="⚠️ **Dry Run Mode** - No workflows triggered"
+          fi
+
+          jq -n \
+            --arg status_emoji "$status_emoji" \
+            --argjson color "$color" \
+            --arg workflow_url "$workflow_url" \
+            --arg cache_url "$cache_url" \
+            --arg mode_text "$mode_text" \
+            --arg stale_count "$stale_count" \
+            --arg triggers_value "$triggers_value" \
+            --arg timestamp "$timestamp" \
+            '{
+              "embeds": [{
+                "author": {
+                  "name": "UPM Auto Publisher",
+                  "icon_url": "https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/npm/npm.png"
+                },
+                "title": ($status_emoji + " Trigger Stale Package Publishing"),
+                "description": "🚀 **Workflow:** Trigger Stale Publishes\n⏰ **Schedule:** Daily at noon UTC\n━━━━━━━━━━━━━━━━━━━━━━━",
+                "color": $color,
+                "fields": [
+                  {
+                    "name": "⚙️ Mode",
+                    "value": $mode_text,
+                    "inline": true
+                  },
+                  {
+                    "name": "📊 Stale Packages Found",
+                    "value": $stale_count,
+                    "inline": true
+                  },
+                  {
+                    "name": "🚀 Publish Triggers",
+                    "value": $triggers_value,
+                    "inline": false
+                  },
+                  {
+                    "name": "🔗 Quick Links",
+                    "value": ("[📋 Workflow Run](" + $workflow_url + ") • [💾 Package Cache](" + $cache_url + ")"),
+                    "inline": false
+                  }
+                ],
+                "footer": {
+                  "text": "THE 1 GAME STUDIO",
+                  "icon_url": "https://raw.githubusercontent.com/The1Studio/UPMAutoPublisher/master/.github/assets/the1studio-logo.png"
+                },
+                "timestamp": $timestamp
+              }]
+            }' > discord_payload.json
+
+          # Send to Discord (with thread_id as query parameter)
+          curl -X POST "$DISCORD_WEBHOOK?thread_id=$DISCORD_THREAD_ID" \
+            -H "Content-Type: application/json" \
+            -d @discord_payload.json \
+            --fail --silent --show-error || echo "⚠️  Failed to send Discord notification"
+
+          rm -f discord_payload.json
