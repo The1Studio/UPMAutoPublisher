@@ -1,0 +1,76 @@
+name: 'Fix APT Sources for ARC Runners'
+description: 'Fix APT sources to use HTTPS (port 80 blocked on ARC runners) and install common dependencies'
+author: 'The1Studio'
+
+inputs:
+  install-jq:
+    description: 'Install jq JSON processor'
+    required: false
+    default: 'true'
+  install-gh-cli:
+    description: 'Install GitHub CLI'
+    required: false
+    default: 'false'
+  additional-packages:
+    description: 'Additional packages to install (space-separated)'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Fix APT sources and install dependencies
+      shell: bash
+      run: |
+        echo "🔧 Fixing APT sources for ARC runners..."
+
+        # Fix APT sources to use HTTPS instead of HTTP (port 80 blocked)
+        sudo sed -i 's|http://archive.ubuntu.com|https://archive.ubuntu.com|g' /etc/apt/sources.list
+        sudo sed -i 's|http://security.ubuntu.com|https://security.ubuntu.com|g' /etc/apt/sources.list
+
+        # Disable PPA repositories (they often use HTTP)
+        if [ -d /etc/apt/sources.list.d ]; then
+          sudo mv /etc/apt/sources.list.d /etc/apt/sources.list.d.bak 2>/dev/null || true
+        fi
+        sudo mkdir -p /etc/apt/sources.list.d
+
+        echo "✅ APT sources fixed"
+
+        # Update package lists
+        echo "📦 Updating package lists..."
+        sudo apt-get update -qq
+
+        # Install common dependencies
+        PACKAGES=""
+
+        if [ "${{ inputs.install-jq }}" = "true" ]; then
+          PACKAGES="$PACKAGES jq"
+        fi
+
+        if [ -n "${{ inputs.additional-packages }}" ]; then
+          PACKAGES="$PACKAGES ${{ inputs.additional-packages }}"
+        fi
+
+        if [ -n "$PACKAGES" ]; then
+          echo "📦 Installing packages: $PACKAGES"
+          sudo apt-get install -y -qq $PACKAGES
+          echo "✅ Packages installed"
+        fi
+
+    - name: Install GitHub CLI
+      if: inputs.install-gh-cli == 'true'
+      shell: bash
+      run: |
+        echo "📦 Installing GitHub CLI..."
+
+        # Add GitHub CLI repository
+        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
+          sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | \
+          sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq gh
+
+        echo "✅ GitHub CLI installed"

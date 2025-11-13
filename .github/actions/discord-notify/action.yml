@@ -1,0 +1,166 @@
+name: 'Discord Notification'
+description: 'Send formatted Discord webhook notification with rich embeds'
+author: 'The1Studio'
+
+inputs:
+  webhook-url:
+    description: 'Discord webhook URL (from secrets.DISCORD_WEBHOOK_UPM)'
+    required: true
+  thread-id:
+    description: 'Discord thread ID (from vars.DISCORD_THREAD_* or explicit ID)'
+    required: true
+  workflow-name:
+    description: 'Name of the workflow (e.g., "Package Cache Build")'
+    required: true
+  workflow-emoji:
+    description: 'Emoji for the workflow (e.g., "📦")'
+    required: false
+    default: '🔔'
+  status:
+    description: 'Workflow status (success/failure/warning/cancelled)'
+    required: true
+  summary-fields:
+    description: 'JSON array of summary fields [{name, value, inline}]'
+    required: false
+    default: '[]'
+  details-fields:
+    description: 'JSON array of detail fields [{name, value, inline}]'
+    required: false
+    default: '[]'
+  workflow-url:
+    description: 'GitHub Actions workflow URL (auto-generated if not provided)'
+    required: false
+  additional-links:
+    description: 'Additional markdown links (e.g., "• [Registry](url)")'
+    required: false
+    default: ''
+  footer-text:
+    description: 'Footer text (defaults to "THE 1 GAME STUDIO")'
+    required: false
+    default: 'THE 1 GAME STUDIO'
+  schedule-info:
+    description: 'Schedule information (e.g., "Daily at 9 AM UTC")'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Send Discord notification
+      shell: bash
+      env:
+        WEBHOOK_URL: ${{ inputs.webhook-url }}
+        THREAD_ID: ${{ inputs.thread-id }}
+        WORKFLOW_NAME: ${{ inputs.workflow-name }}
+        WORKFLOW_EMOJI: ${{ inputs.workflow-emoji }}
+        STATUS: ${{ inputs.status }}
+        SUMMARY_FIELDS: ${{ inputs.summary-fields }}
+        DETAILS_FIELDS: ${{ inputs.details-fields }}
+        WORKFLOW_URL: ${{ inputs.workflow-url }}
+        ADDITIONAL_LINKS: ${{ inputs.additional-links }}
+        FOOTER_TEXT: ${{ inputs.footer-text }}
+        SCHEDULE_INFO: ${{ inputs.schedule-info }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        GITHUB_RUN_ID: ${{ github.run_id }}
+        GITHUB_SERVER_URL: ${{ github.server_url }}
+      run: |
+        if [ -z "$WEBHOOK_URL" ]; then
+          echo "⚠️  Discord webhook URL not provided, skipping notification"
+          exit 0
+        fi
+
+        # Determine status emoji and color
+        case "$STATUS" in
+          success)
+            status_emoji="✅"
+            color="${DISCORD_COLOR_SUCCESS:-4764443}"
+            ;;
+          failure)
+            status_emoji="❌"
+            color="${DISCORD_COLOR_FAILURE:-15158332}"
+            ;;
+          cancelled)
+            status_emoji="🚫"
+            color="${DISCORD_COLOR_WARNING:-16776960}"
+            ;;
+          *)
+            status_emoji="⚠️"
+            color="${DISCORD_COLOR_WARNING:-16776960}"
+            ;;
+        esac
+
+        # Generate workflow URL if not provided
+        if [ -z "$WORKFLOW_URL" ]; then
+          WORKFLOW_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+        fi
+
+        # Build description
+        DESCRIPTION="$WORKFLOW_EMOJI **Workflow:** $WORKFLOW_NAME\n"
+        if [ -n "$SCHEDULE_INFO" ]; then
+          DESCRIPTION="${DESCRIPTION}⏰ **Schedule:** $SCHEDULE_INFO\n"
+        fi
+        DESCRIPTION="${DESCRIPTION}━━━━━━━━━━━━━━━━━━━━━━━"
+
+        # Generate timestamp
+        timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+        # Build quick links field
+        QUICK_LINKS="[📋 Workflow Run]($WORKFLOW_URL)"
+        if [ -n "$ADDITIONAL_LINKS" ]; then
+          QUICK_LINKS="$QUICK_LINKS $ADDITIONAL_LINKS"
+        fi
+
+        # Merge all fields
+        COMBINED_FIELDS="$SUMMARY_FIELDS"
+        if [ "$DETAILS_FIELDS" != "[]" ] && [ -n "$DETAILS_FIELDS" ]; then
+          COMBINED_FIELDS=$(echo "$SUMMARY_FIELDS" "$DETAILS_FIELDS" | jq -s 'add')
+        fi
+
+        # Add quick links field
+        COMBINED_FIELDS=$(echo "$COMBINED_FIELDS" | jq --arg links "$QUICK_LINKS" '. + [{"name": "🔗 Quick Links", "value": $links, "inline": false}]')
+
+        # Get icon URLs from variables or use defaults
+        ICON_NPM="${DISCORD_ICON_NPM:-https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/npm/npm.png}"
+        ICON_STUDIO="${DISCORD_ICON_STUDIO:-https://raw.githubusercontent.com/The1Studio/UPMAutoPublisher/master/.github/assets/the1studio-logo.png}"
+
+        # Build Discord embed payload
+        jq -n \
+          --arg status_emoji "$status_emoji" \
+          --arg workflow_name "$WORKFLOW_NAME" \
+          --arg description "$DESCRIPTION" \
+          --argjson color "$color" \
+          --argjson fields "$COMBINED_FIELDS" \
+          --arg footer_text "$FOOTER_TEXT" \
+          --arg icon_studio "$ICON_STUDIO" \
+          --arg icon_npm "$ICON_NPM" \
+          --arg timestamp "$timestamp" \
+          '{
+            "embeds": [{
+              "author": {
+                "name": "UPM Auto Publisher",
+                "icon_url": $icon_npm
+              },
+              "title": ($status_emoji + " " + $workflow_name),
+              "description": $description,
+              "color": $color,
+              "fields": $fields,
+              "footer": {
+                "text": $footer_text,
+                "icon_url": $icon_studio
+              },
+              "timestamp": $timestamp
+            }]
+          }' > discord_payload.json
+
+        # Send to Discord
+        if curl -X POST "$WEBHOOK_URL?thread_id=$THREAD_ID" \
+          -H "Content-Type: application/json" \
+          -d @discord_payload.json \
+          --fail --silent --show-error; then
+          echo "✅ Discord notification sent successfully"
+        else
+          echo "⚠️  Failed to send Discord notification (non-blocking)"
+        fi
+
+        # Cleanup
+        rm -f discord_payload.json
