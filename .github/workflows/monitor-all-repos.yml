@@ -1,0 +1,268 @@
+# Monitor All Registered Repositories for Package Changes
+# This workflow runs on a schedule and checks all registered repositories
+# for package.json changes, then triggers publishes automatically.
+# NO DISPATCHER WORKFLOW NEEDED in individual repositories!
+
+name: Monitor All Repositories
+
+on:
+  schedule:
+    # Run every 5 minutes
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      force_check:
+        description: 'Force check all repositories'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  monitor-repos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout UPMAutoPublisher
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Check all registered repositories
+        id: check
+        run: |
+          echo "🔍 Monitoring all registered repositories..."
+          echo ""
+
+          # Read registered repositories
+          repos=$(jq -r '.[] | select(.status == "active") | "\(.url)|\(.name)"' config/repositories.json)
+
+          total=0
+          checked=0
+          changes_found=0
+          publish_needed=""
+
+          while IFS='|' read -r url repo_name; do
+            total=$((total + 1))
+            repo=$(echo "$url" | sed 's|https://github.com/||')
+
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "📦 Checking: $repo"
+
+            # Get the latest commit on master/main
+            latest_sha=$(gh api repos/$repo/commits/heads/master --jq '.sha' 2>/dev/null || \
+                         gh api repos/$repo/commits/heads/main --jq '.sha' 2>/dev/null || \
+                         echo "")
+
+            if [ -z "$latest_sha" ]; then
+              echo "⚠️  Could not get latest commit"
+              continue
+            fi
+
+            echo "📝 Latest commit: ${latest_sha:0:7}"
+
+            # Check if we've already processed this commit
+            if [ -f "/tmp/processed_commits.txt" ] && grep -q "$repo|$latest_sha" /tmp/processed_commits.txt; then
+              echo "✅ Already processed this commit"
+              checked=$((checked + 1))
+              continue
+            fi
+
+            # Get the commit details
+            commit_info=$(gh api repos/$repo/commits/$latest_sha)
+            commit_message=$(echo "$commit_info" | jq -r '.commit.message' | head -1)
+            commit_author=$(echo "$commit_info" | jq -r '.author.login // .commit.author.name')
+            commit_date=$(echo "$commit_info" | jq -r '.commit.author.date')
+
+            echo "👤 Author: $commit_author"
+            echo "📅 Date: $commit_date"
+            echo "💬 Message: $commit_message"
+
+            # Get files changed in this commit
+            changed_files=$(echo "$commit_info" | jq -r '.files[].filename' | grep 'package\.json$' || echo "")
+
+            if [ -z "$changed_files" ]; then
+              echo "⏭️  No package.json changes"
+              checked=$((checked + 1))
+              # Mark as processed
+              echo "$repo|$latest_sha" >> /tmp/processed_commits.txt
+              continue
+            fi
+
+            echo "📦 Package.json files changed:"
+            echo "$changed_files" | sed 's/^/   /'
+
+            # Check if packages need publishing
+            needs_publish=false
+            for pkg_file in $changed_files; do
+              # Get package.json content
+              pkg_content=$(gh api repos/$repo/contents/$pkg_file?ref=$latest_sha --jq '.content' | base64 -d)
+              pkg_name=$(echo "$pkg_content" | jq -r '.name')
+              pkg_version=$(echo "$pkg_content" | jq -r '.version')
+
+              echo "   📦 $pkg_name@$pkg_version"
+
+              # Check if version exists in registry
+              if npm view "$pkg_name@$pkg_version" --registry "${{ vars.UPM_REGISTRY || 'https://upm.the1studio.org/' }}" > /dev/null 2>&1; then
+                echo "      ✅ Already published"
+              else
+                echo "      🚀 Needs publishing!"
+                needs_publish=true
+              fi
+            done
+
+            if [ "$needs_publish" = true ]; then
+              echo "✅ Repository needs publish trigger"
+              changes_found=$((changes_found + 1))
+              publish_needed="${publish_needed}${repo}|${latest_sha}|${commit_message}|${commit_author}"$'\n'
+            else
+              echo "⏭️  All packages already published"
+            fi
+
+            # Mark as processed
+            echo "$repo|$latest_sha" >> /tmp/processed_commits.txt
+            checked=$((checked + 1))
+
+          done <<< "$repos"
+
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📊 Summary"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Total repositories: $total"
+          echo "Checked: $checked"
+          echo "Need publishing: $changes_found"
+          echo ""
+
+          # Save results
+          echo "changes_found=$changes_found" >> $GITHUB_OUTPUT
+          if [ -n "$publish_needed" ]; then
+            echo "$publish_needed" > /tmp/publish_needed.txt
+          fi
+
+      - name: Trigger publishes
+        if: steps.check.outputs.changes_found > 0
+        run: |
+          echo "🚀 Triggering publishes for repositories with changes..."
+          echo ""
+
+          triggered=0
+          failed=0
+
+          while IFS='|' read -r repo commit_sha commit_message commit_author; do
+            [ -z "$repo" ] && continue
+
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "📦 Triggering: $repo"
+            echo "📝 Commit: ${commit_sha:0:7}"
+
+            # Get branch (master or main)
+            branch=$(gh api repos/$repo/commits/$commit_sha --jq '.commit.tree.url' | grep -oP 'master|main' || echo "master")
+
+            # Escape commit message
+            commit_message_escaped=$(echo "$commit_message" | jq -Rs .)
+
+            # Send repository_dispatch
+            if jq -n \
+              --arg repo "$repo" \
+              --arg sha "$commit_sha" \
+              --argjson message "$commit_message_escaped" \
+              --arg author "$commit_author" \
+              --arg branch "$branch" \
+              '{
+                event_type: "package_publish",
+                client_payload: {
+                  repository: $repo,
+                  commit_sha: $sha,
+                  commit_message: $message,
+                  commit_author: $author,
+                  branch: $branch,
+                  package_path: ""
+                }
+              }' | gh api \
+              --method POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              /repos/The1Studio/UPMAutoPublisher/dispatches \
+              --input -; then
+
+              echo "✅ Dispatch sent successfully"
+              triggered=$((triggered + 1))
+            else
+              echo "❌ Failed to send dispatch"
+              failed=$((failed + 1))
+            fi
+
+            # Rate limit protection
+            sleep 2
+
+          done < /tmp/publish_needed.txt
+
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📊 Trigger Summary"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Triggered: $triggered"
+          echo "❌ Failed: $failed"
+          echo ""
+
+          if [ $triggered -gt 0 ]; then
+            echo "📍 Track progress: https://github.com/The1Studio/UPMAutoPublisher/actions/workflows/handle-publish-request.yml"
+          fi
+
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          UPM_REGISTRY: ${{ vars.UPM_REGISTRY || 'https://upm.the1studio.org/' }}
+
+      - name: Send Discord notification
+        if: always() && steps.check.outputs.changes_found > 0
+        run: |
+          if [ -z "${{ secrets.DISCORD_WEBHOOK_UPM }}" ]; then
+            echo "⚠️  DISCORD_WEBHOOK_UPM not set, skipping notification"
+            exit 0
+          fi
+
+          status="${{ job.status }}"
+          if [ "$status" == "success" ]; then
+            status_emoji="✅"
+            color=4764443
+          else
+            status_emoji="❌"
+            color=15158332
+          fi
+
+          workflow_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          jq -n \
+            --arg status_emoji "$status_emoji" \
+            --argjson color "$color" \
+            --arg workflow_url "$workflow_url" \
+            --arg timestamp "$timestamp" \
+            --arg changes "${{ steps.check.outputs.changes_found }}" \
+            '{
+              "embeds": [{
+                "title": ($status_emoji + " Repository Monitor"),
+                "description": "Automatically detected package changes and triggered publishes",
+                "color": $color,
+                "fields": [
+                  {
+                    "name": "📦 Changes Found",
+                    "value": $changes,
+                    "inline": true
+                  },
+                  {
+                    "name": "🔗 Workflow",
+                    "value": ("[View Run](" + $workflow_url + ")"),
+                    "inline": false
+                  }
+                ],
+                "timestamp": $timestamp
+              }]
+            }' | curl -X POST "${{ secrets.DISCORD_WEBHOOK_UPM }}?thread_id=${{ vars.DISCORD_THREAD_MONITORING }}" \
+              -H "Content-Type: application/json" \
+              -d @- \
+              --silent --show-error || true

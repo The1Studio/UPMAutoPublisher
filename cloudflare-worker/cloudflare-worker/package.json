@@ -1,0 +1,17 @@
+{
+  "name": "upm-webhook-handler",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker to handle GitHub organization webhooks for UPM Auto Publisher",
+  "main": "src/index.js",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "tail": "wrangler tail"
+  },
+  "keywords": ["cloudflare-worker", "github-webhook", "upm", "automation"],
+  "author": "The1Studio",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}

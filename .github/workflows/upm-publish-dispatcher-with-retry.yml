@@ -1,0 +1,176 @@
+# UPM Publish Dispatcher with Automatic Retry
+# This workflow detects package.json changes and dispatches to UPMAutoPublisher
+# with automatic retry mechanism to handle GitHub Actions delivery issues
+
+name: UPM Publish Dispatcher
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - '**/package.json'
+  workflow_dispatch:
+    inputs:
+      package_path:
+        description: 'Specific package path to publish (e.g., Assets/MyPackage)'
+        required: false
+        type: string
+
+jobs:
+  dispatch-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Need 2 commits for git diff
+
+      - name: Detect changed packages
+        id: detect
+        run: |
+          echo "🔍 Detecting changed packages..."
+
+          # Check if specific package requested via workflow_dispatch
+          if [ -n "${{ github.event.inputs.package_path }}" ]; then
+            echo "📦 Specific package requested: ${{ github.event.inputs.package_path }}"
+            echo "package_path=${{ github.event.inputs.package_path }}" >> $GITHUB_OUTPUT
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # For push events, detect changed package.json files
+          changed_files=$(git diff --name-only HEAD~1 HEAD | grep 'package\.json$' || echo "")
+
+          if [ -z "$changed_files" ]; then
+            echo "⏭️  No package.json changes detected"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "📦 Changed packages:"
+          echo "$changed_files"
+
+          echo "package_path=" >> $GITHUB_OUTPUT  # Empty for auto-detection
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+
+      - name: Dispatch to UPMAutoPublisher with retry
+        if: steps.detect.outputs.has_changes == 'true'
+        run: |
+          echo "📤 Dispatching publish request to UPMAutoPublisher..."
+
+          # Extract commit details
+          commit_sha="${{ github.sha }}"
+          commit_message=$(git log -1 --pretty=%B | head -1)
+          commit_author="${{ github.actor }}"
+          branch="${{ github.ref_name }}"
+          repository="${{ github.repository }}"
+          package_path="${{ steps.detect.outputs.package_path }}"
+
+          # Escape special characters for JSON
+          commit_message_escaped=$(echo "$commit_message" | jq -Rs .)
+
+          # Build payload
+          build_payload() {
+            jq -n \
+              --arg repo "$repository" \
+              --arg sha "$commit_sha" \
+              --argjson message "$commit_message_escaped" \
+              --arg author "$commit_author" \
+              --arg branch "$branch" \
+              --arg package_path "$package_path" \
+              '{
+                event_type: "package_publish",
+                client_payload: {
+                  repository: $repo,
+                  commit_sha: $sha,
+                  commit_message: $message,
+                  commit_author: $author,
+                  branch: $branch,
+                  package_path: $package_path
+                }
+              }'
+          }
+
+          echo "📋 Payload:"
+          build_payload | jq .
+
+          # Retry configuration
+          max_attempts=3
+          retry_delay=5  # seconds
+          attempt=1
+
+          while [ $attempt -le $max_attempts ]; do
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "🔄 Attempt $attempt of $max_attempts"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+            # Send repository_dispatch event
+            if build_payload | gh api \
+              --method POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              /repos/The1Studio/UPMAutoPublisher/dispatches \
+              --input - 2>&1; then
+
+              echo "✅ Dispatch sent successfully on attempt $attempt"
+
+              # Wait a bit and check if workflow triggered
+              echo "⏳ Waiting 10 seconds to verify workflow triggered..."
+              sleep 10
+
+              # Check if handle-publish-request workflow ran recently
+              recent_run=$(gh run list \
+                --repo The1Studio/UPMAutoPublisher \
+                --workflow handle-publish-request.yml \
+                --limit 5 \
+                --json createdAt,event,conclusion \
+                --jq '.[] | select(.event == "repository_dispatch") | select(.createdAt | fromdateiso8601 > (now - 60)) | .createdAt' \
+                | head -1)
+
+              if [ -n "$recent_run" ]; then
+                echo "✅ Verified: Workflow triggered at $recent_run"
+                echo "📍 Track progress: https://github.com/The1Studio/UPMAutoPublisher/actions/workflows/handle-publish-request.yml"
+                exit 0
+              else
+                echo "⚠️  Warning: Dispatch sent but workflow not detected yet"
+                if [ $attempt -lt $max_attempts ]; then
+                  echo "🔄 Will retry to ensure delivery..."
+                fi
+              fi
+            else
+              echo "❌ Failed to send dispatch on attempt $attempt"
+            fi
+
+            # If not last attempt, wait before retry
+            if [ $attempt -lt $max_attempts ]; then
+              echo "⏳ Waiting ${retry_delay} seconds before retry..."
+              sleep $retry_delay
+              retry_delay=$((retry_delay * 2))  # Exponential backoff
+            fi
+
+            attempt=$((attempt + 1))
+          done
+
+          # All attempts completed
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Dispatch sent $max_attempts times"
+          echo "📍 If publish doesn't happen, check:"
+          echo "   https://github.com/The1Studio/UPMAutoPublisher/actions"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ "${{ steps.detect.outputs.has_changes }}" = "true" ]; then
+            echo "✅ Publish request dispatched to UPMAutoPublisher with retry logic"
+            echo "📍 Track progress: https://github.com/The1Studio/UPMAutoPublisher/actions"
+          else
+            echo "⏭️  No package changes detected, skipping dispatch"
+          fi
