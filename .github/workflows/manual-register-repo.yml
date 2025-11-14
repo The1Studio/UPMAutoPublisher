@@ -26,13 +26,32 @@ jobs:
           fetch-depth: 1
 
       - name: Validate repository URL
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           set -euo pipefail
 
           echo "🔍 Validating repository URL..."
+          REPO_URL="${{ inputs.repo_url }}"
+
+          # Check for .git suffix (common mistake)
+          if [[ "$REPO_URL" =~ \.git$ ]]; then
+            echo "❌ Repository URL contains '.git' suffix"
+            echo ""
+            echo "GitHub API cannot validate repositories with .git suffix."
+            echo ""
+            echo "Got:"
+            echo "  ❌ $REPO_URL"
+            echo ""
+            echo "Should be:"
+            echo "  ✅ ${REPO_URL%.git}"
+            echo ""
+            echo "Please remove the .git suffix and try again."
+            exit 1
+          fi
 
           # Validate repository URL format
-          if [[ ! "${{ inputs.repo_url }}" =~ ^https://github\.com/The1Studio/[a-zA-Z0-9._-]+$ ]]; then
+          if [[ ! "$REPO_URL" =~ ^https://github\.com/The1Studio/[a-zA-Z0-9._-]+$ ]]; then
             echo "❌ Invalid repository URL format"
             echo ""
             echo "Expected format:"
@@ -44,28 +63,43 @@ jobs:
             echo "  ✅ https://github.com/The1Studio/PlayableLabs"
             echo ""
             echo "Got:"
-            echo "  ❌ ${{ inputs.repo_url }}"
+            echo "  ❌ $REPO_URL"
             echo ""
 
             # Check if user provided a workflow/actions URL
-            if [[ "${{ inputs.repo_url }}" =~ /actions/ ]]; then
+            if [[ "$REPO_URL" =~ /actions/ ]]; then
               echo "⚠️  It looks like you provided a GitHub Actions workflow URL."
               echo "   Please provide the repository URL instead (not the workflow run URL)."
               echo ""
               # Try to extract the repository URL from the actions URL
-              REPO_URL=$(echo "${{ inputs.repo_url }}" | sed -E 's|(https://github.com/[^/]+/[^/]+)/.*|\1|')
-              echo "Did you mean: $REPO_URL ?"
+              EXTRACTED_URL=$(echo "$REPO_URL" | sed -E 's|(https://github.com/[^/]+/[^/]+)/.*|\1|')
+              echo "Did you mean: $EXTRACTED_URL ?"
             fi
 
             exit 1
           fi
 
           # Extract repository name for display
-          REPO_NAME=$(echo "${{ inputs.repo_url }}" | sed 's|https://github.com/The1Studio/||')
+          REPO_NAME=$(echo "$REPO_URL" | sed 's|https://github.com/The1Studio/||')
           echo "Repository: $REPO_NAME"
-          echo "✅ Repository URL format validated"
+
+          # Verify repository exists and is accessible
           echo ""
-          echo "Note: Repository accessibility will be verified when the register-repos workflow runs"
+          echo "🔍 Verifying repository exists and is accessible..."
+
+          if ! gh repo view "$REPO_URL" --json name,nameWithOwner >/dev/null 2>&1; then
+            echo "❌ Repository does not exist or is not accessible"
+            echo ""
+            echo "Please check:"
+            echo "  1. Repository exists: $REPO_URL"
+            echo "  2. You have access to the repository"
+            echo "  3. Repository is under The1Studio organization"
+            echo "  4. GH_PAT secret has correct permissions"
+            exit 1
+          fi
+
+          echo "✅ Repository exists and is accessible"
+          echo "✅ Repository URL validation complete"
 
       - name: Install dependencies
         run: |
