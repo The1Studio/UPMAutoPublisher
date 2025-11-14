@@ -561,18 +561,83 @@ jobs:
                 -m "- Based on git commit history" \
                 -m "- Follows Keep a Changelog format"
 
-              # Push changes back to source repository
+              # Push changes back to source repository with retry logic
               echo "📤 Pushing changelog updates..."
 
               # Use GH_PAT for authentication (required to push to source repo)
               git remote set-url origin "https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ env.PAYLOAD_REPOSITORY }}.git"
 
-              # Push to the branch that triggered this workflow
-              if git push origin HEAD:${{ env.PAYLOAD_BRANCH }}; then
-                echo "✅ Changelogs pushed successfully"
-              else
-                echo "❌ Failed to push changelogs"
-                exit 1
+              # Retry logic: try up to 5 times with pull/rebase
+              MAX_RETRIES=5
+              RETRY_COUNT=0
+              PUSH_SUCCESS=false
+
+              while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+                echo "📌 Push attempt $((RETRY_COUNT + 1))/$MAX_RETRIES..."
+
+                if git push origin HEAD:${{ env.PAYLOAD_BRANCH }}; then
+                  echo "✅ Changelogs pushed successfully"
+                  PUSH_SUCCESS=true
+                  break
+                else
+                  RETRY_COUNT=$((RETRY_COUNT + 1))
+
+                  if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                    echo "⚠️  Push failed, pulling latest changes and rebasing..."
+
+                    # Fetch latest changes
+                    git fetch origin ${{ env.PAYLOAD_BRANCH }}
+
+                    # Rebase our changelog commit on top of remote changes
+                    if git rebase origin/${{ env.PAYLOAD_BRANCH }}; then
+                      echo "✅ Rebase successful, retrying push..."
+                    else
+                      echo "❌ Rebase failed, aborting and will retry..."
+                      git rebase --abort
+
+                      # Alternative: merge strategy
+                      git pull origin ${{ env.PAYLOAD_BRANCH }} --no-rebase --no-edit || true
+                    fi
+
+                    sleep 2  # Brief pause before retry
+                  fi
+                fi
+              done
+
+              # If all retries failed, create a PR instead
+              if [ "$PUSH_SUCCESS" = false ]; then
+                echo "❌ All push attempts failed. Creating PR instead..."
+
+                # Create a unique branch name for the changelog PR
+                CHANGELOG_BRANCH="changelog/auto-update-$(date +%s)"
+                git checkout -b "$CHANGELOG_BRANCH"
+
+                # Push the branch
+                if git push origin "$CHANGELOG_BRANCH"; then
+                  echo "✅ Changelog branch pushed: $CHANGELOG_BRANCH"
+
+                  # Create PR using gh CLI
+                  PR_BODY="Auto-generated changelogs for $changelog_success package(s)
+
+- Generated using Gemini AI
+- Based on git commit history
+- Follows Keep a Changelog format
+
+**Note:** This PR was created because direct push to ${{ env.PAYLOAD_BRANCH }} failed after $MAX_RETRIES attempts due to concurrent commits."
+
+                  if gh pr create \
+                    --repo "${{ env.PAYLOAD_REPOSITORY }}" \
+                    --base "${{ env.PAYLOAD_BRANCH }}" \
+                    --head "$CHANGELOG_BRANCH" \
+                    --title "docs: update changelogs for published packages [auto-generated]" \
+                    --body "$PR_BODY"; then
+                    echo "✅ Pull request created successfully"
+                  else
+                    echo "❌ Failed to create pull request"
+                  fi
+                else
+                  echo "❌ Failed to push changelog branch"
+                fi
               fi
             fi
           fi
