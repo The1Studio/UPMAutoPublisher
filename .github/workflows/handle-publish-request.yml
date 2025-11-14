@@ -271,9 +271,8 @@ jobs:
               # Read package.json content
               PACKAGE_CONTENT=$(cat "$package_json")
 
-              # Create validation prompt
-              VALIDATION_PROMPT=$(cat <<'PROMPT_EOF'
-You are validating a Unity Package Manager (UPM) package.json file.
+              # Create validation prompt (using bash variable to avoid YAML heredoc issues)
+              VALIDATION_PROMPT="You are validating a Unity Package Manager (UPM) package.json file.
 
 Analyze this package.json and return a JSON response:
 
@@ -281,16 +280,16 @@ PACKAGE_JSON_CONTENT
 
 Return ONLY valid JSON in this exact format:
 {
-  "valid": true/false,
-  "issues": [{
-    "severity": "critical"|"warning",
-    "type": "syntax_error"|"missing_field"|"invalid_format",
-    "field": "field_name",
-    "message": "Description",
-    "suggestion": "How to fix"
+  \"valid\": true/false,
+  \"issues\": [{
+    \"severity\": \"critical\"|\"warning\",
+    \"type\": \"syntax_error\"|\"missing_field\"|\"invalid_format\",
+    \"field\": \"field_name\",
+    \"message\": \"Description\",
+    \"suggestion\": \"How to fix\"
   }],
-  "fixedContent": "corrected JSON content if auto-fixable",
-  "summary": "Brief summary"
+  \"fixedContent\": \"corrected JSON content if auto-fixable\",
+  \"summary\": \"Brief summary\"
 }
 
 Focus on CRITICAL issues:
@@ -299,9 +298,7 @@ Focus on CRITICAL issues:
 - Invalid formats (package name, semver, Unity version)
 - Dependency issues
 
-If fixable, provide corrected JSON in "fixedContent".
-PROMPT_EOF
-)
+If fixable, provide corrected JSON in \"fixedContent\"."
 
               # Replace placeholder with actual content
               VALIDATION_PROMPT="${VALIDATION_PROMPT//PACKAGE_JSON_CONTENT/$PACKAGE_CONTENT}"
