@@ -60,7 +60,7 @@ export default {
       console.log('✅ Package.json changes detected');
 
       // Fetch registered repositories
-      const registeredRepos = await fetchRegisteredRepos();
+      const registeredRepos = await fetchRegisteredRepos(env.GITHUB_PAT);
 
       // Check if repository is registered
       const repo = data.repository.full_name;
@@ -147,12 +147,14 @@ async function verifySignature(payload, signature, secret) {
 /**
  * Fetch registered repositories from UPMAutoPublisher config
  */
-async function fetchRegisteredRepos() {
+async function fetchRegisteredRepos(githubPat) {
   const url = 'https://raw.githubusercontent.com/The1Studio/UPMAutoPublisher/master/config/repositories.json';
 
   try {
     const response = await fetch(url, {
       headers: {
+        'Authorization': `Bearer ${githubPat}`,
+        'Accept': 'application/vnd.github.raw+json',
         'User-Agent': 'UPMAutoPublisher-Webhook/1.0'
       }
     });
