@@ -492,6 +492,127 @@ jobs:
                 "No need to set \`publishConfig.registry\` in your package.json - the workflow handles registry configuration automatically.") || true
               gh pr comment "$pr_url" --body "$pr_comment" || echo "⚠️  Failed to add PR comment (non-fatal)"
 
+              # Monitor PR for merge and trigger initial publish
+              echo ""
+              echo "⏳ Monitoring PR for merge to trigger initial package scan..."
+
+              # Extract PR number from URL
+              pr_number=$(echo "$pr_url" | grep -oE '[0-9]+$')
+
+              # Wait for PR to be merged (max 5 minutes)
+              merged=false
+              for i in {1..60}; do
+                pr_state=$(gh pr view "$pr_number" --repo "${org}/${repo}" --json state,mergedAt --jq '{state, mergedAt}')
+                state=$(echo "$pr_state" | jq -r '.state')
+                merged_at=$(echo "$pr_state" | jq -r '.mergedAt')
+
+                if [ "$state" = "MERGED" ] && [ "$merged_at" != "null" ]; then
+                  echo "✅ PR #${pr_number} has been merged!"
+                  merged=true
+                  break
+                fi
+
+                if [ "$state" = "CLOSED" ]; then
+                  echo "⚠️  PR #${pr_number} was closed without merging"
+                  break
+                fi
+
+                # Check every 5 seconds
+                sleep 5
+              done
+
+              if [ "$merged" = "true" ]; then
+                echo ""
+                echo "🚀 Triggering initial package scan and publish..."
+
+                # Get default branch commit SHA
+                latest_commit=$(gh api "repos/${org}/${repo}/commits/${default_branch}" --jq '.sha')
+
+                # Detect packages first
+                echo "📦 Detecting packages in repository..."
+                detected_packages=$(cd "${GITHUB_WORKSPACE}/.github/workflows" && node -e "
+                  const fs = require('fs');
+                  const path = require('path');
+                  const glob = require('glob');
+
+                  // Function to read package.json
+                  function readPackageJson(packagePath) {
+                    try {
+                      const content = fs.readFileSync(packagePath, 'utf8');
+                      return JSON.parse(content);
+                    } catch (e) {
+                      return null;
+                    }
+                  }
+
+                  // Find all package.json files
+                  const packageFiles = glob.sync('**/package.json', {
+                    cwd: '$temp_dir/target-repo',
+                    absolute: false,
+                    ignore: ['**/node_modules/**', '**/.*/**']
+                  });
+
+                  const packages = packageFiles
+                    .map(file => {
+                      const pkg = readPackageJson(path.join('$temp_dir/target-repo', file));
+                      if (pkg && pkg.name) {
+                        return {
+                          name: pkg.name,
+                          version: pkg.version || '0.0.0',
+                          path: path.dirname(file)
+                        };
+                      }
+                      return null;
+                    })
+                    .filter(Boolean);
+
+                  console.log(JSON.stringify(packages));
+                " 2>/dev/null || echo '[]')
+
+                package_count=$(echo "$detected_packages" | jq '. | length')
+
+                if [ "$package_count" -gt 0 ]; then
+                  echo "✅ Detected $package_count package(s)"
+                  echo "$detected_packages" | jq -r '.[] | "  - \(.name)@\(.version) (path: \(.path))"'
+
+                  # Trigger handle-publish-request workflow for the repository
+                  echo ""
+                  echo "🎯 Triggering publish workflow..."
+
+                  trigger_result=$(gh workflow run handle-publish-request.yml \
+                    --repo The1Studio/UPMAutoPublisher \
+                    --field repository="${org}/${repo}" \
+                    --field commit_sha="$latest_commit" \
+                    --field commit_message="Initial package scan after registration" \
+                    --field commit_author="UPMAutoPublisher" \
+                    --field branch="$default_branch" \
+                    --field package_path="" \
+                    2>&1)
+
+                  trigger_status=$?
+
+                  if [ $trigger_status -eq 0 ]; then
+                    echo "✅ Publish workflow triggered successfully"
+                    echo "   Repository: ${org}/${repo}"
+                    echo "   Branch: $default_branch"
+                    echo "   Commit: ${latest_commit:0:7}"
+                    echo ""
+                    echo "📋 Check workflow status at:"
+                    echo "   https://github.com/The1Studio/UPMAutoPublisher/actions/workflows/handle-publish-request.yml"
+                  else
+                    echo "⚠️  Failed to trigger publish workflow"
+                    echo "   Error: $trigger_result"
+                    echo "   You can manually trigger publishing by pushing a commit to ${org}/${repo}"
+                  fi
+                else
+                  echo "ℹ️  No packages detected - skipping initial publish"
+                  echo "   Packages will be published automatically when you update package.json versions"
+                fi
+              else
+                echo "ℹ️  PR not merged within timeout - skipping initial publish trigger"
+                echo "   Packages will be published automatically when you update package.json versions"
+              fi
+
             else
               echo "❌ Failed to create pull request for ${repo}"
               echo "   Exit code: $pr_create_status"
