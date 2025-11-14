@@ -155,7 +155,13 @@ async function fetchRegisteredRepos(githubPat) {
       headers: {
         'Authorization': `Bearer ${githubPat}`,
         'Accept': 'application/vnd.github.raw+json',
-        'User-Agent': 'UPMAutoPublisher-Webhook/1.0'
+        'User-Agent': 'UPMAutoPublisher-Webhook/1.0',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      },
+      cf: {
+        cacheTtl: 0,
+        cacheEverything: false
       }
     });
 
