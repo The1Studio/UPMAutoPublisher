@@ -939,3 +939,4 @@ jobs:
           cd ..
           rm -rf target-repo
           echo "✅ Cleanup complete"
+# Force workflow resync
