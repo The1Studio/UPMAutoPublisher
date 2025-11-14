@@ -172,10 +172,10 @@ async function fetchRegisteredRepos(githubPat) {
 }
 
 /**
- * Trigger UPMAutoPublisher workflow via workflow_dispatch
+ * Trigger UPMAutoPublisher workflow via repository_dispatch
  */
 async function triggerPublishWorkflow(webhookData, githubPat) {
-  const workflowInputs = {
+  const clientPayload = {
     repository: webhookData.repository.full_name,
     commit_sha: webhookData.after,
     commit_message: webhookData.head_commit?.message || 'No message',
@@ -185,7 +185,7 @@ async function triggerPublishWorkflow(webhookData, githubPat) {
   };
 
   const response = await fetch(
-    'https://api.github.com/repos/The1Studio/UPMAutoPublisher/actions/workflows/handle-publish-request.yml/dispatches',
+    'https://api.github.com/repos/The1Studio/UPMAutoPublisher/dispatches',
     {
       method: 'POST',
       headers: {
@@ -196,8 +196,8 @@ async function triggerPublishWorkflow(webhookData, githubPat) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        ref: 'master',
-        inputs: workflowInputs
+        event_type: 'package_publish',
+        client_payload: clientPayload
       })
     }
   );
