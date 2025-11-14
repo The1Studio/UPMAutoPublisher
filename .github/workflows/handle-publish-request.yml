@@ -42,35 +42,30 @@ jobs:
   publish-packages:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      # Use workflow_dispatch inputs if available, otherwise use repository_dispatch client_payload
+      PAYLOAD_REPOSITORY: ${{ github.event.inputs.repository || github.event.client_payload.repository }}
+      PAYLOAD_COMMIT_SHA: ${{ github.event.inputs.commit_sha || github.event.client_payload.commit_sha }}
+      PAYLOAD_COMMIT_MESSAGE: ${{ github.event.inputs.commit_message || github.event.client_payload.commit_message }}
+      PAYLOAD_COMMIT_AUTHOR: ${{ github.event.inputs.commit_author || github.event.client_payload.commit_author }}
+      PAYLOAD_BRANCH: ${{ github.event.inputs.branch || github.event.client_payload.branch }}
+      PAYLOAD_PACKAGE_PATH: ${{ github.event.inputs.package_path || github.event.client_payload.package_path }}
 
     steps:
       - name: Validate dispatch payload
         run: |
-          # Handle both repository_dispatch and workflow_dispatch
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            REPO="${{ github.event.inputs.repository }}"
-            COMMIT="${{ github.event.inputs.commit_sha }}"
-            AUTHOR="${{ github.event.inputs.commit_author }}"
-            BRANCH="${{ github.event.inputs.branch }}"
-          else
-            REPO="${{ github.event.client_payload.repository }}"
-            COMMIT="${{ github.event.client_payload.commit_sha }}"
-            AUTHOR="${{ github.event.client_payload.commit_author }}"
-            BRANCH="${{ github.event.client_payload.branch }}"
-          fi
-
-          echo "📦 Received publish request from: $REPO"
-          echo "📝 Commit: $COMMIT"
-          echo "👤 Author: $AUTHOR"
-          echo "🌿 Branch: $BRANCH"
+          echo "📦 Received publish request from: $PAYLOAD_REPOSITORY"
+          echo "📝 Commit: $PAYLOAD_COMMIT_SHA"
+          echo "👤 Author: $PAYLOAD_COMMIT_AUTHOR"
+          echo "🌿 Branch: $PAYLOAD_BRANCH"
 
           # Validate required payload fields
-          if [ -z "$REPO" ]; then
+          if [ -z "$PAYLOAD_REPOSITORY" ]; then
             echo "❌ Missing repository in payload"
             exit 1
           fi
 
-          if [ -z "$COMMIT" ]; then
+          if [ -z "$PAYLOAD_COMMIT_SHA" ]; then
             echo "❌ Missing commit_sha in payload"
             exit 1
           fi
@@ -78,8 +73,8 @@ jobs:
       - name: Clone target repository
         uses: actions/checkout@v4
         with:
-          repository: ${{ github.event.client_payload.repository }}
-          ref: ${{ github.event.client_payload.commit_sha }}
+          repository: ${{ env.PAYLOAD_REPOSITORY }}
+          ref: ${{ env.PAYLOAD_COMMIT_SHA }}
           path: target-repo
           token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
 
@@ -223,7 +218,7 @@ jobs:
           fi
 
           # Check if specific package path provided in payload
-          specific_package="${{ github.event.client_payload.package_path }}"
+          specific_package="$PAYLOAD_PACKAGE_PATH"
 
           if [ -n "$specific_package" ]; then
             echo "📦 Specific package requested: $specific_package"
@@ -593,10 +588,10 @@ This PR was automatically created by Gemini AI validation. Please review the cha
               echo "📤 Pushing changelog updates..."
 
               # Use GH_PAT for authentication (required to push to source repo)
-              git remote set-url origin "https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.event.client_payload.repository }}.git"
+              git remote set-url origin "https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ env.PAYLOAD_REPOSITORY }}.git"
 
               # Push to the branch that triggered this workflow
-              if git push origin HEAD:${{ github.event.client_payload.branch }}; then
+              if git push origin HEAD:${{ env.PAYLOAD_BRANCH }}; then
                 echo "✅ Changelogs pushed successfully"
               else
                 echo "❌ Failed to push changelogs"
@@ -631,11 +626,11 @@ This PR was automatically created by Gemini AI validation. Please review the cha
           jq -n \
             --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --arg workflow_run_id "${{ github.run_id }}" \
-            --arg repository "${{ github.event.client_payload.repository }}" \
-            --arg commit_sha "${{ github.event.client_payload.commit_sha }}" \
-            --arg commit_message "${{ github.event.client_payload.commit_message }}" \
-            --arg commit_author "${{ github.event.client_payload.commit_author }}" \
-            --arg branch "${{ github.event.client_payload.branch }}" \
+            --arg repository "${{ env.PAYLOAD_REPOSITORY }}" \
+            --arg commit_sha "${{ env.PAYLOAD_COMMIT_SHA }}" \
+            --arg commit_message "${{ env.PAYLOAD_COMMIT_MESSAGE }}" \
+            --arg commit_author "${{ env.PAYLOAD_COMMIT_AUTHOR }}" \
+            --arg branch "${{ env.PAYLOAD_BRANCH }}" \
             --argjson published "${{ env.published || 0 }}" \
             --argjson skipped "${{ env.skipped || 0 }}" \
             --arg registry "$UPM_REGISTRY" \
@@ -686,8 +681,8 @@ This PR was automatically created by Gemini AI validation. Please review the cha
 
           # Define URLs early for use in truncated message
           workflow_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          repository="${{ github.event.client_payload.repository }}"
-          commit_sha="${{ github.event.client_payload.commit_sha }}"
+          repository="${{ env.PAYLOAD_REPOSITORY }}"
+          commit_sha="${{ env.PAYLOAD_COMMIT_SHA }}"
           commit_short="${commit_sha:0:7}"
           commit_url="https://github.com/$repository/commit/$commit_sha"
           timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -776,8 +771,8 @@ This PR was automatically created by Gemini AI validation. Please review the cha
             --arg published "${{ env.published }}" \
             --arg skipped "${{ env.skipped }}" \
             --arg repository "$repository" \
-            --arg commit_message "${{ github.event.client_payload.commit_message }}" \
-            --arg commit_author "${{ github.event.client_payload.commit_author }}" \
+            --arg commit_message "${{ env.PAYLOAD_COMMIT_MESSAGE }}" \
+            --arg commit_author "${{ env.PAYLOAD_COMMIT_AUTHOR }}" \
             --arg commit_url "$commit_url" \
             --arg commit_short "$commit_short" \
             --arg workflow_url "$workflow_url" \
@@ -849,7 +844,7 @@ This PR was automatically created by Gemini AI validation. Please review the cha
           fi
 
           workflow_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          repository="${{ github.event.client_payload.repository }}"
+          repository="${{ env.PAYLOAD_REPOSITORY }}"
           timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
           jq -n \
