@@ -1,22 +1,22 @@
 # Quick Repository Registration Guide
 
-**🎯 Goal**: Register a new repository for UPM auto-publishing in under 2 minutes.
+**🎯 Goal**: Register a new repository for UPM auto-publishing in under 30 seconds.
 
-## TL;DR - The Fast Way
+## TL;DR - The Fast Way (Webhook-Only Architecture)
 
 ```bash
-# 1. Add repo to config/repositories.json with status: "pending"
+# 1. Add repo to config/repositories.json with status: "active"
 # 2. Commit and push
-# 3. GitHub Action creates PR in target repo automatically
-# 4. Merge PR
-# 5. Change status to "active"
+# 3. Done! Cloudflare webhook handles everything
 ```
+
+**That's it!** No workflow files needed in target repositories. The organization webhook detects package.json changes and publishes automatically.
 
 ---
 
 ## Step-by-Step Registration
 
-### Step 1: Add Repository to Registry (30 seconds)
+### Step 1: Add Repository to Registry (20 seconds)
 
 Edit `config/repositories.json` in the UPMAutoPublisher repo:
 
@@ -25,17 +25,17 @@ Edit `config/repositories.json` in the UPMAutoPublisher repo:
   "repositories": [
     {
       "url": "https://github.com/The1Studio/YourNewRepo",
-      "status": "pending"
+      "status": "active"
     }
   ]
 }
 ```
 
-**Note:** Set `status: "pending"` to trigger automation.
+**Note:** Set `status: "active"` immediately. The Cloudflare webhook is already configured organization-wide.
 
 ### About Package Auto-Discovery
 
-**You don't need to list packages!** The workflow automatically:
+**You don't need to list packages!** The webhook automatically:
 - Detects all `package.json` files in your repository
 - Publishes each package when its version changes
 - Handles single-package and multi-package repos the same way
@@ -47,84 +47,47 @@ The only configuration needed is the repository URL and status.
 ### Step 2: Commit and Push (10 seconds)
 
 ```bash
-cd /mnt/Work/1M/UPM/The1Studio/UPMAutoPublisher
+cd /mnt/Work/1M/1.OneTools/UPM/The1Studio/UPMAutoPublisher
 
 git add config/repositories.json
 git commit -m "Register YourNewRepo for UPM auto-publishing"
 git push origin master
 ```
 
-### Step 3: Wait for Automation (1-2 minutes)
+### Step 3: Done! 🎉
 
-GitHub Action automatically:
-1. ✅ Detects new `"pending"` repository
-2. ✅ Clones the target repository
-3. ✅ Creates workflow file `.github/workflows/publish-upm.yml`
-4. ✅ Creates a pull request in the target repo
-5. ✅ Adds helpful comments and documentation
+**That's it!** The Cloudflare webhook is now monitoring your repository.
 
-**Monitor progress:**
-- https://github.com/The1Studio/UPMAutoPublisher/actions
+**What happens next:**
+1. When you bump a package version in YourNewRepo and push
+2. Cloudflare webhook detects the package.json change (< 1 second)
+3. Triggers `handle-publish-request.yml` workflow automatically
+4. Package is published to `upm.the1studio.org`
+5. AI-generated changelog is committed back to your repo
+6. Discord notification sent with results
 
-### Step 4: Review and Merge PR (30 seconds)
+**No workflow files needed in your target repository!**
 
-Go to the target repository:
-- **URL**: `https://github.com/The1Studio/YourNewRepo/pulls`
+---
 
-You'll see a PR titled: **"🤖 Add UPM Auto-Publishing Workflow"**
+## How to Publish a Package
 
-**Review checklist** (automated PR includes this):
-- [ ] Workflow file looks correct
-- [ ] Package paths are accurate
-- [ ] `package.json` has valid `name` and `version` fields
-
-**Note**: `publishConfig.registry` in package.json is **optional** - the workflow handles registry configuration automatically.
-
-**Merge the PR**
-
-### Step 5: Update Status to Active (20 seconds)
-
-After PR is merged, update the status in `repositories.json`:
-
-```bash
-cd /mnt/Work/1M/UPM/The1Studio/UPMAutoPublisher
-
-# Edit config/repositories.json
-# Change: "status": "pending" → "status": "active"
-```
-
-```json
-{
-  "url": "https://github.com/The1Studio/YourNewRepo",
-  "status": "active"  // ✅ Changed from "pending"
-}
-```
-
-```bash
-git add config/repositories.json
-git commit -m "Mark YourNewRepo as active"
-git push origin master
-```
-
-### Step 6: Test It (1 minute)
-
-In the target repo, make a test version bump:
+After registration, publishing is automatic:
 
 ```bash
 cd /path/to/YourNewRepo
 
-# Bump version
-sed -i 's/"version": "1.0.0"/"version": "1.0.1"/' Assets/YourPackage/package.json
+# 1. Update package version
+jq '.version = "1.0.1"' package.json > tmp.json && mv tmp.json package.json
 
-# Commit and push
-git add Assets/YourPackage/package.json
-git commit -m "Test UPM auto-publish: bump to 1.0.1"
+# 2. Commit and push
+git add package.json
+git commit -m "Bump version to 1.0.1"
 git push origin master
-```
 
-**Watch the workflow run:**
-- Go to: `https://github.com/The1Studio/YourNewRepo/actions`
-- Look for: "Publish to UPM Registry" workflow
+# 3. Wait ~30 seconds for automatic publishing
+# Package is automatically published to upm.the1studio.org!
+```
 
 **Verify published:**
 ```bash
@@ -144,45 +107,14 @@ npm view com.theone.yourpackage@1.0.1 --registry https://upm.the1studio.org/
       "status": "active"
     },
     {
-      "url": "https://github.com/The1Studio/UnityUtilities",
-      "status": "pending"  // ← Will trigger automation
+      "url": "https://github.com/The1Studio/TheOne.ProjectSetup",
+      "status": "active"
     }
   ]
 }
 ```
 
-**That's it!** The workflow automatically discovers all packages in each repository.
-
----
-
-## What the Automation Does
-
-### Creates This Workflow File
-
-The automation creates `.github/workflows/publish-upm.yml` in the target repo:
-
-```yaml
-name: Publish to UPM Registry
-
-on:
-  push:
-    branches: [master, main]
-    paths: ['**/package.json']
-
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-    steps:
-      # ... (complete workflow from template)
-```
-
-### Creates a PR With:
-
-- ✅ Workflow file
-- ✅ Detailed description
-- ✅ Package verification checklist
-- ✅ Links to documentation
-- ✅ Usage instructions
+**That's it!** The webhook automatically discovers all packages in each repository.
 
 ---
 
@@ -190,110 +122,8 @@ jobs:
 
 | Status | Meaning | Action |
 |--------|---------|--------|
-| `"pending"` | **Not yet deployed** | ✅ Automation will create PR |
-| `"active"` | **Deployed and working** | ⏭️ No action needed |
-| `"disabled"` | **Temporarily disabled** | ⏭️ Automation ignores |
-
----
-
-## Troubleshooting
-
-### PR Not Created
-
-**Check these:**
-
-1. **Workflow ran successfully?**
-   ```
-   https://github.com/The1Studio/UPMAutoPublisher/actions
-   ```
-
-2. **Workflow already exists?**
-   ```bash
-   gh api repos/The1Studio/YourRepo/contents/.github/workflows/publish-upm.yml
-   ```
-   If exists, automation skips (manual update needed)
-
-3. **Repository accessible?**
-   ```bash
-   gh repo view The1Studio/YourRepo
-   ```
-
-4. **GitHub token has permissions?**
-   - Token needs: `repo` scope
-   - Organization must allow Actions to create PRs
-
-### Workflow File Already Exists
-
-If `.github/workflows/publish-upm.yml` already exists:
-
-1. Automation will skip the repo
-2. Manually update the workflow file if needed
-3. Change status to `"active"` in `repositories.json`
-
-### Authentication Errors
-
-Automation uses `secrets.GITHUB_TOKEN` which has limited permissions.
-
-**If PR creation fails:**
-- May need Personal Access Token with `repo` scope
-- Update workflow to use PAT instead of `GITHUB_TOKEN`
-
----
-
-## Advanced: Manual Deployment
-
-If automation fails, deploy manually:
-
-```bash
-# 1. Clone target repo
-git clone https://github.com/The1Studio/YourRepo.git
-cd YourRepo
-
-# 2. Create branch
-git checkout -b add-upm-workflow
-
-# 3. Copy workflow
-mkdir -p .github/workflows
-cp /path/to/UPMAutoPublisher/.github/workflows/publish-upm.yml \
-   .github/workflows/
-
-# 4. Commit and push
-git add .github/workflows/publish-upm.yml
-git commit -m "Add UPM auto-publishing workflow"
-git push origin add-upm-workflow
-
-# 5. Create PR manually
-gh pr create --title "Add UPM Auto-Publishing Workflow" \
-  --body "Adds automated UPM publishing"
-```
-
----
-
-## Multi-Repository Registration
-
-Register multiple repos at once:
-
-```json
-{
-  "repositories": [
-    // Existing repos...
-    {
-      "url": "https://github.com/The1Studio/Repo1",
-      "status": "pending"
-    },
-    {
-      "url": "https://github.com/The1Studio/Repo2",
-      "status": "pending"
-    },
-    {
-      "url": "https://github.com/The1Studio/Repo3",
-      "status": "pending"
-    }
-  ]
-}
-```
-
-**Commit once**, automation processes all pending repos and discovers all packages automatically.
+| `"active"` | **Webhook monitoring enabled** | ✅ Publishes on version changes |
+| `"disabled"` | **Temporarily disabled** | ⏭️ Webhook ignores repository |
 
 ---
 
@@ -320,23 +150,6 @@ Each target repository **must** have `package.json` with required Unity package 
 - Publishing command: `npm publish --registry "$UPM_REGISTRY"`
 - This approach allows centralized registry management without modifying each package.json
 
-### ✅ Optional: Including publishConfig
-
-```json
-{
-  "name": "com.theone.yourpackage",
-  "version": "1.0.0",
-  "displayName": "Your Package",
-  "description": "Package description",
-  "unity": "2022.3",
-  "publishConfig": {
-    "registry": "https://upm.the1studio.org/"
-  }
-}
-```
-
-If you prefer to include `publishConfig.registry` in your package.json, that's fine too - but the workflow's `--registry` flag takes precedence.
-
 ### ❌ Missing Required Fields
 
 ```json
@@ -354,46 +167,121 @@ If you prefer to include `publishConfig.registry` in your package.json, that's f
 
 ---
 
-## Benefits of This System
+## Troubleshooting
 
-### Before (Manual Setup)
-1. Clone target repo
-2. Create workflow file manually
-3. Copy/paste template
-4. Commit and push
-5. Verify workflow
-6. Update registry
-7. Test publishing
+### Package Not Publishing
 
-**Time**: ~10-15 minutes per repo
+**Check these:**
 
-### After (Automated Registration)
-1. Add repo to JSON with `status: "pending"`
+1. **Repository registered with status "active"?**
+   ```bash
+   jq '.[] | select(.url | contains("YourRepo"))' config/repositories.json
+   ```
+
+2. **Cloudflare webhook working?**
+   - Check webhook logs at Cloudflare dashboard
+   - Recent push should appear in logs
+
+3. **Workflow triggered?**
+   ```bash
+   gh run list --repo The1Studio/UPMAutoPublisher --workflow handle-publish-request.yml --limit 5
+   ```
+
+4. **Package.json has required fields?**
+   ```bash
+   jq '{name, version}' /path/to/package.json
+   ```
+
+### Webhook Not Triggering
+
+If pushes aren't triggering workflows:
+
+1. **Check repository is registered:**
+   ```bash
+   jq '.[] | .url' config/repositories.json
+   ```
+
+2. **Verify status is "active":**
+   ```bash
+   jq '.[] | select(.status == "active") | .url' config/repositories.json
+   ```
+
+3. **Test manual trigger:**
+   ```bash
+   curl -X POST \
+     -H "Authorization: Bearer $(gh auth token)" \
+     https://api.github.com/repos/The1Studio/UPMAutoPublisher/dispatches \
+     -d '{
+       "event_type": "package_publish",
+       "client_payload": {
+         "repository": "The1Studio/YourRepo",
+         "commit_sha": "'$(git rev-parse HEAD)'",
+         "branch": "master"
+       }
+     }'
+   ```
+
+---
+
+## Multi-Repository Registration
+
+Register multiple repos at once:
+
+```json
+{
+  "repositories": [
+    {
+      "url": "https://github.com/The1Studio/Repo1",
+      "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/Repo2",
+      "status": "active"
+    },
+    {
+      "url": "https://github.com/The1Studio/Repo3",
+      "status": "active"
+    }
+  ]
+}
+```
+
+**Commit once**, all repos are immediately monitored by the webhook!
+
+---
+
+## Benefits of Webhook-Only Architecture
+
+### Before (Per-Repo Workflows)
+1. Add repo to config
+2. Wait for PR creation automation
+3. Review and merge PR in target repo
+4. Update status to active
+5. Test publishing
+
+**Time**: ~5 minutes per repo
+
+### After (Webhook-Only)
+1. Add repo to JSON with `status: "active"`
 2. Commit and push
-3. Merge automated PR
-4. Update status to `"active"`
 
-**Time**: ~2 minutes per repo
+**Time**: ~30 seconds per repo
 
-**Time saved**: ~8-13 minutes per repo
-**For 10 repos**: Saves ~1.5-2 hours!
+**Time saved**: ~4.5 minutes per repo
+**For 10 repos**: Saves ~45 minutes!
 
 ---
 
 ## Security Notes
 
-### Automation Uses
+### Organization Secrets Required
 
-- **GitHub Token**: `secrets.GITHUB_TOKEN` (built-in)
-- **Permissions**: Can create PRs in The1Studio repos
-- **Scope**: Limited to organization repositories
+- **NPM_TOKEN**: Can publish to `upm.the1studio.org`
+- **GH_PAT**: Can trigger workflows and commit changelogs
+- **GEMINI_API_KEY** (optional): Enables AI changelog generation
+- **WEBHOOK_SECRET**: Secures Cloudflare webhook
 
-### Target Repos Need
-
-- **NPM Token**: `secrets.NPM_TOKEN` (organization secret)
-- **Permissions**: Can publish to `upm.the1studio.org`
-
-Both should already be configured at organization level.
+All should already be configured at organization level.
 
 ---
 
@@ -401,7 +289,7 @@ Both should already be configured at organization level.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ 1. Add repo to repositories.json with status: "pending"    │
+│ 1. Add repo to repositories.json with status: "active"     │
 └────────────┬────────────────────────────────────────────────┘
              │
              ▼
@@ -411,35 +299,18 @@ Both should already be configured at organization level.
              │
              ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ 3. GitHub Action "register-repos" triggers                  │
+│ 3. Done! Webhook is now monitoring the repository          │
 └────────────┬────────────────────────────────────────────────┘
              │
              ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ 4. For each "pending" repo:                                 │
-│    - Clone target repository                                │
-│    - Create branch: auto-publish/add-upm-workflow-XXX       │
-│    - Copy publish-upm.yml workflow                          │
-│    - Commit and push                                        │
-│    - Create PR with documentation                           │
-└────────────┬────────────────────────────────────────────────┘
-             │
-             ▼
-┌─────────────────────────────────────────────────────────────┐
-│ 5. Review PR in target repository                           │
-│    - Check workflow file                                    │
-│    - Verify package configuration                           │
-│    - Merge PR                                               │
-└────────────┬────────────────────────────────────────────────┘
-             │
-             ▼
-┌─────────────────────────────────────────────────────────────┐
-│ 6. Update status to "active" in repositories.json           │
-└────────────┬────────────────────────────────────────────────┘
-             │
-             ▼
-┌─────────────────────────────────────────────────────────────┐
-│ 7. Test with version bump in target repo                    │
+│ When package version bumped:                                │
+│  1. Push to target repo                                     │
+│  2. GitHub webhook → Cloudflare Worker (< 1s)               │
+│  3. Worker triggers handle-publish-request.yml              │
+│  4. Workflow publishes package                              │
+│  5. AI generates changelog (if GEMINI_API_KEY set)          │
+│  6. Discord notification sent                               │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -447,23 +318,23 @@ Both should already be configured at organization level.
 
 ## FAQ
 
+### Q: Do I need to add any files to my repository?
+**A:** No! The webhook monitors your repo without any workflow files.
+
 ### Q: Can I register private repositories?
-**A:** Yes! Automation works with both public and private repos in The1Studio organization.
+**A:** Yes! Webhook works with both public and private repos in The1Studio organization.
 
-### Q: What if the workflow file already exists?
-**A:** Automation detects this and skips the repo. Manually update if needed.
+### Q: What happens if I add multiple repos at once?
+**A:** All are monitored immediately after you push the config change.
 
-### Q: Can I register repos from other organizations?
-**A:** No, only repositories in The1Studio organization are supported.
+### Q: Can I test without affecting real packages?
+**A:** Yes! Use a test repository with a test package name.
 
-### Q: What happens if I add multiple pending repos at once?
-**A:** Automation processes all of them in one run, creating PRs for each.
+### Q: What if the webhook fails?
+**A:** There's a fallback polling system (`monitor-all-repos.yml`) that runs every 5 minutes.
 
-### Q: Can I test without affecting real repos?
-**A:** Yes! Use a test repository and set it to `"pending"` to see the automation in action.
-
-### Q: What if PR creation fails?
-**A:** Check the workflow logs in UPMAutoPublisher Actions tab for error details.
+### Q: How do I temporarily disable a repository?
+**A:** Change status to `"disabled"` in repositories.json.
 
 ---
 
@@ -477,16 +348,17 @@ Before registering a new repo, verify:
 - [ ] `package.json` has `version` field
 - [ ] You have write access to UPMAutoPublisher repo
 - [ ] Organization has `NPM_TOKEN` secret configured
-- [ ] Organization has `GH_PAT` secret configured (required for auto-trigger)
+- [ ] Organization has `GH_PAT` secret configured
+- [ ] Organization has `WEBHOOK_SECRET` configured
 
 ---
 
 ## Related Documentation
 
 - [Main README](../README.md)
-- [Setup Instructions](setup-instructions.md) (manual process)
 - [Architecture Decisions](architecture-decisions.md)
 - [Troubleshooting](troubleshooting.md)
+- [Configuration Guide](configuration.md)
 
 ---
 
