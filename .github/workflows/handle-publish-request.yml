@@ -273,13 +273,11 @@ jobs:
 
               # Create validation prompt
               VALIDATION_PROMPT=$(cat <<'PROMPT_EOF'
-You are validating a Unity Package Manager (UPM) package.json file. Follow the validation guide at https://github.com/The1Studio/UPMAutoPublisher/blob/master/docs/package-json-validation-guide.md
+You are validating a Unity Package Manager (UPM) package.json file.
 
 Analyze this package.json and return a JSON response:
 
-```json
 PACKAGE_JSON_CONTENT
-```
 
 Return ONLY valid JSON in this exact format:
 {
