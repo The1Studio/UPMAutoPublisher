@@ -1,12 +1,12 @@
 {
-  "updated": "2025-11-14T06:11:29Z",
+  "updated": "2025-11-14T08:51:54Z",
   "repositories": {
     "The1Studio/TheOneFeature": {
       "packages": {
         "com.theone.feature.adapters": {
           "path": "Core/Adapters",
-          "version": "1.2.2",
-          "publishedVersion": "1.2.2"
+          "version": "1.2.8",
+          "publishedVersion": "1.2.7"
         },
         "com.theone.feature.core": {
           "path": "Core/Core",
@@ -520,7 +520,7 @@
         },
         "com.theone.feature.puzzle3d_1.ui.upcomingfeature": {
           "path": "UI/Layouts/Puzzle3D_1/Scripts/UpComingFeature",
-          "version": "1.0.3",
+          "version": "1.0.4",
           "publishedVersion": "1.0.3"
         },
         "com.theone.feature.puzzle3d_1.ui.win": {
