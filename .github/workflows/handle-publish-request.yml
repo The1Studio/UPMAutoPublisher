@@ -446,6 +446,7 @@ jobs:
         continue-on-error: true  # Don't fail workflow if changelog generation fails
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           cd target-repo
 
