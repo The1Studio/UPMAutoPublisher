@@ -3,6 +3,36 @@ name: Handle UPM Publish Request
 on:
   repository_dispatch:
     types: [package_publish]
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: 'Repository full name (e.g., The1Studio/TheOneFeature)'
+        required: true
+        type: string
+      commit_sha:
+        description: 'Commit SHA'
+        required: true
+        type: string
+      commit_message:
+        description: 'Commit message'
+        required: false
+        type: string
+        default: 'No message'
+      commit_author:
+        description: 'Commit author'
+        required: false
+        type: string
+        default: 'unknown'
+      branch:
+        description: 'Branch name'
+        required: false
+        type: string
+        default: 'master'
+      package_path:
+        description: 'Package path (empty for auto-detection)'
+        required: false
+        type: string
+        default: ''
 
 env:
   UPM_REGISTRY: ${{ vars.UPM_REGISTRY || 'https://upm.the1studio.org/' }}
@@ -16,18 +46,31 @@ jobs:
     steps:
       - name: Validate dispatch payload
         run: |
-          echo "📦 Received publish request from: ${{ github.event.client_payload.repository }}"
-          echo "📝 Commit: ${{ github.event.client_payload.commit_sha }}"
-          echo "👤 Author: ${{ github.event.client_payload.commit_author }}"
-          echo "🌿 Branch: ${{ github.event.client_payload.branch }}"
+          # Handle both repository_dispatch and workflow_dispatch
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            REPO="${{ github.event.inputs.repository }}"
+            COMMIT="${{ github.event.inputs.commit_sha }}"
+            AUTHOR="${{ github.event.inputs.commit_author }}"
+            BRANCH="${{ github.event.inputs.branch }}"
+          else
+            REPO="${{ github.event.client_payload.repository }}"
+            COMMIT="${{ github.event.client_payload.commit_sha }}"
+            AUTHOR="${{ github.event.client_payload.commit_author }}"
+            BRANCH="${{ github.event.client_payload.branch }}"
+          fi
+
+          echo "📦 Received publish request from: $REPO"
+          echo "📝 Commit: $COMMIT"
+          echo "👤 Author: $AUTHOR"
+          echo "🌿 Branch: $BRANCH"
 
           # Validate required payload fields
-          if [ -z "${{ github.event.client_payload.repository }}" ]; then
+          if [ -z "$REPO" ]; then
             echo "❌ Missing repository in payload"
             exit 1
           fi
 
-          if [ -z "${{ github.event.client_payload.commit_sha }}" ]; then
+          if [ -z "$COMMIT" ]; then
             echo "❌ Missing commit_sha in payload"
             exit 1
           fi
