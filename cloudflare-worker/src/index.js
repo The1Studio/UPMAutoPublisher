@@ -4,6 +4,8 @@
  * Receives GitHub organization webhook push events and automatically
  * triggers package publishing when package.json files are changed
  * in registered repositories.
+ *
+ * Updated: 2025-11-14 - Added cache-busting for repositories.json fetch
  */
 
 export default {
