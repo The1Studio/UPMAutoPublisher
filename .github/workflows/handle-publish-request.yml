@@ -459,6 +459,29 @@ jobs:
             exit 0
           fi
 
+          # Install gh CLI if not available
+          if ! command -v gh &> /dev/null; then
+            echo "📦 Installing GitHub CLI (gh)..."
+
+            # Detect OS and install accordingly
+            if [ -f /etc/debian_version ]; then
+              # Debian/Ubuntu
+              curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+              echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+              sudo apt-get update
+              sudo apt-get install -y gh
+            else
+              # Generic Linux - use binary download
+              curl -sSL https://github.com/cli/cli/releases/latest/download/gh_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz | tar -xz
+              sudo mv gh_*/bin/gh /usr/local/bin/
+              rm -rf gh_*
+            fi
+
+            echo "✅ GitHub CLI installed successfully"
+          else
+            echo "✓ GitHub CLI already available"
+          fi
+
           # Download generate-changelog.sh script from UPMAutoPublisher
           echo "📥 Downloading changelog generation script..."
 
