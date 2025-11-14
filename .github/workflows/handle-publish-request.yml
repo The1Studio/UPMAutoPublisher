@@ -330,14 +330,12 @@ jobs:
                         ISSUES_LIST=$(echo "$VALIDATION_RESULT" | jq -r '.issues[] | "- [\(.severity | ascii_upcase)] \(.field): \(.message)"' | head -10)
 
                         git add "$package_json"
-                        git commit -m "fix(package.json): $SUMMARY
-
-Auto-fix applied by Gemini AI validation
-
-Issues fixed:
-$ISSUES_LIST
-
-Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                        git commit -m "fix(package.json): $SUMMARY" \
+                          -m "Auto-fix applied by Gemini AI validation" \
+                          -m "Issues fixed:" \
+                          -m "$ISSUES_LIST" \
+                          -m "" \
+                          -m "Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
                         git push origin "$FIX_BRANCH"
 
