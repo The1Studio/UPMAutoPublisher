@@ -461,11 +461,12 @@ jobs:
 
           # Download generate-changelog.sh script from UPMAutoPublisher
           echo "📥 Downloading changelog generation script..."
-          curl -sSfL \
-            "https://raw.githubusercontent.com/${{ github.repository }}/master/scripts/generate-changelog.sh" \
-            -o generate-changelog.sh
 
-          if [ ! -f generate-changelog.sh ]; then
+          # Use gh api to download from private repository with authentication
+          gh api /repos/${{ github.repository }}/contents/scripts/generate-changelog.sh \
+            --jq '.content' | base64 -d > generate-changelog.sh
+
+          if [ ! -f generate-changelog.sh ] || [ ! -s generate-changelog.sh ]; then
             echo "❌ Failed to download generate-changelog.sh"
             exit 1
           fi
