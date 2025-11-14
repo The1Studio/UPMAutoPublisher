@@ -339,25 +339,10 @@ jobs:
 
                         git push origin "$FIX_BRANCH"
 
+                        # Create PR
                         PR_URL=$(gh pr create \
                           --title "🔧 Fix package.json validation issues in $package_name" \
-                          --body "## 🤖 AI-Powered Package.json Validation
-
-**Package:** \`$package_name\`
-**Critical Issues:** $CRITICAL_COUNT
-**Total Issues:** $ISSUES_COUNT
-
-### Issues Fixed:
-$ISSUES_LIST
-
-### Summary:
-$SUMMARY
-
----
-
-**Validation Workflow:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-This PR was automatically created by Gemini AI validation. Please review the changes before merging." \
+                          --body "## 🤖 AI-Powered Package.json Validation\n\n**Package:** \`$package_name\`\n**Critical Issues:** $CRITICAL_COUNT\n**Total Issues:** $ISSUES_COUNT\n\n### Issues Fixed:\n$ISSUES_LIST\n\n### Summary:\n$SUMMARY\n\n---\n\n**Validation Workflow:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\n\nThis PR was automatically created by Gemini AI validation. Please review the changes before merging." \
                           --label "automated" \
                           --label "bug" 2>&1 || echo "")
 
