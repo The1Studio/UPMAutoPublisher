@@ -161,7 +161,8 @@ async function fetchRegisteredRepos() {
       throw new Error(`Failed to fetch repositories config: ${response.status}`);
     }
 
-    return await response.json();
+    const data = await response.json();
+    return data.repositories || [];
   } catch (error) {
     console.error('Error fetching registered repos:', error);
     return [];
