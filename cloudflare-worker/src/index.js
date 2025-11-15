@@ -5,7 +5,7 @@
  * triggers package publishing when package.json files are changed
  * in registered repositories.
  *
- * Updated: 2025-11-14 - Added cache-busting for repositories.json fetch
+ * Updated: 2025-11-15 - Migrated to GitHub App authentication
  */
 
 export default {
@@ -61,8 +61,8 @@ export default {
 
       console.log('✅ Package.json changes detected');
 
-      // Fetch registered repositories
-      const registeredRepos = await fetchRegisteredRepos(env.GITHUB_PAT);
+      // Fetch registered repositories (no auth needed for public repo)
+      const registeredRepos = await fetchRegisteredRepos();
 
       // Check if repository is registered
       const repo = data.repository.full_name;
@@ -81,8 +81,11 @@ export default {
 
       console.log(`✅ Repository ${repo} is registered and active`);
 
+      // Get GitHub App installation token
+      const installationToken = await getInstallationToken(env);
+
       // Trigger UPMAutoPublisher workflow
-      const result = await triggerPublishWorkflow(data, env.GITHUB_PAT);
+      const result = await triggerPublishWorkflow(data, installationToken);
 
       console.log('✅ Publish workflow triggered successfully');
 
@@ -149,15 +152,14 @@ async function verifySignature(payload, signature, secret) {
 /**
  * Fetch registered repositories from UPMAutoPublisher config
  */
-async function fetchRegisteredRepos(githubPat) {
+async function fetchRegisteredRepos() {
   const url = 'https://raw.githubusercontent.com/The1Studio/UPMAutoPublisher/master/config/repositories.json';
 
   try {
+    // Note: raw.githubusercontent.com doesn't need auth for public repos
     const response = await fetch(url, {
       headers: {
-        'Authorization': `Bearer ${githubPat}`,
-        'Accept': 'application/vnd.github.raw+json',
-        'User-Agent': 'UPMAutoPublisher-Webhook/1.0',
+        'User-Agent': 'UPMAutoPublisher-Webhook/2.0',
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache'
       },
@@ -180,9 +182,175 @@ async function fetchRegisteredRepos(githubPat) {
 }
 
 /**
+ * Generate JWT for GitHub App authentication
+ */
+async function generateJWT(appId, privateKeyPem) {
+  const now = Math.floor(Date.now() / 1000);
+
+  // JWT header
+  const header = {
+    alg: 'RS256',
+    typ: 'JWT'
+  };
+
+  // JWT payload
+  const parsedAppId = parseInt(appId, 10);
+
+  const payload = {
+    iat: now - 60, // Issued 60 seconds in the past to allow for clock drift
+    exp: now + 600, // Expires 10 minutes from now
+    iss: parsedAppId // Must be an integer
+  };
+
+  // Encode header and payload
+  const encodedHeader = base64UrlEncode(JSON.stringify(header));
+  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+  const message = `${encodedHeader}.${encodedPayload}`;
+
+  // Import private key
+  // GitHub App private keys are in PKCS#1 format
+  const pemContents = privateKeyPem
+    .replace('-----BEGIN RSA PRIVATE KEY-----', '')
+    .replace('-----END RSA PRIVATE KEY-----', '')
+    .replace('-----BEGIN PRIVATE KEY-----', '')
+    .replace('-----END PRIVATE KEY-----', '')
+    .replace(/\s/g, '');
+
+  const binaryDer = base64Decode(pemContents);
+
+  // Try to import as PKCS#8 first (newer format), fall back to PKCS#1 if needed
+  let key;
+  try {
+    key = await crypto.subtle.importKey(
+      'pkcs8',
+      binaryDer,
+      {
+        name: 'RSASSA-PKCS1-v1_5',
+        hash: 'SHA-256'
+      },
+      false,
+      ['sign']
+    );
+  } catch (e) {
+    // If PKCS#8 fails, the key is likely in PKCS#1 format
+    // We need to convert it, but Web Crypto API doesn't support PKCS#1 directly
+    throw new Error(`Failed to import private key: ${e.message}. GitHub App private keys must be in PKCS#8 format. Convert using: openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -in private-key.pem -out private-key-pkcs8.pem`);
+  }
+
+  // Sign the message
+  const encoder = new TextEncoder();
+  const signature = await crypto.subtle.sign(
+    'RSASSA-PKCS1-v1_5',
+    key,
+    encoder.encode(message)
+  );
+
+  // Encode signature
+  const encodedSignature = base64UrlEncode(signature);
+
+  return `${message}.${encodedSignature}`;
+}
+
+/**
+ * Base64 URL encode
+ */
+function base64UrlEncode(data) {
+  let base64;
+
+  if (typeof data === 'string') {
+    base64 = btoa(data);
+  } else if (data instanceof ArrayBuffer) {
+    const bytes = new Uint8Array(data);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    base64 = btoa(binary);
+  } else {
+    throw new Error('Unsupported data type for base64UrlEncode');
+  }
+
+  return base64
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+}
+
+/**
+ * Base64 decode
+ */
+function base64Decode(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+/**
+ * Get GitHub App installation token
+ */
+async function getInstallationToken(env) {
+  // Generate JWT
+  const jwt = await generateJWT(env.GITHUB_APP_ID, env.GITHUB_APP_PRIVATE_KEY);
+
+  // Get installation ID for The1Studio organization
+  const installationsResponse = await fetch(
+    'https://api.github.com/app/installations',
+    {
+      headers: {
+        'Authorization': `Bearer ${jwt}`,
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'User-Agent': 'UPMAutoPublisher-Webhook/2.0'
+      }
+    }
+  );
+
+  if (!installationsResponse.ok) {
+    const errorText = await installationsResponse.text();
+    throw new Error(`Failed to fetch installations: ${installationsResponse.status} - ${errorText}`);
+  }
+
+  const installations = await installationsResponse.json();
+  const installation = installations.find(i => i.account.login === 'The1Studio');
+
+  if (!installation) {
+    throw new Error('GitHub App not installed on The1Studio organization');
+  }
+
+  console.log(`📱 Found installation ID: ${installation.id}`);
+
+  // Get installation token
+  const tokenResponse = await fetch(
+    `https://api.github.com/app/installations/${installation.id}/access_tokens`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${jwt}`,
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'User-Agent': 'UPMAutoPublisher-Webhook/2.0'
+      }
+    }
+  );
+
+  if (!tokenResponse.ok) {
+    const errorText = await tokenResponse.text();
+    throw new Error(`Failed to create installation token: ${tokenResponse.status} - ${errorText}`);
+  }
+
+  const tokenData = await tokenResponse.json();
+  console.log(`🔑 Installation token created, expires: ${tokenData.expires_at}`);
+
+  return tokenData.token;
+}
+
+/**
  * Trigger UPMAutoPublisher workflow via repository_dispatch
  */
-async function triggerPublishWorkflow(webhookData, githubPat) {
+async function triggerPublishWorkflow(webhookData, installationToken) {
   const clientPayload = {
     repository: webhookData.repository.full_name,
     commit_sha: webhookData.after,
@@ -197,10 +365,10 @@ async function triggerPublishWorkflow(webhookData, githubPat) {
     {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${githubPat}`,
+        'Authorization': `Bearer ${installationToken}`,
         'Accept': 'application/vnd.github+json',
         'X-GitHub-Api-Version': '2022-11-28',
-        'User-Agent': 'UPMAutoPublisher-Webhook/1.0',
+        'User-Agent': 'UPMAutoPublisher-Webhook/2.0',
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
